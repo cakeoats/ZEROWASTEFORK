@@ -77,7 +77,7 @@ exports.verifyEmail = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(400).json({ message: 'Invalid or expired verification token' });
+      return res.redirect('http://localhost:3000/verif-email?status=expired');
     }
 
     user.isVerified = true;
@@ -85,10 +85,10 @@ exports.verifyEmail = async (req, res) => {
     user.verificationTokenExpires = null;
     await user.save();
 
-    res.status(200).json({ message: 'Email successfully verified!' });
+    return res.redirect('http://localhost:3000/success-email');
   } catch (err) {
     console.error('Email Verification Error:', err);
-    res.status(500).json({ message: 'Server error during email verification' });
+    return res.redirect('http://localhost:3000/verif-email?status=error');
   }
 };
 
@@ -143,10 +143,10 @@ exports.forgotPassword = async (req, res) => {
     user.resetPasswordExpires = resetTokenExpires;
     await user.save();
 
-    const resetLink = `http://localhost:5000/api/auth/reset-password?token=${resetToken}`;
+    const resetLink = `http://localhost:3000/reset-password?token=${resetToken}`;
     const emailContent = `
   <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-    <h3>Halo ${user.full_name || user.username},</h3>
+    <h3>Halo ${user.full_name},</h3>
     <p>Kami menerima permintaan untuk mengatur ulang password akun Anda di <strong>ZeroWasteMarket</strong>.</p>
     <p>
       Jangan khawatir! Untuk melanjutkan proses ini, silakan klik tombol di bawah:
@@ -194,3 +194,47 @@ exports.resetPassword = async (req, res) => {
     res.status(500).json({ message: 'Error resetting password' });
   }
 };
+
+//resend email
+exports.resendVerificationEmail = async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (user.isVerified) {
+      return res.status(400).json({ message: 'Email already verified' });
+    }
+
+    // Buat token baru
+    const newToken = crypto.randomBytes(32).toString('hex');
+    const newTokenExpires = Date.now() + 3600000; // 1 jam
+
+    user.verificationToken = newToken;
+    user.verificationTokenExpires = newTokenExpires;
+    await user.save();
+
+    const verificationLink = `http://localhost:5000/api/auth/verify-email?token=${newToken}`;
+    const emailContent = `
+      <div style="font-family: Arial, sans-serif;">
+  <h3>Halo ${user.full_name},</h3>
+  <p>Sepertinya kamu lupa untuk memverifikasi emailmu setelah mendaftar di <strong>ZeroWasteMarket</strong>.</p>
+  <p>Tidak masalah, kami di sini untuk membantumu menyelesaikannya. Silakan klik tombol di bawah ini untuk memverifikasi email kamu dan mulai menjelajahi dunia belanja yang lebih ramah lingkungan 🌱</p>
+  <a href="${verificationLink}" style="background-color:#22c55e;padding:10px 15px;color:white;text-decoration:none;border-radius:5px;">Verifikasi Email</a>
+  <p><em>Catatan: Tautan ini hanya berlaku selama 1 jam.</em></p>
+  <p>Terima kasih telah bergabung dengan kami dalam misi menuju gaya hidup yang lebih berkelanjutan. 🌍</p>
+</div>
+    `;
+
+    await sendEmail(user.email, 'New verification link from ZeroWasteMarket', emailContent);
+    res.status(200).json({ message: 'Verification email resent successfully' });
+  } catch (err) {
+    console.error('Resend Verification Error:', err);
+    res.status(500).json({ message: 'Server error while resending email' });
+  }
+};
+

@@ -1,87 +1,93 @@
-import React from 'react';
-import { TextInput, Button } from 'flowbite-react';
-import { HiUser, HiMail, HiPhone, HiLockClosed } from 'react-icons/hi';
-import { Link } from 'react-router-dom'; // Jika menggunakan React Router
+import React, { useState } from 'react';
+import { TextInput, Button, Label, Alert } from 'flowbite-react';
+import { HiUser, HiMail, HiPhone, HiLockClosed, HiInformationCircle, HiHome } from 'react-icons/hi';
+import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 function RegisterPage() {
-    return (
-        <div className="min-h-screen w-full bg-gradient-to-br from-white to-red-400 flex items-center justify-center">
-            <div className="bg-white p-10 rounded-lg shadow-lg max-w-md w-full">
-                {/* Judul */}
-                <div className="flex justify-center mb-6">
-                    <span className="text-2xl font-bold text-gray-800">ZeroWasteMarket</span>
-                </div>
+  const navigate = useNavigate();
+  const [formData, setFormData] = useState({
+    full_name: '',
+    email: '',
+    phone: '',
+    password: '',
+    confirmPassword: '',
+  });
 
-                {/* Form Register */}
-                <div className="space-y-4">
-                    {/* Full Name */}
-                    <TextInput
-                        id="fullname"
-                        type="text"
-                        placeholder="FULL NAME"
-                        icon={HiUser}
-                        iconPosition="left"
-                        className=""
-                    />
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
-                    {/* Email */}
-                    <TextInput
-                        id="email"
-                        type="email"
-                        placeholder="E-MAIL"
-                        icon={HiMail}
-                        iconPosition="left"
-                        className=""
-                    />
+  const handleChange = (e) => {
+    setFormData((prev) => ({ ...prev, [e.target.id]: e.target.value }));
+  };
 
-                    {/* Phone */}
-                    <TextInput
-                        id="phone"
-                        type="tel"
-                        placeholder="PHONE"
-                        icon={HiPhone}
-                        iconPosition="left"
-                        className=""
-                    />
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
 
-                    {/* Password */}
-                    <TextInput
-                        id="password"
-                        type="password"
-                        placeholder="PASSWORD"
-                        icon={HiLockClosed}
-                        iconPosition="left"
-                        className=""
-                    />
+    if (formData.password !== formData.confirmPassword) {
+      return setError('Passwords do not match');
+    }
 
-                    {/* Confirm Password */}
-                    <TextInput
-                        id="confirmPassword"
-                        type="password"
-                        placeholder="CONFIRM PASSWORD"
-                        icon={HiLockClosed}
-                        iconPosition="left"
-                        className=""
-                    />
-                </div>
+    try {
+      const res = await axios.post('http://localhost:5000/api/auth/register', {
+        username: formData.username,
+        email: formData.email,
+        password: formData.password,
+        full_name: formData.full_name,
+        phone: formData.phone,
+        address: formData.address,
+      });
 
-                {/* Register Button */}
-                <Button color="red" className="mt-6 w-full bg-gray-800 hover:bg-gray-900">
-                    REGISTER
-                </Button>
+      // Redirect to email verification page with email query
+      navigate(`/verif-email?email=${encodeURIComponent(formData.email)}`);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Registration failed');
+    }
+  };
 
-                {/* Link Sign In */}
-                <div className="mt-4 text-center">
-                    <span className="text-sm text-gray-600">
-                        HAVE ACCOUNT?{' '}
-                        <Link to="/login" className="text-blue-500 hover:underline">
-                            SIGN IN
-                        </Link>
-                    </span>
-                </div>
-            </div>
+  return (
+    <div className="min-h-screen w-full bg-amber-50 flex items-center justify-center">
+      <div className="bg-white p-10 rounded-xl shadow-lg max-w-md w-full border border-amber-200">
+        <div className="flex justify-center mb-8">
+          <span className="text-3xl font-bold text-gray-600">Register Here!</span>
         </div>
-    );
+
+        {error && (
+          <Alert color="failure" icon={HiInformationCircle} className="mb-4">
+            {error}
+          </Alert>
+        )}
+        {success && (
+          <Alert color="success" icon={HiInformationCircle} className="mb-4">
+            {success}
+          </Alert>
+        )}
+
+        <form className="space-y-5" onSubmit={handleSubmit}>
+          <TextInput id="full_name" type="text" placeholder="Full Name" icon={HiUser} required onChange={handleChange} value={formData.full_name} />
+          <TextInput id="username" type="text" placeholder="Username" icon={HiUser} required onChange={handleChange} value={formData.username} />
+          <TextInput id="email" type="email" placeholder="Email" icon={HiMail} required onChange={handleChange} value={formData.email} />
+          <TextInput id="phone" type="tel" placeholder="Phone Number" icon={HiPhone} required onChange={handleChange} value={formData.phone} />
+          <TextInput id="address" type="text" placeholder="Address" icon={HiHome} required onChange={handleChange} value={formData.address} />
+          <TextInput id="password" type="password" placeholder="Password" icon={HiLockClosed} required onChange={handleChange} value={formData.password} />
+          <TextInput id="confirmPassword" type="password" placeholder="Confirm Password" icon={HiLockClosed} required onChange={handleChange} value={formData.confirmPassword} />
+
+          <Button type="submit" color="gray" className="w-full py-1.5 font-bold mt-4">
+            REGISTER
+          </Button>
+        </form>
+
+        <div className="mt-4 text-center text-sm text-gray-600">
+          Have an account?{' '}
+          <Link to="/login" className="text-blue-600 hover:underline font-medium">
+            Sign In
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default RegisterPage;

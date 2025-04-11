@@ -8,11 +8,14 @@ const authRoutes = require('./route/authRoutes'); // ⬅️ pastikan path ini be
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
-app.use(cors());
-app.use(express.json()); // sudah cukup, tidak perlu bodyParser
+// ✅ Middleware
+app.use(cors({
+  origin: 'http://localhost:3000', 
+  credentials: true,               
+}));
+app.use(express.json()); // untuk parsing body JSON
 
-// Connect ke MongoDB
+// ✅ Connect ke MongoDB
 mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/zerowastemarket', {
 }).then(() => {
   console.log('✅ Connected to MongoDB');
@@ -20,10 +23,10 @@ mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/zerowastema
   console.error('❌ MongoDB connection error:', err);
 });
 
-// Routes
+// ✅ Routes
 app.use('/api/auth', authRoutes); // Semua route diatur dari sini
 
-// Jalankan server
+// ✅ Jalankan server
 app.listen(PORT, () => {
   console.log(`🚀 Server is running on http://localhost:${PORT}`);
 });

@@ -1,59 +1,102 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { TextInput, Button } from 'flowbite-react';
 import { HiUser, HiLockClosed } from 'react-icons/hi';
+import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { useAuth } from '../contexts/AuthContext'; // ⬅️ import context
 
 function LoginPage() {
-    const handleForgotPassword = (e) => {
+    const [username, setUsername] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
+    const navigate = useNavigate();
+    const { login } = useAuth(); // ⬅️ ambil login() dari context
+
+    const handleLogin = async (e) => {
         e.preventDefault();
-        // Tambahkan logika untuk lupa password di sini
-        console.log('Forgot password clicked');
+        setError('');
+
+        try {
+            const res = await axios.post('http://localhost:5000/api/auth/login', {
+                username,
+                password
+            });
+
+            const { user, token, message } = res.data;
+
+            // Simpan ke context
+            login(user, token); // ⬅️ simpan user & token ke global state
+
+            alert(message); // bisa diganti toast juga
+            navigate('/');
+        } catch (err) {
+            setError(err.response?.data?.message || 'Login failed');
+        }
     };
 
     return (
-        <div className="min-h-screen w-full bg-gradient-to-br from-white to-red-400 flex items-center justify-center">
-            <div className="bg-white p-10 rounded-lg shadow-lg max-w-md w-full">
-                <div className="flex justify-center mb-6">
-                    <span className="text-2xl font-bold text-gray-800">ZeroWasteMarket</span>
-                </div>
-                <div className="space-y-5 bg-white">
-                    {/* Username Input */}
-                    <div className="relative">
-                        <TextInput
-                            id="username"
-                            type="text"
-                            placeholder="Username"
-                            icon={HiUser}
-                            iconPosition="left"
-                        />
-                    </div>
-
-                    {/* Password Input */}
-                    <div className="relative">
-                        <TextInput
-                            id="password"
-                            type="password"
-                            placeholder="Password"
-                            icon={HiLockClosed}
-                            iconPosition="left"
-                        />
-                    </div>
+        <div className="min-h-screen w-full bg-amber-50 flex items-center justify-center">
+            <div className="bg-white p-10 rounded-xl shadow-lg max-w-md w-full border border-amber-200">
+                <div className="flex justify-center mb-8">
+                    <span className="text-3xl font-bold text-gray-500">
+                        Welcome Back
+                    </span>
                 </div>
 
-                {/* Forgot Password Link */}
-                <div className="mt-5 flex justify-end">
-                    {/* Memperbaiki href untuk menghindari masalah ESLint */}
-                    <button
-                        onClick={handleForgotPassword}
-                        className="text-sm text-blue-500 hover:text-blue-700 bg-transparent border-none cursor-pointer p-0"
+                <form onSubmit={handleLogin} className="space-y-6">
+                    <TextInput
+                        id="username"
+                        type="text"
+                        placeholder="Username"
+                        icon={HiUser}
+                        iconPosition="left"
+                        className="focus:ring-2 focus:ring-amber-500"
+                        required
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                    />
+
+                    <TextInput
+                        id="password"
+                        type="password"
+                        placeholder="Password"
+                        icon={HiLockClosed}
+                        iconPosition="left"
+                        className="focus:ring-2 focus:ring-amber-500"
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                    />
+
+                    <div className="flex justify-end">
+                        <Link
+                            to="/forgot-password"
+                            className="text-sm text-blue-600 hover:text-amber-800 transition-colors font-medium"
+                        >
+                            Forgot password?
+                        </Link>
+                    </div>
+
+                    {error && <p className="text-red-500 text-sm">{error}</p>}
+
+                    <Button
+                        color="gray"
+                        className="w-full py-1.5 mt-6 font-semibold"
+                        type="submit"
                     >
-                        Forgot password?
-                    </button>
-                </div>
+                        Login
+                    </Button>
 
-                {/* Login Button */}
-                <Button className="mt-10 w-full text-md" color="gray">
-                    Login
-                </Button>
+                    <div className="text-center text-sm text-gray-600 mt-4">
+                        Don't have an account?{' '}
+                        <Link
+                            to="/register"
+                            className="text-blue-600 hover:underline font-medium"
+                        >
+                            Sign up
+                        </Link>
+                    </div>
+                </form>
             </div>
         </div>
     );
