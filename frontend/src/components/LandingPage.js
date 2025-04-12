@@ -1,6 +1,8 @@
 import React from "react";
 import { Button } from "flowbite-react";
 import { Link } from "react-router-dom";
+import Footer from "./Footer";
+import NavbarComponent from "./NavbarComponent";
 
 function LandingPage() {
   // Data kategori produk
@@ -9,21 +11,21 @@ function LandingPage() {
       nama: "Men Fashion",
       gambar: "https://forgecraftmensjewelry.com/cdn/shop/articles/minimalist-mens-fashion-beige-shirt-and-trousers.jpg?v=1737391858&width=1100",
       jumlah: 120,
-      link: "/kategori/man-fashion",
+      link: "/kategori/men-fashion",
       warna: "bg-pink-100",
     },
     {
       nama: "Women Fashion",
       gambar: "https://img.freepik.com/free-photo/black-woman-trendy-grey-leather-jacket-posing-beige-background-studio-winter-autumn-fashion-look_273443-141.jpg",
       jumlah: 85,
-      link: "/kategori/woman-fashion",
+      link: "/kategori/women-fashion",
       warna: "bg-blue-100",
     },
     {
-      nama: "Kendaraan",
+      nama: "Automotive",
       gambar: "https://img.freepik.com/premium-photo/brown-car-isolated-white-background_140916-41243.jpg",
       jumlah: 64,
-      link: "/kategori/kendaraan",
+      link: "/kategori/automotive",
       warna: "bg-amber-100",
     },
     {
@@ -34,37 +36,38 @@ function LandingPage() {
       warna: "bg-purple-100",
     },
     {
-      nama: "Properti",
+      nama: "Dekoration",
       gambar: "https://kumbanews.com/wp-content/uploads/2018/11/home-insurance-e1479125215618.jpg",
       jumlah: 42,
-      link: "/kategori/properti",
+      link: "/kategori/decoration",
       warna: "bg-purple-100",
     },
     {
-      nama: "Olahraga",
+      nama: "Sport",
       gambar: "https://media.istockphoto.com/id/1355687112/photo/various-sport-equipment-gear.jpg?s=612x612&w=0&k=20&c=JOizKZg68gs_7lxjM3YLrngeS-7dGhBXL8b-wDBrYUE=",
       jumlah: 42,
-      link: "/kategori/olahraga",
+      link: "/kategori/sport",
       warna: "bg-purple-100",
     },
     {
-      nama: "Gadget",
-      gambar: "https://jarrakposlampung.id/wp-content/uploads/2024/06/Gagdet.jpg",
+      nama: "Health And Beauty",
+      gambar: "https://rhiannonbosse.com/wp-content/uploads/2020/03/RhisBeautyFaves3.jpg",
       jumlah: 42,
-      link: "/kategori/gadget",
+      link: "/kategori/health-beauty",
       warna: "bg-purple-100",
     },
     {
-      nama: "Gadget",
-      gambar: "https://jarrakposlampung.id/wp-content/uploads/2024/06/Gagdet.jpg",
+      nama: "Kids",
+      gambar: "https://raisingchildren.net.au/__data/assets/image/0013/100660/play-shop-activity-guide.jpg",
       jumlah: 42,
-      link: "/kategori/gadget",
+      link: "/kategori/kids",
       warna: "bg-purple-100",
     }
   ];
 
   return (
     <div className="min-h-screen w-full bg-amber-50">
+    <NavbarComponent />
       {/* Bagian Hero */}
       <main className="w-full h-screen flex items-center justify-center px-4">
         <div className="container mx-auto">
@@ -90,9 +93,9 @@ function LandingPage() {
             </div>
 
             {/* Gambar Kanan */}
-            <div className="md:w-1/2 mt-10 md:mt-0">
+            <div className="md:w-100 mt-10 md:mt-0">
               <img
-                src="/bglanding.png"
+                src="https://images.squarespace-cdn.com/content/v1/5c2cd3c49f8770b74f22e01a/1676882810879-6CLLFPK4YXQR5JG36W0E/Recycle+general.png"
                 alt="Produk unggulan"
                 className="w-full max-w-xl mx-auto rounded-lg shadow-xl"
               />
@@ -133,6 +136,7 @@ function LandingPage() {
           </div>
         </div>
       </section>
+      <Footer />
     </div>
   );
 }
