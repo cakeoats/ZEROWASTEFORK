@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { TextInput, Button, Label, Alert } from 'flowbite-react';
+import { TextInput, Button, Alert } from 'flowbite-react';
 import { HiUser, HiMail, HiPhone, HiLockClosed, HiInformationCircle, HiHome } from 'react-icons/hi';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
