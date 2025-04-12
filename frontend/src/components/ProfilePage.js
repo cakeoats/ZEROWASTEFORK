@@ -169,7 +169,7 @@ function ProfilePage() {
                                 </>
                             ) : (
                                 <>
-                                    <Button gradientDuoTone="amberToOrange" onClick={() => setIsEditing(true)}>
+                                    <Button color="amberToOrange" onClick={() => setIsEditing(true)}>
                                         <HiOutlinePencilAlt className="mr-2 h-5 w-5" />
                                         Edit Profil
                                     </Button>
@@ -178,61 +178,6 @@ function ProfilePage() {
                                     </Button>
                                 </>
                             )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Additional Sections */}
-                <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Order History */}
-                    <div className="bg-white rounded-xl shadow-md p-6">
-                        <h3 className="text-xl font-semibold mb-4 text-gray-800">Riwayat Pesanan</h3>
-                        <div className="space-y-4">
-                            <div className="border-b pb-4">
-                                <p className="font-medium">Order #12345 - 15 Juni 2023</p>
-                                <p className="text-gray-600">2 items • Rp 1.250.000</p>
-                                <p className="text-amber-600 font-medium">Selesai</p>
-                            </div>
-                            <div className="border-b pb-4">
-                                <p className="font-medium">Order #12344 - 10 Juni 2023</p>
-                                <p className="text-gray-600">3 items • Rp 2.750.000</p>
-                                <p className="text-amber-600 font-medium">Selesai</p>
-                            </div>
-                            <Link to="/orders" className="text-amber-600 hover:underline inline-block mt-2">
-                                Lihat semua pesanan →
-                            </Link>
-                        </div>
-                    </div>
-
-                    {/* Wishlist */}
-                    <div className="bg-white rounded-xl shadow-md p-6">
-                        <h3 className="text-xl font-semibold mb-4 text-gray-800">Wishlist</h3>
-                        <div className="space-y-4">
-                            <div className="flex items-center border-b pb-4">
-                                <img
-                                    src="https://images.unsplash.com/photo-1546868871-7041f2a55e12"
-                                    alt="Product"
-                                    className="w-16 h-16 object-cover rounded mr-4"
-                                />
-                                <div>
-                                    <p className="font-medium">iPhone 14 Pro</p>
-                                    <p className="text-gray-600">Rp 18.999.000</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center border-b pb-4">
-                                <img
-                                    src="https://images.unsplash.com/photo-1594035910387-fea47794261f"
-                                    alt="Product"
-                                    className="w-16 h-16 object-cover rounded mr-4"
-                                />
-                                <div>
-                                    <p className="font-medium">Nike Air Jordan</p>
-                                    <p className="text-gray-600">Rp 2.750.000</p>
-                                </div>
-                            </div>
-                            <Link to="/wishlist" className="text-amber-600 hover:underline inline-block mt-2">
-                                Lihat wishlist lengkap →
-                            </Link>
                         </div>
                     </div>
                 </div>

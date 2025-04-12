@@ -10,6 +10,8 @@ import ResetPasswordPage from "./components/ResetPasswordPage";
 import { AuthProvider } from "./contexts/AuthContext"; // ⬅️ import AuthProvider
 import 'tailwindcss/tailwind.css';
 import ProfilePage from "./components/ProfilePage";
+import AdminDashboard from "./admin/AdminDashboard";
+import ProductCatalog from "./components/ProductCatalog";
 
 const App = () => {
   return (
@@ -25,6 +27,8 @@ const App = () => {
             <Route path="/success-email" element={<EmailVerificationSuccess />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/product-list" element={<ProductCatalog />} />
           </Routes>
         </div>
       </Router>
