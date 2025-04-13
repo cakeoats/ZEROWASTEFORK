@@ -1,8 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controller/authController');
-const authenticateUser = require('../middleware/authMiddleware');
-
+const { protect } = require('../middleware/authMiddleware'); // Impor protect, bukan authenticateUser
 
 // login dan register
 router.post('/register', authController.register);
@@ -19,7 +18,7 @@ router.post('/resend-verification', authController.resendVerificationEmail);
 router.get('/verify-email', authController.verifyEmail);
 
 // Protected profile route
-router.get('/profile', authenticateUser, (req, res) => {
+router.get('/profile', protect, (req, res) => { // Gunakan protect, bukan authenticateUser
   const { username, email, full_name, createdAt } = req.user;
 
   res.json({
