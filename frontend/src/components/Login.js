@@ -1,20 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { TextInput, Button } from 'flowbite-react';
 import { HiUser, HiLockClosed } from 'react-icons/hi';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { useAuth } from '../contexts/AuthContext'; // ⬅️ import context
+import { useAuth } from '../contexts/AuthContext';
+import WelcomePopup from '../components/WelcomePopup';
+import { ClipLoader } from 'react-spinners';
 
 function LoginPage() {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [isPopupOpen, setIsPopupOpen] = useState(false);
+    const [userData, setUserData] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
-    const { login } = useAuth(); // ⬅️ ambil login() dari context
+    const { login } = useAuth();
+
+    // Gunakan useCallback untuk stabilkan fungsi
+    const handlePopupClose = useCallback(() => {
+        setIsPopupOpen(false);
+        navigate('/');
+    }, [navigate]);
+
+    // Effect untuk auto close popup
+    useEffect(() => {
+        let timer;
+        if (isPopupOpen) {
+            timer = setTimeout(() => {
+                handlePopupClose();
+            }, 5000);
+        }
+        return () => clearTimeout(timer);
+    }, [isPopupOpen, handlePopupClose]);
 
     const handleLogin = async (e) => {
         e.preventDefault();
         setError('');
+        setIsLoading(true);
 
         try {
             const res = await axios.post('http://localhost:5000/api/auth/login', {
@@ -22,15 +45,17 @@ function LoginPage() {
                 password
             });
 
-            const { user, token, message } = res.data;
+            const { user, token } = res.data;
 
-            // Simpan ke context
-            login(user, token); // ⬅️ simpan user & token ke global state
+            login(user, token);
+            setUserData(user);
+            setIsPopupOpen(true);
 
-            alert(message); // bisa diganti toast juga
-            navigate('/');
         } catch (err) {
             setError(err.response?.data?.message || 'Login failed');
+            console.error('Login error:', err);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -54,6 +79,7 @@ function LoginPage() {
                         required
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
+                        disabled={isLoading}
                     />
 
                     <TextInput
@@ -66,6 +92,7 @@ function LoginPage() {
                         required
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
+                        disabled={isLoading}
                     />
 
                     <div className="flex justify-end">
@@ -77,14 +104,26 @@ function LoginPage() {
                         </Link>
                     </div>
 
-                    {error && <p className="text-red-500 text-sm">{error}</p>}
+                    {error && (
+                        <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">
+                            {error}
+                        </div>
+                    )}
 
                     <Button
                         color="gray"
-                        className="w-full py-1.5 mt-6 font-semibold"
+                        className="w-full py-1.5 mt-6 font-semibold bg-amber-500 hover:bg-amber-600 transition-colors flex items-center justify-center"
                         type="submit"
+                        disabled={isLoading}
                     >
-                        Login
+                        {isLoading ? (
+                            <>
+                                <ClipLoader size={20} color="#ffffff" className="mr-2" />
+                                Logging in...
+                            </>
+                        ) : (
+                            'Login'
+                        )}
                     </Button>
 
                     <div className="text-center text-sm text-gray-600 mt-4">
@@ -98,6 +137,12 @@ function LoginPage() {
                     </div>
                 </form>
             </div>
+
+            <WelcomePopup
+                isOpen={isPopupOpen}
+                onClose={handlePopupClose}
+                username={userData?.full_name || userData?.username || ''}
+            />
         </div>
     );
 }

@@ -13,6 +13,13 @@ module.exports = {
     // Tambahkan plugin lain jika diperlukan
   ],
   theme: {
-    extend: {}, // Untuk kustomisasi tema
+    extend: {
+      backdropBlur: {
+        sm: '4px',
+        fontFamily: {
+          poppins: ['Poppins', 'sans-serif'],
+        },
+      }
+    }, // Untuk kustomisasi tema
   }
 }
