@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import NavbarComponent from "../components/NavbarComponent";
+import NavbarComponent from "../../components/NavbarComponent";
 
 const UploadProduct = () => {
   const [product, setProduct] = useState({

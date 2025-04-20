@@ -1,8 +1,8 @@
 import React from "react";
 import { Button } from "flowbite-react";
 import { Link } from "react-router-dom";
-import Footer from "./Footer";
-import NavbarComponent from "./NavbarComponent";
+import Footer from "../components/Footer";
+import NavbarComponent from "../components/NavbarComponent";
 
 function LandingPage() {
   // Data kategori produk

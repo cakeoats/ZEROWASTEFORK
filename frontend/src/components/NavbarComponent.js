@@ -7,7 +7,7 @@ import {
     HiOutlineExclamationCircle
 } from 'react-icons/hi';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom'; 
 
 function NavbarComponent() {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -55,10 +55,11 @@ function NavbarComponent() {
                 <nav className="flex items-center justify-between py-4 px-4">
                     {/* Brand Logo */}
                     <div className="flex items-center">
-                        <span className="text-xl font-bold text-white">
-                            ZeroWasteMarket
-                        </span>
-                    </div>
+  <Link to="/" className="text-xl font-bold text-white">
+    ZeroWasteMarket
+  </Link>
+</div>
+
 
                     {/* Nav Links dengan Font Kustom */}
                     <div className="hidden md:flex space-x-6">

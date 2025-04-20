@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button, Avatar, TextInput, Textarea } from 'flowbite-react';
 import { HiOutlinePencilAlt, HiOutlineMail, HiOutlinePhone, HiOutlineLocationMarker, HiOutlineDocumentText } from 'react-icons/hi';
 import { Link } from 'react-router-dom';
-import NavbarComponent from './NavbarComponent';
+import NavbarComponent from '../components/NavbarComponent';
 import axios from 'axios';
 
 function ProfilePage() {

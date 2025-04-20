@@ -1,2 +1,2 @@
 * text=auto
-*.js text eol=lf  # Memaksa file JavaScript menggunakan LF
+*.js text eol=lf  

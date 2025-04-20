@@ -6,6 +6,7 @@ require('dotenv').config();
 // Perbaiki path impor
 const authRoutes = require('./route/authRoutes');
 const userRoutes = require('./route/userRoutes');
+const productRoutes = require('./route/productRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -19,8 +20,6 @@ app.use(express.json()); // Parsing body JSON
 
 // Connect ke MongoDB
 mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/zerowastemarket', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
 })
   .then(() => {
     console.log('✅ Connected to MongoDB');
@@ -32,7 +31,8 @@ mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/zerowastema
 
 // Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes); // Tambahkan rute user
+app.use('/api/users', userRoutes); 
+app.use('/api/products', productRoutes);
 
 // Global error handler
 app.use((err, req, res, next) => {

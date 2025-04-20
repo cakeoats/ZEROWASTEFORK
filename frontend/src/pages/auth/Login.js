@@ -3,8 +3,8 @@ import { TextInput, Button } from 'flowbite-react';
 import { HiUser, HiLockClosed } from 'react-icons/hi';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { useAuth } from '../contexts/AuthContext';
-import WelcomePopup from '../components/WelcomePopup';
+import { useAuth } from '../../contexts/AuthContext';
+import WelcomePopup from '../../components/WelcomePopup';
 import { ClipLoader } from 'react-spinners';
 
 function LoginPage() {

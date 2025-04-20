@@ -1,19 +1,19 @@
 import React from "react";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
-import LandingPage from "./components/LandingPage";
-import RegisterPage from "./components/RegisterPage";
-import Login from "./components/Login";
-import ForgotPasswordPage from "./components/ForgetPasswordPage";
-import EmailVerificationPage from "./components/EmailVerificationPage";
-import EmailVerificationSuccess from "./components/EmailVerificationSuccess";
-import ResetPasswordPage from "./components/ResetPasswordPage";
-import { AuthProvider } from "./contexts/AuthContext"; // ⬅️ import AuthProvider
+import LandingPage from "./pages/LandingPage";
+import RegisterPage from "./pages/auth/RegisterPage";
+import Login from "./pages/auth/Login";
+import ForgotPasswordPage from "./pages/auth/ForgetPasswordPage";
+import EmailVerificationPage from "./pages/auth/EmailVerificationPage";
+import EmailVerificationSuccess from "./pages/auth/EmailVerificationSuccess";
+import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
+import { AuthProvider } from "./contexts/AuthContext";
 import 'tailwindcss/tailwind.css';
-import ProfilePage from "./components/ProfilePage";
-import AdminDashboard from "./admin/AdminDashboard";
-import ProductCatalog from "./components/ProductCatalog";
-import ProductDetail from "./components/ProductDetail";
-import UploadProduct from "./components/UploadProduct";
+import ProfilePage from "./pages/ProfilePage";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import ProductCatalog from "./pages/product/ProductCatalog";
+import ProductDetail from "./pages/product/ProductDetail";
+import UploadProduct from "./pages/product/UploadProduct";
 
 const App = () => {
   return (
@@ -31,7 +31,7 @@ const App = () => {
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/product-list" element={<ProductCatalog />} />
-            <Route path="/product-Detail" element={<ProductDetail />} />
+            <Route path="/products/:id" element={<ProductDetail />} />
             <Route path="/upload-product" element={<UploadProduct />} />
           </Routes>
         </div>

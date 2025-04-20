@@ -1,4 +1,12 @@
 {
+  "name": "zerowastemarket-backend",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "seed:products": "node seeder/productSeed.js"
+  },
   "dependencies": {
     "bcryptjs": "^3.0.2",
     "body-parser": "^1.20.3",
