@@ -3,6 +3,9 @@ const Product = require('../models/product');
 const User = require('../models/User');
 const path = require('path');
 
+// Base URL untuk akses gambar
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5000';
+
 // Upload product
 const uploadProduct = async (req, res) => {
   try {
@@ -19,7 +22,7 @@ const uploadProduct = async (req, res) => {
       tipe,
     } = req.body;
 
-    // Ambil file path dari req.files
+    // Ambil file path dari req.files dan format menjadi URL lengkap
     const images = req.files.map(file => path.join('uploads', file.filename));
 
     // Validasi minimal field yang wajib
@@ -41,7 +44,16 @@ const uploadProduct = async (req, res) => {
 
     await newProduct.save();
 
-    res.status(201).json({ message: 'Product uploaded successfully', product: newProduct });
+    // Convert ke object untuk mengakses virtual properties
+    const productObj = newProduct.toObject();
+
+    res.status(201).json({
+      message: 'Product uploaded successfully',
+      product: {
+        ...productObj,
+        imageUrls: productObj.imageUrls // Virtual property dari model
+      }
+    });
   } catch (error) {
     console.error('Upload product error:', error);
     res.status(500).json({ message: 'Failed to upload product', error: error.message });

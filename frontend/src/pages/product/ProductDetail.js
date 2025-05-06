@@ -3,6 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import NavbarComponent from '../../components/NavbarComponent';
 
+// Konstanta untuk API Base URL
+const API_BASE_URL = 'http://localhost:5000';
+
 export default function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -16,6 +19,24 @@ export default function ProductDetail() {
   console.log("Current URL:", window.location.pathname);
   console.log("ID from useParams:", id);
 
+  // Fungsi untuk mendapatkan URL gambar lengkap
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return '/default-product.jpg';
+
+    // Jika gambar sudah berupa URL lengkap, gunakan langsung
+    if (imagePath.startsWith('http')) {
+      return imagePath;
+    }
+
+    // Jika berupa base64 string, gunakan langsung
+    if (imagePath.startsWith('data:image')) {
+      return imagePath;
+    }
+
+    // Gabungkan dengan base URL untuk path relatif
+    return `${API_BASE_URL}/${imagePath}`;
+  };
+
   useEffect(() => {
     const fetchProduct = async () => {
       if (!id) {
@@ -27,7 +48,7 @@ export default function ProductDetail() {
 
       try {
         console.log(`Fetching product with ID: ${id}`);
-        const res = await axios.get(`http://localhost:5000/api/products/${id}`);
+        const res = await axios.get(`${API_BASE_URL}/api/products/${id}`);
         console.log("Product data:", res.data);
         setProduct(res.data);
         setLoading(false);
@@ -99,9 +120,10 @@ export default function ProductDetail() {
     );
   }
 
-  // Pastikan product.images adalah array
-  const productImages = Array.isArray(product.images) ? product.images :
-    (product.images ? [product.images] : ['/default-product.jpg']);
+  // Pastikan product.images adalah array dan konversi ke URL lengkap
+  const productImages = Array.isArray(product.images)
+    ? product.images.map(img => getImageUrl(img))
+    : (product.images ? [getImageUrl(product.images)] : ['/default-product.jpg']);
 
   return (
     <div className="min-h-screen bg-white text-gray-800 relative">
@@ -118,7 +140,7 @@ export default function ProductDetail() {
               <span className="mx-2">/</span>
               <span className="text-amber-500">{product.name}</span>
             </div>
-  
+
             <div className="grid md:grid-cols-2 gap-10 items-start">
               {/* Image Carousel */}
               <div className="space-y-4">
@@ -131,6 +153,10 @@ export default function ProductDetail() {
                         alt={product.name}
                         className="object-cover w-full h-full transition-transform duration-500 hover:scale-105 cursor-pointer"
                         onClick={() => setShowFullscreenCarousel(true)}
+                        onError={(e) => {
+                          console.error("Error loading image:", productImages[activeImage]);
+                          e.target.src = '/default-product.jpg';
+                        }}
                       />
 
                       {/* Navigation Arrows */}
@@ -196,7 +222,15 @@ export default function ProductDetail() {
                         onClick={() => setActiveImage(index)}
                         className={`cursor-pointer rounded-lg overflow-hidden w-20 h-20 flex-shrink-0 border-2 transition-all ${activeImage === index ? 'border-amber-500 scale-105' : 'border-gray-200'}`}
                       >
-                        <img src={img} alt={`${product.name} - view ${index + 1}`} className="w-full h-full object-cover" />
+                        <img
+                          src={img}
+                          alt={`${product.name} - view ${index + 1}`}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            console.error("Error loading thumbnail:", img);
+                            e.target.src = '/default-product.jpg';
+                          }}
+                        />
                       </div>
                     ))}
                   </div>
@@ -301,7 +335,12 @@ export default function ProductDetail() {
                             <path d="M9 11H3v5a2 2 0 002 2h4v-7zM11 18h4a2 2 0 002-2v-5h-6v7z" />
                           </svg>
                         </div>
-                        <span className="font-medium capitalize">{product.tipe}</span>
+                        <span className="font-medium capitalize">
+                          {product.tipe === 'Sell' ? 'Jual' :
+                            product.tipe === 'Donation' ? 'Donasi' :
+                              product.tipe === 'Swap' ? 'Tukar' :
+                                product.tipe}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -366,6 +405,10 @@ export default function ProductDetail() {
                 alt={product.name}
                 className="max-h-full max-w-full object-contain"
                 onClick={(e) => e.stopPropagation()}
+                onError={(e) => {
+                  console.error("Error loading fullscreen image:", productImages[activeImage]);
+                  e.target.src = '/default-product.jpg';
+                }}
               />
             </div>
 
@@ -410,7 +453,14 @@ export default function ProductDetail() {
                       }}
                       className={`cursor-pointer rounded-lg overflow-hidden w-16 h-16 flex-shrink-0 border-2 transition-all ${activeImage === index ? 'border-amber-500' : 'border-transparent'}`}
                     >
-                      <img src={img} alt={`${product.name} - view ${index + 1}`} className="w-full h-full object-cover" />
+                      <img
+                        src={img}
+                        alt={`${product.name} - view ${index + 1}`}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.src = '/default-product.jpg';
+                        }}
+                      />
                     </div>
                   ))}
                 </div>
