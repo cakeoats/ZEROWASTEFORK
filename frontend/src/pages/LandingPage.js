@@ -1,73 +1,75 @@
 import React from "react";
 import { Button } from "flowbite-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Footer from "../components/Footer";
 import NavbarComponent from "../components/NavbarComponent";
 
 function LandingPage() {
+  const navigate = useNavigate();
+
   // Data kategori produk
   const kategoriProduk = [
     {
       nama: "Men Fashion",
       gambar: "https://forgecraftmensjewelry.com/cdn/shop/articles/minimalist-mens-fashion-beige-shirt-and-trousers.jpg?v=1737391858&width=1100",
       jumlah: 120,
-      link: "/kategori/men-fashion",
+      link: "/product-list?category=Men%20Fashion",
       warna: "bg-pink-100",
     },
     {
       nama: "Women Fashion",
       gambar: "https://img.freepik.com/free-photo/black-woman-trendy-grey-leather-jacket-posing-beige-background-studio-winter-autumn-fashion-look_273443-141.jpg",
       jumlah: 85,
-      link: "/kategori/women-fashion",
+      link: "/product-list?category=Women%20Fashion",
       warna: "bg-blue-100",
     },
     {
       nama: "Automotive",
       gambar: "https://img.freepik.com/premium-photo/brown-car-isolated-white-background_140916-41243.jpg",
       jumlah: 64,
-      link: "/kategori/automotive",
+      link: "/product-list?category=Automotive",
       warna: "bg-amber-100",
     },
     {
       nama: "Gadget",
       gambar: "https://img.freepik.com/free-photo/modern-stationary-collection-arrangement_23-2149309643.jpg",
       jumlah: 42,
-      link: "/kategori/gadget",
+      link: "/product-list?category=Gadget",
       warna: "bg-purple-100",
     },
     {
       nama: "Dekoration",
       gambar: "https://kumbanews.com/wp-content/uploads/2018/11/home-insurance-e1479125215618.jpg",
       jumlah: 42,
-      link: "/kategori/decoration",
+      link: "/product-list?category=Dekoration",
       warna: "bg-purple-100",
     },
     {
       nama: "Sport",
       gambar: "https://media.istockphoto.com/id/1355687112/photo/various-sport-equipment-gear.jpg?s=612x612&w=0&k=20&c=JOizKZg68gs_7lxjM3YLrngeS-7dGhBXL8b-wDBrYUE=",
       jumlah: 42,
-      link: "/kategori/sport",
+      link: "/product-list?category=Sport",
       warna: "bg-purple-100",
     },
     {
       nama: "Health And Beauty",
       gambar: "https://rhiannonbosse.com/wp-content/uploads/2020/03/RhisBeautyFaves3.jpg",
       jumlah: 42,
-      link: "/kategori/health-beauty",
+      link: "/product-list?category=Health%20And%20Beauty",
       warna: "bg-purple-100",
     },
     {
       nama: "Kids",
       gambar: "https://raisingchildren.net.au/__data/assets/image/0013/100660/play-shop-activity-guide.jpg",
       jumlah: 42,
-      link: "/kategori/kids",
+      link: "/product-list?category=Kids",
       warna: "bg-purple-100",
     }
   ];
 
   return (
     <div className="min-h-screen w-full bg-amber-50">
-    <NavbarComponent />
+      <NavbarComponent />
       {/* Bagian Hero */}
       <main className="w-full h-screen flex items-center justify-center px-4">
         <div className="container mx-auto">
@@ -84,7 +86,7 @@ function LandingPage() {
                 Trend Terkini: Zara, iPhone, Dress, iPad, Adidas, Crocs, Apple Watch, Perabotan
               </p>
               <div className="flex space-x-5">
-                <Link to="">
+                <Link to="/product-list">
                   <Button color="blue" className="px-7 py-2 font-semibold">
                     Shop Now
                   </Button>
