@@ -202,14 +202,14 @@ export default function ProductUpload() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
-
+  
     if (!validateForm()) {
       setTimeout(() => setError(null), 3000);
       return;
     }
-
+  
     setLoading(true);
-
+  
     try {
       const uploadData = new FormData();
       uploadData.append('name', formData.name);
@@ -218,24 +218,49 @@ export default function ProductUpload() {
       uploadData.append('condition', formData.condition);
       uploadData.append('tipe', formData.tipe);
       uploadData.append('description', formData.description);
-
+  
       formData.images.forEach(image => uploadData.append('images', image));
-
-      const response = await axios.post('http://localhost:5000/api/products', uploadData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-
+  
+      // Fix token retrieval
+      const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+      
+      // Debug check - make sure userInfo and token are available
+      if (!userInfo || !userInfo.token) {
+        console.error('User info or token not found in localStorage');
+        setError('You must be logged in to upload products. Please log in and try again.');
+        setLoading(false);
+        return;
+      }
+      
+      const token = userInfo.token;
+      console.log('Token being used:', token); // For debugging
+  
+      const response = await axios.post(
+        'http://localhost:5000/api/products/upload',
+        uploadData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            'Authorization': `Bearer ${token}`
+          },
+        }
+      );
+  
       setSuccess(true);
-      setTimeout(() => navigate(`/product/${response.data._id}`), 2000);
-
+      setTimeout(() => navigate(`/product/${response.data.product._id}`), 2000);
     } catch (err) {
       console.error('Error uploading product:', err);
-      setError(err.response?.data?.message || 'Gagal mengunggah produk. Silakan coba lagi.');
+      if (err.response?.status === 401) {
+        setError('Authentication failed. Please log in again and try uploading.');
+      } else {
+        setError(err.response?.data?.message || 'Failed to upload product. Please try again.');
+      }
       setTimeout(() => setError(null), 5000);
     } finally {
       setLoading(false);
     }
   };
+  
 
   // Helper function untuk kondisional rendering
   const showField = step => activeStep === step ? 'block' : 'hidden';

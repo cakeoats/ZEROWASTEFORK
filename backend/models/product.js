@@ -9,7 +9,7 @@ const ProductSchema = new mongoose.Schema({
   images: [{ type: String }],
   stock: { type: Number, default: 1 },
   condition: { type: String, enum: ['new', 'used'], required: true },
-  tipe: { type: String, enum: ['Sell', 'Donation', 'Swap'], required: true },
+  tipe: { type: String , enum: ['Sell', 'Donation', 'Swap'], required: true },
   status: { type: String, enum: ['active', 'sold' , 'inactive'], default: 'active' },
 });
 

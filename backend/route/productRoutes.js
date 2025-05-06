@@ -1,7 +1,11 @@
 const express = require('express');
-const { getProductDetail } = require('../controller/productController');
 const router = express.Router();
+const { uploadProduct, getProductDetail } = require('../controller/productController');
+const { protect } = require('../middleware/authMiddleware');
+const upload = require('../middleware/uploadMiddleware');
 
-router.get('/:id', getProductDetail); // Ubah dari '/products/:id' menjadi '/:id'
+// pakai middleware upload sebelum controller
+router.post('/upload', protect, upload.array('images'), uploadProduct);
+router.get('/:id', getProductDetail);
 
 module.exports = router;

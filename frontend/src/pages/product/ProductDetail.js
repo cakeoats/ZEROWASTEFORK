@@ -118,7 +118,7 @@ export default function ProductDetail() {
               <span className="mx-2">/</span>
               <span className="text-amber-500">{product.name}</span>
             </div>
-
+  
             <div className="grid md:grid-cols-2 gap-10 items-start">
               {/* Image Carousel */}
               <div className="space-y-4">
@@ -326,14 +326,14 @@ export default function ProductDetail() {
                       Beli Sekarang via WhatsApp
                     </button>
 
-                    <button
+                    {/* <button
                       className="border border-amber-500 text-amber-500 hover:bg-amber-50 px-6 py-3 rounded-lg text-base font-medium w-full transition-all duration-300 flex items-center justify-center"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                       Tanya Produk
-                    </button>
+                    </button> */}
                   </div>
                 </div>
               </div>

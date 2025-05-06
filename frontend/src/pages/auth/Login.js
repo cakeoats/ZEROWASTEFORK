@@ -47,13 +47,26 @@ function LoginPage() {
 
             const { user, token } = res.data;
 
+            // Explicitly store token and user in localStorage
+            const userInfo = { token, user };
+            localStorage.setItem('userInfo', JSON.stringify(userInfo));
+            console.log('Stored userInfo in localStorage:', userInfo);
+
+            // Call the context's login function (if it does additional state management)
             login(user, token);
+
             setUserData(user);
             setIsPopupOpen(true);
-
         } catch (err) {
-            setError(err.response?.data?.message || 'Login failed');
             console.error('Login error:', err);
+            const errorMessage = err.response?.data?.message || 'Login failed. Please try again.';
+            if (errorMessage.includes('Email not verified')) {
+                setError('Email not verified. Please check your email for the verification link.');
+            } else if (errorMessage.includes('Invalid username or password')) {
+                setError('Invalid username or password. Please check your credentials.');
+            } else {
+                setError(errorMessage);
+            }
         } finally {
             setIsLoading(false);
         }

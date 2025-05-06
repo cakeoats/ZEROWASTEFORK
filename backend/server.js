@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const path = require('path');
 require('dotenv').config();
 
 // Perbaiki path impor
@@ -33,7 +34,7 @@ mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/zerowastema
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes); 
 app.use('/api/products', productRoutes);
-
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Global error handler
 app.use((err, req, res, next) => {
   console.error('Server Error:', err.stack);
