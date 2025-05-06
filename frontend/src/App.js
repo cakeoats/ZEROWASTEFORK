@@ -14,6 +14,7 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import ProductCatalog from "./pages/product/ProductCatalog";
 import ProductDetail from "./pages/product/ProductDetail";
 import UploadProduct from "./pages/product/UploadProduct";
+import RatingUlasan from "./pages/product/RatingUlasan";
 
 const App = () => {
   return (
@@ -33,6 +34,7 @@ const App = () => {
             <Route path="/product-list" element={<ProductCatalog />} />
             <Route path="/products/:id" element={<ProductDetail />} />
             <Route path="/upload-product" element={<UploadProduct />} />
+            <Route path="/rating-ulasan" element={<RatingUlasan />} />
           </Routes>
         </div>
       </Router>
