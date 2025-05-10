@@ -133,15 +133,15 @@ export default function ProductUpload() {
       // Upload file gambar
       formData.images.forEach(image => uploadData.append('images', image));
 
-      const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+      // Ambil token dari localStorage
+      const token = localStorage.getItem('token');
 
-      if (!userInfo || !userInfo.token) {
+      if (!token) {
         setError('Anda harus login untuk mengunggah produk. Silakan login dan coba lagi.');
         setLoading(false);
+        navigate('/login', { state: { from: '/upload-product' } });
         return;
       }
-
-      const token = userInfo.token;
 
       const response = await axios.post(
         `${API_URL}/api/products/upload`,
@@ -156,7 +156,9 @@ export default function ProductUpload() {
 
       console.log("Upload successful:", response.data);
       setSuccess(true);
-      setTimeout(() => navigate(`/product/${response.data.product._id}`), 2000);
+      
+      // Navigasi ke halaman product-list setelah 2 detik
+      setTimeout(() => navigate(`/products/${response.data.product._id}`), 2000);
     } catch (err) {
       console.error('Error uploading product:', err);
       if (err.response?.status === 401) {

@@ -8,6 +8,7 @@ const UserSchema = new mongoose.Schema({
   phone: { type: String },
   address: { type: String },
   bio: { type: String, default: '' },
+  profilePicture: { type: String, default: '' }, 
   isVerified: { type: Boolean, default: false },
   verificationToken: { type: String },
   verificationTokenExpires: { type: Date }, 

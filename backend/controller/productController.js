@@ -73,7 +73,63 @@ const getProductDetail = async (req, res) => {
   }
 };
 
+// Ambil semua produk (dengan filter opsional)
+const getAllProducts = async (req, res) => {
+  try {
+    const { category, search, sort } = req.query;
+    
+    // Buat filter berdasarkan query parameters
+    let filter = {};
+    
+    // Filter berdasarkan kategori jika ada
+    if (category && category !== 'All') {
+      // Gunakan regex untuk case insensitive
+      filter.category = { $regex: new RegExp(category, 'i') };
+    }
+    
+    // Filter berdasarkan pencarian jika ada
+    if (search) {
+      filter.name = { $regex: new RegExp(search, 'i') };
+    }
+    
+    // Buat sort options
+    let sortOption = {};
+    if (sort === 'price-asc') {
+      sortOption = { price: 1 };
+    } else if (sort === 'price-desc') {
+      sortOption = { price: -1 };
+    } else {
+      // Default sort berdasarkan tanggal terbaru
+      sortOption = { createdAt: -1 };
+    }
+    
+    // Ambil produk dari database
+    const products = await Product.find(filter)
+      .sort(sortOption)
+      .populate('seller_id', 'username full_name')
+      .lean();
+    
+    // Tambahkan imageUrl lengkap untuk setiap produk
+    const productsWithImageUrls = products.map(product => {
+      const firstImage = product.images && product.images.length > 0 
+        ? `${BASE_URL}/${product.images[0]}` 
+        : null;
+      
+      return {
+        ...product,
+        imageUrl: firstImage
+      };
+    });
+    
+    res.json(productsWithImageUrls);
+  } catch (error) {
+    console.error('Error fetching products:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
   uploadProduct,
   getProductDetail,
+  getAllProducts,
 };

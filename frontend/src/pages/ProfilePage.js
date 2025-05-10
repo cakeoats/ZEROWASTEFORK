@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Button, Avatar, TextInput, Textarea } from 'flowbite-react';
-import { HiOutlinePencilAlt, HiOutlineMail, HiOutlinePhone, HiOutlineLocationMarker, HiOutlineDocumentText } from 'react-icons/hi';
+import React, { useState, useEffect, useRef } from 'react';
+import { Button, Avatar, TextInput, Textarea, Modal } from 'flowbite-react';
+import { HiOutlinePencilAlt, HiOutlineMail, HiOutlinePhone, HiOutlineLocationMarker, HiOutlineDocumentText, HiOutlineLockClosed } from 'react-icons/hi';
 import { Link } from 'react-router-dom';
 import NavbarComponent from '../components/NavbarComponent';
 import axios from 'axios';
@@ -15,11 +15,34 @@ function ProfilePage() {
     address: '',
     bio: '',
     joinedAt: '',
+    profilePicture: '',
   });
+
+  // State untuk change password modal
+  const [isPasswordModalOpen, setPasswordModalOpen] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
+
+  // State untuk foto profil
+  const [profileImage, setProfileImage] = useState(null);
+  const [previewImage, setPreviewImage] = useState(null);
+  const fileInputRef = useRef(null);
+
+  const API_URL = 'http://localhost:5000';
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setUserData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handlePasswordChange = (e) => {
+    const { name, value } = e.target;
+    setPasswordData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSave = async () => {
@@ -37,7 +60,7 @@ function ProfilePage() {
       });
       
       const res = await axios.put(
-        'http://localhost:5000/api/users/profile',
+        `${API_URL}/api/users/profile`,
         {
           full_name: userData.full_name,
           username: userData.username,
@@ -70,6 +93,115 @@ function ProfilePage() {
     }
   };
 
+  // Handler untuk mengubah password
+  const handleChangePassword = async () => {
+    setPasswordError('');
+    setPasswordSuccess('');
+
+    // Validasi
+    if (!passwordData.currentPassword) {
+      setPasswordError('Password saat ini wajib diisi');
+      return;
+    }
+    if (!passwordData.newPassword) {
+      setPasswordError('Password baru wajib diisi');
+      return;
+    }
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setPasswordError('Konfirmasi password tidak sesuai');
+      return;
+    }
+    if (passwordData.newPassword.length < 6) {
+      setPasswordError('Password baru harus minimal 6 karakter');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('No token found');
+
+      await axios.post(
+        `${API_URL}/api/users/change-password`,
+        {
+          currentPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+
+      setPasswordSuccess('Password berhasil diubah!');
+      
+      // Reset form
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+
+      // Close modal after 2 seconds
+      setTimeout(() => {
+        setPasswordModalOpen(false);
+        setPasswordSuccess('');
+      }, 2000);
+
+    } catch (error) {
+      console.error('Error changing password:', error.response?.data || error.message);
+      setPasswordError(error.response?.data?.message || 'Gagal mengubah password');
+    }
+  };
+
+  // Handler untuk foto profil
+  const handleProfilePictureChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setProfileImage(file);
+
+      // Preview image
+      const reader = new FileReader();
+      reader.onload = () => {
+        setPreviewImage(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleUploadProfilePicture = async () => {
+    if (!profileImage) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('No token found');
+
+      const formData = new FormData();
+      formData.append('profilePicture', profileImage);
+
+      const res = await axios.post(
+        `${API_URL}/api/users/profile-picture`,
+        formData,
+        {
+          headers: { 
+            'Content-Type': 'multipart/form-data',
+            Authorization: `Bearer ${token}` 
+          }
+        }
+      );
+
+      setUserData(prev => ({
+        ...prev,
+        profilePicture: res.data.profilePicture
+      }));
+
+      // Reset file input
+      setProfileImage(null);
+      alert('Foto profil berhasil diperbarui!');
+    } catch (error) {
+      console.error('Error uploading profile picture:', error.response?.data || error.message);
+      alert('Gagal mengupload foto profil: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -78,7 +210,7 @@ function ProfilePage() {
           alert('Silakan login terlebih dahulu.');
           return;
         }
-        const res = await axios.get('http://localhost:5000/api/users/profile', {
+        const res = await axios.get(`${API_URL}/api/users/profile`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         console.log('Profile response:', res.data);
@@ -90,6 +222,11 @@ function ProfilePage() {
     };
     fetchProfile();
   }, []);
+
+  // Kondisional render profile picture URL
+  const profilePictureUrl = previewImage || 
+    (userData.profilePicture ? `${API_URL}/${userData.profilePicture}` : 
+    'https://randomuser.me/api/portraits/men/32.jpg');
 
   return (
     <div className="min-h-screen bg-amber-50">
@@ -107,13 +244,23 @@ function ProfilePage() {
             <div className="flex flex-col md:flex-row items-center">
               <div className="relative mb-4 md:mb-0 md:mr-6">
                 <Avatar
-                  img="https://randomuser.me/api/portraits/men/32.jpg"
+                  img={profilePictureUrl}
                   rounded
                   size="xl"
                 />
                 {isEditing && (
-                  <button className="absolute bottom-0 right-0 bg-white p-2 rounded-full shadow-md">
+                  <button 
+                    className="absolute bottom-0 right-0 bg-white p-2 rounded-full shadow-md"
+                    onClick={() => fileInputRef.current.click()}
+                  >
                     <HiOutlinePencilAlt className="h-5 w-5 text-amber-600" />
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      onChange={handleProfilePictureChange} 
+                      className="hidden" 
+                      accept="image/*"
+                    />
                   </button>
                 )}
               </div>
@@ -138,6 +285,18 @@ function ProfilePage() {
                       day: 'numeric',
                     })}
                 </p>
+                
+                {/* Tampilkan tombol Upload jika ada gambar yang dipilih dan dalam mode edit */}
+                {profileImage && isEditing && (
+                  <Button 
+                    color="success" 
+                    size="sm" 
+                    className="mt-2"
+                    onClick={handleUploadProfilePicture}
+                  >
+                    Upload Foto
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -165,7 +324,7 @@ function ProfilePage() {
                       placeholder="Nomor Telepon"
                     />
                   ) : (
-                    <p className="text-gray-800">{userData.phone}</p>
+                    <p className="text-gray-800">{userData.phone || '-'}</p>
                   )}
                 </div>
               </div>
@@ -183,7 +342,7 @@ function ProfilePage() {
                       placeholder="Alamat"
                     />
                   ) : (
-                    <p className="text-gray-800">{userData.address}</p>
+                    <p className="text-gray-800">{userData.address || '-'}</p>
                   )}
                 </div>
               </div>
@@ -224,13 +383,96 @@ function ProfilePage() {
                     <HiOutlinePencilAlt className="mr-2 h-5 w-5" />
                     Edit Profil
                   </Button>
-                  <Button color="blue">Ganti Password</Button>
+                  <Button 
+                    color="blue" 
+                    onClick={() => setPasswordModalOpen(true)}
+                  >
+                    <HiOutlineLockClosed className="mr-2 h-5 w-5" />
+                    Ganti Password
+                  </Button>
                 </>
               )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Modal Change Password */}
+      <Modal
+        show={isPasswordModalOpen}
+        onClose={() => setPasswordModalOpen(false)}
+      >
+        <Modal.Header>
+          Ganti Password
+        </Modal.Header>
+        <Modal.Body>
+          <div className="space-y-4">
+            {passwordError && (
+              <div className="p-3 bg-red-50 text-red-600 rounded-lg">
+                {passwordError}
+              </div>
+            )}
+            {passwordSuccess && (
+              <div className="p-3 bg-green-50 text-green-600 rounded-lg">
+                {passwordSuccess}
+              </div>
+            )}
+            <div>
+              <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                Password Saat Ini
+              </label>
+              <TextInput
+                id="currentPassword"
+                name="currentPassword"
+                type="password"
+                value={passwordData.currentPassword}
+                onChange={handlePasswordChange}
+                placeholder="Masukkan password saat ini"
+              />
+            </div>
+            <div>
+              <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                Password Baru
+              </label>
+              <TextInput
+                id="newPassword"
+                name="newPassword"
+                type="password"
+                value={passwordData.newPassword}
+                onChange={handlePasswordChange}
+                placeholder="Masukkan password baru"
+              />
+            </div>
+            <div>
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                Konfirmasi Password Baru
+              </label>
+              <TextInput
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                value={passwordData.confirmPassword}
+                onChange={handlePasswordChange}
+                placeholder="Konfirmasi password baru"
+              />
+            </div>
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            gradientDuoTone="amberToOrange"
+            onClick={handleChangePassword}
+          >
+            Ubah Password
+          </Button>
+          <Button
+            color="gray"
+            onClick={() => setPasswordModalOpen(false)}
+          >
+            Batal
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 }

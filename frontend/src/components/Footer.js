@@ -35,7 +35,7 @@ function Footer() {
                         <h4 className="text-lg font-semibold mb-4">Tautan Cepat</h4>
                         <ul className="space-y-2">
                             <li><Link to="/" className="text-gray-400 hover:text-amber-400 transition-colors">Beranda</Link></li>
-                            <li><Link to="/products" className="text-gray-400 hover:text-amber-400 transition-colors">Produk</Link></li>
+                            <li><Link to="/product-list" className="text-gray-400 hover:text-amber-400 transition-colors">Produk</Link></li>
                             <li><Link to="/categories" className="text-gray-400 hover:text-amber-400 transition-colors">Kategori</Link></li>
                             <li><Link to="/about" className="text-gray-400 hover:text-amber-400 transition-colors">Tentang Kami</Link></li>
                             <li><Link to="/contact" className="text-gray-400 hover:text-amber-400 transition-colors">Kontak</Link></li>

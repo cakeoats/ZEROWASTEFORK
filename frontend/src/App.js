@@ -7,6 +7,7 @@ import ForgotPasswordPage from "./pages/auth/ForgetPasswordPage";
 import EmailVerificationPage from "./pages/auth/EmailVerificationPage";
 import EmailVerificationSuccess from "./pages/auth/EmailVerificationSuccess";
 import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
+import ProtectedRoute from "./components/ProtectedRoute"; // Import ProtectedRoute
 import { AuthProvider } from "./contexts/AuthContext";
 import 'tailwindcss/tailwind.css';
 import ProfilePage from "./pages/ProfilePage";
@@ -33,7 +34,15 @@ const App = () => {
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/product-list" element={<ProductCatalog />} />
             <Route path="/products/:id" element={<ProductDetail />} />
-            <Route path="/upload-product" element={<UploadProduct />} />
+            {/* Protected route for upload product */}
+            <Route 
+              path="/upload-product" 
+              element={
+                <ProtectedRoute>
+                  <UploadProduct />
+                </ProtectedRoute>
+              } 
+            />
             <Route path="/rating" element={<RatingUlasan />} />
           </Routes>
         </div>

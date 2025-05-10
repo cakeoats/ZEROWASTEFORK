@@ -20,8 +20,11 @@ export const AuthProvider = ({ children }) => {
     setToken(null);
   };
 
+  // Simple getter for checking if user is authenticated
+  const isAuthenticated = !!token;
+
   return (
-    <AuthContext.Provider value={{ user, token, login, logout }}>
+    <AuthContext.Provider value={{ user, token, isAuthenticated, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
