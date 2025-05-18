@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { HiSearch, HiOutlineHeart, HiOutlineShoppingCart, HiOutlineEye } from 'react-icons/hi';
+import { HiSearch, HiOutlineHeart, HiOutlineEye } from 'react-icons/hi';
 import NavbarComponent from '../../components/NavbarComponent';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
+import Footer from '../../components/Footer';
 
 const API_URL = 'http://localhost:5000';
 
@@ -25,7 +26,8 @@ const ProductCatalog = () => {
     // State for UI controls
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState(categoryFromUrl || 'All');
-    const [sortBy, setSortBy] = useState('recommended');
+    const [sortBy, setSortBy] = useState('newest');
+    const [wishlist, setWishlist] = useState([]);
 
     // Data kategori
     const categories = [
@@ -47,28 +49,52 @@ const ProductCatalog = () => {
         }
     }, [categoryFromUrl]);
 
+    // Fetch user's wishlist
+    useEffect(() => {
+        const fetchWishlist = async () => {
+            if (!token) {
+                setWishlist([]);
+                return;
+            }
+
+            try {
+                const response = await axios.get(`${API_URL}/api/wishlist`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                // Extract product IDs from wishlist items
+                const wishlistIds = response.data.map(item => item.product_id);
+                setWishlist(wishlistIds);
+            } catch (err) {
+                console.error('Error fetching wishlist:', err);
+                setWishlist([]);
+            }
+        };
+
+        fetchWishlist();
+    }, [token]);
+
     // Fetch products from API
     useEffect(() => {
         const fetchProducts = async () => {
             setLoading(true);
             setError(null);
-            
+
             try {
                 // Buat query parameters untuk filter
                 const params = new URLSearchParams();
-                
+
                 if (selectedCategory && selectedCategory !== 'All') {
                     params.append('category', selectedCategory);
                 }
-                
+
                 if (searchQuery) {
                     params.append('search', searchQuery);
                 }
-                
-                if (sortBy !== 'recommended') {
+
+                if (sortBy) {
                     params.append('sort', sortBy);
                 }
-                
+
                 const response = await axios.get(`${API_URL}/api/products?${params.toString()}`);
                 setProducts(response.data);
             } catch (err) {
@@ -78,10 +104,10 @@ const ProductCatalog = () => {
                 setLoading(false);
             }
         };
-        
+
         fetchProducts();
-    }, [selectedCategory, sortBy]);
-    
+    }, [selectedCategory, sortBy, searchQuery]);
+
     // Fungsi untuk melakukan pencarian
     const handleSearch = () => {
         // Fungsi pencarian akan dijalankan ketika komponen di-mount ulang
@@ -89,22 +115,22 @@ const ProductCatalog = () => {
         const fetchProducts = async () => {
             setLoading(true);
             setError(null);
-            
+
             try {
                 const params = new URLSearchParams();
-                
+
                 if (selectedCategory && selectedCategory !== 'All') {
                     params.append('category', selectedCategory);
                 }
-                
+
                 if (searchQuery) {
                     params.append('search', searchQuery);
                 }
-                
-                if (sortBy !== 'recommended') {
+
+                if (sortBy) {
                     params.append('sort', sortBy);
                 }
-                
+
                 const response = await axios.get(`${API_URL}/api/products?${params.toString()}`);
                 setProducts(response.data);
             } catch (err) {
@@ -114,17 +140,13 @@ const ProductCatalog = () => {
                 setLoading(false);
             }
         };
-        
+
         fetchProducts();
     };
 
-    // Format harga
-    const formatPrice = (price) => {
-        return new Intl.NumberFormat('id-ID', {
-            style: 'currency',
-            currency: 'IDR',
-            minimumFractionDigits: 0
-        }).format(price);
+    // Simplified price display without "Rp" prefix
+    const simplifyPrice = (price) => {
+        return `Rp${price.toLocaleString('id-ID')}`;
     };
 
     // Handle upload click for users that are not authenticated
@@ -135,24 +157,62 @@ const ProductCatalog = () => {
         }
     };
 
+    // Toggle wishlist
+    const toggleWishlist = async (productId, e) => {
+        // Prevent navigation to product detail page
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        if (!token) {
+            // Redirect to login if not authenticated
+            navigate('/login', { state: { from: '/product-list' } });
+            return;
+        }
+
+        try {
+            const isInWishlist = wishlist.includes(productId);
+
+            if (isInWishlist) {
+                // Remove from wishlist
+                await axios.delete(`${API_URL}/api/wishlist/${productId}`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                setWishlist(wishlist.filter(id => id !== productId));
+            } else {
+                // Add to wishlist
+                await axios.post(`${API_URL}/api/wishlist`, {
+                    productId: productId
+                }, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                setWishlist([...wishlist, productId]);
+            }
+        } catch (err) {
+            console.error('Error updating wishlist:', err);
+            // You can show an error message here if needed
+        }
+    };
+
     // Fungsi untuk mendapatkan URL gambar
     const getImageUrl = (product) => {
         // Jika produk memiliki imageUrl (yang sudah diformat dari backend)
         if (product.imageUrl) {
             return product.imageUrl;
         }
-        
+
         // Jika produk memiliki images (array)
         if (product.images && product.images.length > 0) {
             // Jika image path sudah berupa URL lengkap
             if (product.images[0].startsWith('http')) {
                 return product.images[0];
             }
-            
+
             // Jika image path relatif, gabungkan dengan BASE_URL
             return `${API_URL}/${product.images[0]}`;
         }
-        
+
         // Fallback ke image placeholder
         return 'https://via.placeholder.com/300';
     };
@@ -161,182 +221,203 @@ const ProductCatalog = () => {
         <div className="min-h-screen bg-gray-50">
             <NavbarComponent />
 
+            {/* Breadcrumb navigation */}
+            <div className="container mx-auto px-4 py-4">
+                <div className="flex items-center text-sm text-gray-500">
+                    <Link to="/" className="hover:text-gray-700">Home</Link>
+                    <span className="mx-2">/</span>
+                    <span className="font-medium text-gray-700">Product</span>
+                </div>
+            </div>
+
             {/* Floating Upload Button for Mobile */}
             <Link
                 to={token ? "/upload-product" : "/register"}
                 onClick={handleUploadClick}
-                className="fixed bottom-6 right-6 z-40 md:hidden bg-blue-700 hover:bg-blue-600 text-white rounded-full p-4 shadow-lg transition-all"
+                className="fixed bottom-6 right-6 z-40 md:hidden bg-amber-500 hover:bg-amber-600 text-white rounded-full p-4 shadow-lg transition-all"
             >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
             </Link>
 
-            {/* Header & Search */}
-            <header className="bg-sky-700 shadow-sm">
-                <div className="container mx-auto px-4 pt-20 pb-10">
-                    <div className="flex flex-col md:flex-row justify-between items-center">
-                        <h1 className="text-3xl font-bold text-white mb-6 md:mb-0">Our Products</h1>
-
-                        <div className="w-full md:w-auto flex">
-                            <Link 
-                                to={token ? "/upload-product" : "/register"} 
-                                onClick={handleUploadClick}
-                                className="hidden md:flex items-center bg-white text-blue-700 px-4 py-2 rounded-l-lg font-medium"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                </svg>
-                                Upload
-                            </Link>
-                            <div className="relative flex-1 md:w-64 flex">
-                                <input
-                                    type="text"
-                                    placeholder="Search products..."
-                                    className="w-full py-2 pl-10 pr-4 bg-white rounded-l-lg md:rounded-l-none md:rounded-none border-none focus:outline-none focus:ring-2 focus:ring-blue-400"
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                                />
-                                <button 
-                                    onClick={handleSearch}
-                                    className="bg-white px-4 rounded-r-lg border-l border-gray-200 text-blue-700 hover:bg-blue-50"
-                                >
-                                    <HiSearch className="w-5 h-5" />
-                                </button>
-                                <HiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </header>
-
-            {/* Kategori Filter */}
-            <div className="bg-white shadow-sm mb-6 sticky top-0 z-30">
-                <div className="container mx-auto px-4">
-                    <div className="flex items-center overflow-x-auto py-3 scrollbar-hide">
-                        {categories.map((category) => (
-                            <button
-                                key={category.name}
-                                className={`flex items-center px-4 py-2 rounded-full transition-colors mr-3 whitespace-nowrap
-                                    ${selectedCategory === category.name
-                                        ? 'bg-blue-700 text-white'
-                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                                onClick={() => setSelectedCategory(category.name)}
-                            >
-                                <span className="mr-2">{category.icon}</span>
-                                {category.name}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            </div>
-
             {/* Main Content */}
             <div className="container mx-auto px-4 pb-12">
-                {/* Sort Bar */}
-                <div className="flex justify-between items-center mb-6">
-                    <p className="text-gray-500 text-sm">
-                        {loading ? 'Memuat produk...' : `Showing ${products.length} products`}
-                    </p>
-
-                    <div className="flex items-center">
-                        <label className="mr-2 text-gray-600 text-sm">Sort by:</label>
-                        <select
-                            value={sortBy}
-                            onChange={(e) => setSortBy(e.target.value)}
-                            className="bg-white border border-gray-200 text-gray-700 py-1 px-3 rounded-md text-sm focus:outline-none"
-                        >
-                            <option value="recommended">Recommended</option>
-                            <option value="price-asc">Price: Low to High</option>
-                            <option value="price-desc">Price: High to Low</option>
-                        </select>
-                    </div>
-                </div>
-
-                {/* Error Message */}
-                {error && (
-                    <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-6">
-                        <p>{error}</p>
-                    </div>
-                )}
-
-                {/* Loading Indicator */}
-                {loading && (
-                    <div className="flex justify-center items-center py-12">
-                        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                    </div>
-                )}
-
-                {/* Products Grid */}
-                {!loading && products.length > 0 ? (
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-                        {products.map((product) => (
-                            <div key={product._id} className="bg-white rounded-xl overflow-hidden shadow hover:shadow-md transition-shadow">
-                                <div className="relative">
-                                    <img
-                                        src={getImageUrl(product)}
-                                        alt={product.name}
-                                        className="w-full aspect-square object-cover"
-                                        onError={(e) => {
-                                            e.target.src = 'https://via.placeholder.com/300?text=No+Image';
-                                        }}
-                                    />
-
-                                    <button className="absolute top-2 right-2 p-1.5 bg-white/80 rounded-full text-gray-400 hover:text-gray-700 transition-colors">
-                                        <HiOutlineHeart className="w-5 h-5" />
-                                    </button>
-                                </div>
-
-                                <div className="p-4">
-                                    <p className="text-xs text-gray-500 mb-1 capitalize">{product.category}</p>
-                                    <h3 className="font-medium text-gray-800 mb-2 truncate">{product.name}</h3>
-
-                                    <div className="mb-3">
-                                        <div className="text-gray-800 font-semibold">
-                                            {formatPrice(product.price)}
-                                        </div>
-                                    </div>
-
-                                    <div className="flex space-x-2">
-    <Link
-        to={`/products/${product._id}`}
-        className="flex-1 bg-blue-700 hover:bg-blue-600 text-white py-2 rounded-lg transition-colors text-sm flex items-center justify-center"
-    >
-        <HiOutlineShoppingCart className="mr-1 w-4 h-4" />
-        Beli
-    </Link>
-    <Link
-        to={`/products/${product._id}`}
-        className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-    >
-        <HiOutlineEye className="w-4 h-4" />
-    </Link>
-</div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                ) : !loading && (
-                    <div className="text-center py-12">
-                        <div className="inline-flex justify-center items-center w-24 h-24 bg-blue-100 rounded-full mb-4">
-                            <HiSearch className="w-10 h-10 text-blue-500" />
+                <div className="flex flex-col md:flex-row gap-6">
+                    {/* Left Sidebar - Filters */}
+                    <div className="w-full md:w-64 bg-white rounded-lg shadow-sm p-4">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-lg font-medium">Filter</h2>
                         </div>
-                        <h3 className="text-xl font-medium text-gray-900 mb-2">No Products Found</h3>
-                        <p className="text-gray-500 mb-6">Try a different search term or category</p>
+
+                        {/* Kategori Filter */}
+                        <div className="mb-6">
+                            <h3 className="font-medium mb-3">Kategori</h3>
+                            <div className="space-y-2">
+                                {categories.map((category) => (
+                                    <div
+                                        key={category.name}
+                                        className={`flex items-center cursor-pointer p-2 rounded-md ${selectedCategory === category.name
+                                                ? 'bg-amber-50 text-amber-600'
+                                                : 'hover:bg-gray-50'
+                                            }`}
+                                        onClick={() => setSelectedCategory(category.name)}
+                                    >
+                                        <span className="mr-2">{category.icon}</span>
+                                        <span>{category.name}</span>
+                                        <span className="ml-auto text-xs text-gray-500">{category.count}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Clear Filters Button */}
                         <button
                             onClick={() => {
-                                setSearchQuery('');
                                 setSelectedCategory('All');
+                                setSearchQuery('');
+                                setSortBy('newest');
                                 handleSearch();
                             }}
-                            className="bg-blue-700 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors"
+                            className="w-full py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors"
                         >
                             Clear Filters
                         </button>
                     </div>
-                )}
+
+                    {/* Right Content - Product Grid */}
+                    <div className="flex-1">
+                        {/* Search and Sort Controls */}
+                        <div className="flex flex-col md:flex-row justify-between items-center mb-6 bg-white rounded-lg shadow-sm p-4">
+                            <div className="relative w-full md:w-64 mb-4 md:mb-0">
+                                <input
+                                    type="text"
+                                    placeholder="Search products..."
+                                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                                />
+                                <HiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                                <button
+                                    onClick={handleSearch}
+                                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-amber-500 hover:text-amber-600"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                                    </svg>
+                                </button>
+                            </div>
+
+                            <div className="flex items-center">
+                                <span className="text-sm text-gray-600 mr-2">Sort:</span>
+                                <select
+                                    value={sortBy}
+                                    onChange={(e) => setSortBy(e.target.value)}
+                                    className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                >
+                                    <option value="newest">Terbaru</option>
+                                    <option value="price-desc">Harga: Tinggi ke Rendah</option>
+                                    <option value="price-asc">Harga: Rendah ke Tinggi</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Error Message */}
+                        {error && (
+                            <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-6">
+                                <p>{error}</p>
+                            </div>
+                        )}
+
+                        {/* Loading Indicator */}
+                        {loading && (
+                            <div className="flex justify-center items-center py-12">
+                                <div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+                            </div>
+                        )}
+
+                        {/* Products Grid */}
+                        {!loading && products.length > 0 ? (
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                                {products.map((product) => (
+                                    <div key={product._id} className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                                        <div className="relative">
+                                            <Link to={`/products/${product._id}`}>
+                                                <img
+                                                    src={getImageUrl(product)}
+                                                    alt={product.name}
+                                                    className="w-full aspect-square object-cover"
+                                                    onError={(e) => {
+                                                        e.target.src = 'https://via.placeholder.com/300?text=No+Image';
+                                                    }}
+                                                />
+                                            </Link>
+
+                                            {/* Wishlist Heart Icon */}
+                                            <button
+                                                onClick={(e) => toggleWishlist(product._id, e)}
+                                                className="absolute top-2 right-2 p-1.5 bg-white rounded-full text-gray-400 hover:text-red-500 transition-colors"
+                                            >
+                                                <HiOutlineHeart
+                                                    className={`w-5 h-5 ${wishlist.includes(product._id) ? 'text-red-500 fill-red-500' : ''}`}
+                                                />
+                                            </button>
+
+                                            {/* Sale Badge */}
+                                            {product.discount && (
+                                                <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 text-xs font-semibold rounded">
+                                                    SALE
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="p-3">
+                                            <Link to={`/products/${product._id}`}>
+                                                <h3 className="font-medium text-gray-800 mb-1 truncate">{product.name}</h3>
+                                            </Link>
+                                            <p className="text-sm text-gray-500 mb-2 capitalize">{product.category}</p>
+
+                                            <div className="flex items-center justify-between">
+                                                <div className="font-semibold text-gray-800">
+                                                    {simplifyPrice(product.price)}
+                                                </div>
+                                                <Link
+                                                    to={`/products/${product._id}`}
+                                                    className="text-amber-500 hover:text-amber-600"
+                                                >
+                                                    <HiOutlineEye className="w-5 h-5" />
+                                                </Link>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : !loading && (
+                            <div className="text-center py-12 bg-white rounded-lg shadow-sm">
+                                <div className="inline-flex justify-center items-center w-24 h-24 bg-gray-100 rounded-full mb-4">
+                                    <HiSearch className="w-10 h-10 text-gray-400" />
+                                </div>
+                                <h3 className="text-xl font-medium text-gray-900 mb-2">No Products Found</h3>
+                                <p className="text-gray-500 mb-6">Try a different search term or filter</p>
+                                <button
+                                    onClick={() => {
+                                        setSearchQuery('');
+                                        setSelectedCategory('All');
+                                        setSortBy('newest');
+                                        handleSearch();
+                                    }}
+                                    className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg transition-colors"
+                                >
+                                    Clear Filters
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
             </div>
+
+            <Footer />
         </div>
     );
 };

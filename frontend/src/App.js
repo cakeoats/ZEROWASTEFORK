@@ -17,6 +17,7 @@ import ProductCatalog from "./pages/product/ProductCatalog";
 import ProductDetail from "./pages/product/ProductDetail";
 import UploadProduct from "./pages/product/UploadProduct";
 import RatingUlasan from "./pages/product/RatingUlasan";
+import WishlistPage from "./pages/product/WishlistPage"; // Import the new wishlist page
 
 // Admin ProtectedRoute component
 const AdminProtectedRoute = ({ children }) => {
@@ -39,14 +40,28 @@ const App = () => {
         <div>
           <Routes>
             <Route path="/" element={<LandingPage />} />
-            <Route path="/register" element={<RegisterPage />} />
+
+            {/* Auth routes */}
             <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<RegisterPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/verif-email" element={<EmailVerificationPage />} />
             <Route path="/success-email" element={<EmailVerificationSuccess />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+            {/* Protected user routes */}
             <Route path="/profile" element={<ProfilePage />} />
-            
+
+            {/* New Wishlist route - Protected */}
+            <Route
+              path="/wishlist"
+              element={
+                <ProtectedRoute>
+                  <WishlistPage />
+                </ProtectedRoute>
+              }
+            />
+
             {/* Admin Routes */}
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin/dashboard" element={
@@ -55,17 +70,17 @@ const App = () => {
               </AdminProtectedRoute>
             } />
             <Route path="/admin" element={<Navigate to="/admin/dashboard" />} />
-            
+
+            {/* Product routes */}
             <Route path="/product-list" element={<ProductCatalog />} />
             <Route path="/products/:id" element={<ProductDetail />} />
-            {/* Protected route for upload product */}
-            <Route 
-              path="/upload-product" 
+            <Route
+              path="/upload-product"
               element={
                 <ProtectedRoute>
                   <UploadProduct />
                 </ProtectedRoute>
-              } 
+              }
             />
             <Route path="/rating" element={<RatingUlasan />} />
           </Routes>

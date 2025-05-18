@@ -3,11 +3,12 @@ import {
     HiUser,
     HiOutlineLogin,
     HiOutlineLogout,
-    HiShoppingCart,
+    HiOutlineShoppingCart,
+    HiOutlineHeart,
     HiOutlineExclamationCircle
 } from 'react-icons/hi';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate, Link } from 'react-router-dom'; 
+import { useNavigate, Link } from 'react-router-dom';
 
 function NavbarComponent() {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -55,11 +56,10 @@ function NavbarComponent() {
                 <nav className="flex items-center justify-between py-4 px-4">
                     {/* Brand Logo */}
                     <div className="flex items-center">
-  <Link to="/" className="text-xl font-bold text-white">
-    ZeroWasteMarket
-  </Link>
-</div>
-
+                        <Link to="/" className="text-xl font-bold text-white">
+                            ZeroWasteMarket
+                        </Link>
+                    </div>
 
                     {/* Nav Links dengan Font Kustom */}
                     <div className="hidden md:flex space-x-6">
@@ -80,52 +80,72 @@ function NavbarComponent() {
                         </a>
                     </div>
 
-                    {/* User Dropdown */}
-                    <div className="relative">
-                        <button
-                            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                            className="p-2 rounded-full hover:bg-gray-700 transition-colors"
-                        >
-                            <HiUser className="h-5 w-5 text-white" />
-                        </button>
-
-                        {isDropdownOpen && (
-                            <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-200">
-                                {user ? (
-                                    <>
-                                        <button
-                                            onClick={() => navigate('/profile')}
-                                            className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-amber-50 transition-colors text-sm font-medium"
-                                        >
-                                            {user.username}
-                                        </button>
-                                        <button
-                                            onClick={() => navigate('/cart')}
-                                            className="flex items-center w-full text-left px-4 py-2 text-gray-700 hover:bg-amber-50 transition-colors text-sm font-medium"
-                                        >
-                                            <HiShoppingCart className="mr-2" />
-                                            My Cart
-                                        </button>
-                                        <div className="border-t border-gray-200 my-1"></div>
-                                        <button
-                                            onClick={() => setShowLogoutModal(true)}
-                                            className="flex items-center w-full text-left px-4 py-2 text-gray-700 hover:bg-amber-50 transition-colors text-sm font-medium"
-                                        >
-                                            <HiOutlineLogout className="mr-2" />
-                                            Logout
-                                        </button>
-                                    </>
-                                ) : (
-                                    <button
-                                        onClick={() => navigate('/login')}
-                                        className="flex items-center w-full text-left px-4 py-2 text-gray-700 hover:bg-amber-50 transition-colors text-sm font-medium"
-                                    >
-                                        <HiOutlineLogin className="mr-2" />
-                                        Login
-                                    </button>
-                                )}
-                            </div>
+                    {/* Action Buttons */}
+                    <div className="flex items-center space-x-4">
+                        {/* Wishlist Button - only shown when logged in */}
+                        {user && (
+                            <Link to="/wishlist" className="p-2 rounded-full hover:bg-gray-700 transition-colors relative">
+                                <HiOutlineHeart className="h-5 w-5 text-white" />
+                            </Link>
                         )}
+
+                        {/* User Dropdown */}
+                        <div className="relative">
+                            <button
+                                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                                className="p-2 rounded-full hover:bg-gray-700 transition-colors"
+                            >
+                                <HiUser className="h-5 w-5 text-white" />
+                            </button>
+
+                            {isDropdownOpen && (
+                                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-200">
+                                    {user ? (
+                                        <>
+                                            <button
+                                                onClick={() => {
+                                                    navigate('/profile');
+                                                    setIsDropdownOpen(false);
+                                                }}
+                                                className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-amber-50 transition-colors text-sm font-medium"
+                                            >
+                                                {user.username}
+                                            </button>
+                                            <Link
+                                                to="/wishlist"
+                                                className="flex items-center w-full text-left px-4 py-2 text-gray-700 hover:bg-amber-50 transition-colors text-sm font-medium"
+                                                onClick={() => setIsDropdownOpen(false)}
+                                            >
+                                                <HiOutlineHeart className="mr-2" />
+                                                My Wishlist
+                                            </Link>
+                                            <div className="border-t border-gray-200 my-1"></div>
+                                            <button
+                                                onClick={() => {
+                                                    setShowLogoutModal(true);
+                                                    setIsDropdownOpen(false);
+                                                }}
+                                                className="flex items-center w-full text-left px-4 py-2 text-gray-700 hover:bg-amber-50 transition-colors text-sm font-medium"
+                                            >
+                                                <HiOutlineLogout className="mr-2" />
+                                                Logout
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <button
+                                            onClick={() => {
+                                                navigate('/login');
+                                                setIsDropdownOpen(false);
+                                            }}
+                                            className="flex items-center w-full text-left px-4 py-2 text-gray-700 hover:bg-amber-50 transition-colors text-sm font-medium"
+                                        >
+                                            <HiOutlineLogin className="mr-2" />
+                                            Login
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </nav>
             </div>
