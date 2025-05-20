@@ -2,6 +2,7 @@
 const Product = require('../models/product');
 const User = require('../models/User');
 const path = require('path');
+const fs = require('fs');
 
 // Base URL untuk akses gambar
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5000';
@@ -77,21 +78,21 @@ const getProductDetail = async (req, res) => {
 const getAllProducts = async (req, res) => {
   try {
     const { category, search, sort } = req.query;
-    
+
     // Buat filter berdasarkan query parameters
     let filter = {};
-    
+
     // Filter berdasarkan kategori jika ada
     if (category && category !== 'All') {
       // Gunakan regex untuk case insensitive
       filter.category = { $regex: new RegExp(category, 'i') };
     }
-    
+
     // Filter berdasarkan pencarian jika ada
     if (search) {
       filter.name = { $regex: new RegExp(search, 'i') };
     }
-    
+
     // Buat sort options
     let sortOption = {};
     if (sort === 'price-asc') {
@@ -102,25 +103,25 @@ const getAllProducts = async (req, res) => {
       // Default sort berdasarkan tanggal terbaru
       sortOption = { createdAt: -1 };
     }
-    
+
     // Ambil produk dari database
     const products = await Product.find(filter)
       .sort(sortOption)
       .populate('seller_id', 'username full_name')
       .lean();
-    
+
     // Tambahkan imageUrl lengkap untuk setiap produk
     const productsWithImageUrls = products.map(product => {
-      const firstImage = product.images && product.images.length > 0 
-        ? `${BASE_URL}/${product.images[0]}` 
+      const firstImage = product.images && product.images.length > 0
+        ? `${BASE_URL}/${product.images[0]}`
         : null;
-      
+
       return {
         ...product,
         imageUrl: firstImage
       };
     });
-    
+
     res.json(productsWithImageUrls);
   } catch (error) {
     console.error('Error fetching products:', error);
@@ -128,8 +129,151 @@ const getAllProducts = async (req, res) => {
   }
 };
 
+// Update product
+const updateProduct = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user._id;
+
+    // Find the product
+    const product = await Product.findById(id);
+
+    // Check if product exists
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    // Check if user is the owner of the product
+    if (product.seller_id.toString() !== userId.toString()) {
+      return res.status(403).json({ message: 'You do not have permission to update this product' });
+    }
+
+    // Get form data
+    const {
+      name,
+      description,
+      price,
+      category,
+      stock,
+      condition,
+      tipe,
+      imagesToDelete // Array of image paths to delete
+    } = req.body;
+
+    // Update fields
+    const updateData = {
+      name: name || product.name,
+      description: description || product.description,
+      price: price || product.price,
+      category: category || product.category,
+      stock: stock || product.stock,
+      condition: condition || product.condition,
+      tipe: tipe || product.tipe
+    };
+
+    // Handle image deletion if necessary
+    let updatedImages = [...product.images];
+
+    if (imagesToDelete) {
+      // Parse JSON string if needed
+      const imagesToDeleteArray = typeof imagesToDelete === 'string'
+        ? JSON.parse(imagesToDelete)
+        : imagesToDelete;
+
+      // Remove images from the array
+      updatedImages = updatedImages.filter(img => !imagesToDeleteArray.includes(img));
+
+      // Delete actual files
+      imagesToDeleteArray.forEach(imgPath => {
+        try {
+          const fullPath = path.join(__dirname, '..', imgPath);
+          if (fs.existsSync(fullPath)) {
+            fs.unlinkSync(fullPath);
+          }
+        } catch (err) {
+          console.error('Error deleting image file:', err);
+        }
+      });
+    }
+
+    // Add new images if any
+    if (req.files && req.files.length > 0) {
+      const newImages = req.files.map(file => path.join('uploads', file.filename));
+      updatedImages = [...updatedImages, ...newImages];
+    }
+
+    // Update the image field
+    updateData.images = updatedImages;
+
+    // Update the product in the database
+    const updatedProduct = await Product.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true } // Return the updated document
+    );
+
+    res.json({
+      message: 'Product updated successfully',
+      product: updatedProduct
+    });
+
+  } catch (error) {
+    console.error('Update product error:', error);
+    res.status(500).json({ message: 'Failed to update product', error: error.message });
+  }
+};
+
+// Delete product
+const deleteProduct = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user._id;
+
+    // Find the product
+    const product = await Product.findById(id);
+
+    // Check if product exists
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    // Check if user is the owner of the product
+    if (product.seller_id.toString() !== userId.toString()) {
+      return res.status(403).json({ message: 'You do not have permission to delete this product' });
+    }
+
+    // Delete associated image files
+    if (product.images && product.images.length > 0) {
+      product.images.forEach(imgPath => {
+        try {
+          const fullPath = path.join(__dirname, '..', imgPath);
+          if (fs.existsSync(fullPath)) {
+            fs.unlinkSync(fullPath);
+            console.log(`Deleted image: ${fullPath}`);
+          }
+        } catch (err) {
+          console.error('Error deleting image file:', err);
+        }
+      });
+    }
+
+    // Delete the product from database
+    await Product.findByIdAndDelete(id);
+
+    res.json({
+      message: 'Product deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Delete product error:', error);
+    res.status(500).json({ message: 'Failed to delete product', error: error.message });
+  }
+};
+
 module.exports = {
   uploadProduct,
   getProductDetail,
   getAllProducts,
+  updateProduct,
+  deleteProduct
 };

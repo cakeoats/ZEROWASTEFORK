@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const Product = require('../models/product');
 const bcrypt = require('bcryptjs');
 
 const updateProfile = async (req, res) => {
@@ -91,7 +92,7 @@ const changePassword = async (req, res) => {
 const updateProfilePicture = async (req, res) => {
   try {
     const userId = req.user._id;
-    
+
     // Pastikan ada file yang diupload
     if (!req.file) {
       return res.status(400).json({ message: 'Tidak ada file yang diupload' });
@@ -99,7 +100,7 @@ const updateProfilePicture = async (req, res) => {
 
     // Dapatkan path file yang diupload
     const profilePicturePath = `uploads/${req.file.filename}`;
-    
+
     // Update user dengan path gambar baru
     const user = await User.findByIdAndUpdate(
       userId,
@@ -121,9 +122,28 @@ const updateProfilePicture = async (req, res) => {
   }
 };
 
-module.exports = { 
-  updateProfile, 
-  getProfile, 
+// Get user products
+const getUserProducts = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    // Find all products where seller_id matches the current user's ID
+    const products = await Product.find({ seller_id: userId })
+      .sort({ createdAt: -1 }) // Sort by creation date (newest first)
+      .lean(); // Convert to plain JS objects for better performance
+
+    // Return the products
+    res.json(products);
+  } catch (err) {
+    console.error('Error fetching user products:', err);
+    res.status(500).json({ message: 'Server error while fetching products' });
+  }
+};
+
+module.exports = {
+  updateProfile,
+  getProfile,
   changePassword,
-  updateProfilePicture
+  updateProfilePicture,
+  getUserProducts
 };
