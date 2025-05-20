@@ -6,7 +6,7 @@ import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
 import WelcomePopup from '../../components/WelcomePopup';
 import { ClipLoader } from 'react-spinners';
-import './AuthSlider.css';
+import './AuthSlider.css'; // Make sure this import is correct
 
 function AuthSlider() {
     const location = useLocation();

@@ -1,8 +1,7 @@
 import React from "react";
 import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-dom";
 import LandingPage from "./pages/LandingPage";
-import RegisterPage from "./pages/auth/RegisterPage";
-import Login from "./pages/auth/Login";
+import AuthSlider from "./pages/auth/AuthSlider"; // Import AuthSlider component
 import ForgotPasswordPage from "./pages/auth/ForgetPasswordPage";
 import EmailVerificationPage from "./pages/auth/EmailVerificationPage";
 import EmailVerificationSuccess from "./pages/auth/EmailVerificationSuccess";
@@ -17,7 +16,7 @@ import ProductCatalog from "./pages/product/ProductCatalog";
 import ProductDetail from "./pages/product/ProductDetail";
 import UploadProduct from "./pages/product/UploadProduct";
 import RatingUlasan from "./pages/product/RatingUlasan";
-import WishlistPage from "./pages/product/WishlistPage"; // Import the new wishlist page
+import WishlistPage from "./pages/product/WishlistPage";
 
 // Admin ProtectedRoute component
 const AdminProtectedRoute = ({ children }) => {
@@ -41,9 +40,9 @@ const App = () => {
           <Routes>
             <Route path="/" element={<LandingPage />} />
 
-            {/* Auth routes */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<RegisterPage />} />
+            {/* Auth routes - using AuthSlider for both login and register */}
+            <Route path="/login" element={<AuthSlider />} />
+            <Route path="/register" element={<AuthSlider />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/verif-email" element={<EmailVerificationPage />} />
             <Route path="/success-email" element={<EmailVerificationSuccess />} />
