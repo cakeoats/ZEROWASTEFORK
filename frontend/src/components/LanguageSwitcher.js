@@ -12,8 +12,8 @@ const LanguageSwitcher = () => {
 
   // Language options with flags
   const languageOptions = [
-    { code: languages.ID, name: 'Bahasa Indonesia', flag: '🇮🇩' },
-    { code: languages.EN, name: 'English', flag: '🇬🇧' }
+    { code: languages.ID, name: 'Bahasa Indonesia', flag: 'ID' },
+    { code: languages.EN, name: 'English', flag: 'EN' }
   ];
 
   // Get current language details

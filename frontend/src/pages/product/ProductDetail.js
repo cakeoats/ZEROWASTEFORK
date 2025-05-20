@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import NavbarComponent from '../../components/NavbarComponent';
+import { useAuth } from '../../contexts/AuthContext'; // Added import for useAuth
 
 // Konstanta untuk API Base URL
 const API_BASE_URL = 'http://localhost:5000';
@@ -9,6 +10,7 @@ const API_BASE_URL = 'http://localhost:5000';
 export default function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { token } = useAuth(); // Get token from AuthContext
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -109,6 +111,18 @@ export default function ProductDetail() {
     const phone = product.seller_id.phone.replace(/^0/, '62');
     const message = `Halo, saya tertarik dengan produk ${product.name} yang Anda jual di ZeroWasteMarket. Apakah masih tersedia?`;
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+  };
+
+  // New function for handling payment via Midtrans
+  const handlePayment = () => {
+    if (!token) {
+      // Redirect to login if user is not authenticated
+      navigate('/login', { state: { from: `/products/${id}` } });
+      return;
+    }
+    
+    // Redirect to payment page with product ID
+    navigate(`/payment/${id}`);
   };
 
   if (!product) {
@@ -362,17 +376,18 @@ export default function ProductDetail() {
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                       </svg>
-                      Beli Sekarang via WhatsApp
+                      Beli via WhatsApp
                     </button>
-
-                    {/* <button
-                      className="border border-amber-500 text-amber-500 hover:bg-amber-50 px-6 py-3 rounded-lg text-base font-medium w-full transition-all duration-300 flex items-center justify-center"
+                    
+                    <button
+                      onClick={handlePayment}
+                      className="border border-amber-500 bg-white text-amber-500 hover:bg-amber-50 px-4 py-2 rounded-lg text-base font-medium w-full transition-all duration-300 flex items-center justify-center"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                       </svg>
-                      Tanya Produk
-                    </button> */}
+                      Beli dengan Midtrans
+                    </button>
                   </div>
                 </div>
               </div>
