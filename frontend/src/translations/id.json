@@ -9,7 +9,8 @@
     "myProducts": "Produk Saya",
     "profile": "Profil",
     "search": "Cari produk...",
-    "language": "Bahasa"
+    "language": "Bahasa",
+    "cart": "Keranjang"
   },
   "home": {
     "hero": {
@@ -50,6 +51,8 @@
     "maxPhotos": "Maksimal 5 foto",
     "productInfo": "Informasi Produk",
     "uploadError": "Gagal mengunggah produk",
+    "addToCart": "Tambah ke Keranjang",
+    "quantity": "Jumlah",
     "myProducts": {
       "title": "Produk Saya",
       "subtitle": "Kelola produk yang telah Anda unggah di sini.",
@@ -69,6 +72,28 @@
       "delete": "Hapus",
       "views": "dilihat"
     }
+  },
+  "cart": {
+    "title": "Keranjang Belanja",
+    "items": "Item dalam keranjang Anda",
+    "empty": "Keranjang Anda kosong",
+    "addItems": "Mulai belanja untuk menambahkan produk ke keranjang",
+    "continueShop": "Lanjutkan Belanja",
+    "clearCart": "Kosongkan Keranjang",
+    "summary": "Ringkasan Pesanan",
+    "subtotal": "Subtotal",
+    "shippingFee": "Biaya Pengiriman",
+    "total": "Total",
+    "checkout": "Bayar Sekarang",
+    "processing": "Memproses...",
+    "terms": "Dengan melakukan checkout, Anda menyetujui syarat dan ketentuan kami",
+    "cartItems": "Item Keranjang",
+    "emptyCart": "Keranjang Anda kosong",
+    "startShopping": "Mulai belanja untuk menambahkan produk ke keranjang.",
+    "exploreProducts": "Jelajahi Produk",
+    "free": "Gratis",
+    "addedToCart": "Produk ditambahkan ke keranjang!",
+    "viewCart": "Lihat Keranjang"
   },
   "auth": {
     "welcomeBack": "Selamat Datang Kembali",

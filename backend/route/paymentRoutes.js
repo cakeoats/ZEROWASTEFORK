@@ -1,12 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const { createTransaction } = require('../controller/payment/paymentController');
+const { createTransaction, createCartTransaction, handleNotification } = require('../controller/payment/paymentController');
 const { protect } = require('../middleware/authMiddleware');
 
-// Route untuk membuat transaksi Midtrans
+// Routes that require authentication
 router.post('/create-transaction', protect, createTransaction);
+router.post('/create-cart-transaction', protect, createCartTransaction);
 
-// Tambahkan route lainnya jika diperlukan
-// Contoh: router.get('/status/:orderId', protect, getTransactionStatus);
+// Webhook for Midtrans notifications (no auth required)
+router.post('/notification', handleNotification);
 
 module.exports = router;

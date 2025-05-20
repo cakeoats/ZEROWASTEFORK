@@ -9,6 +9,7 @@ import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "./contexts/AuthContext";
 import { LanguageProvider } from "./contexts/LanguageContext";
+import { CartProvider } from "./contexts/CartContext"; // Import CartProvider
 import 'tailwindcss/tailwind.css';
 import ProfilePage from "./pages/ProfilePage";
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -18,9 +19,12 @@ import ProductDetail from "./pages/product/ProductDetail";
 import UploadProduct from "./pages/product/UploadProduct";
 import RatingUlasan from "./pages/product/RatingUlasan";
 import WishlistPage from "./pages/product/WishlistPage";
+import CartPage from "./pages/cart/CartPage"; // Import CartPage
 import MidtransPayment from "./pages/payment/MidtransPayment";
 import PaymentSuccess from "./pages/payment/PaymentSuccess";
 import PaymentPending from "./pages/payment/PaymentPending";
+import MyProductsPage from "./pages/MyProductsPage";
+import EditProduct from "./pages/product/EditProduct";
 
 // Admin ProtectedRoute component
 const AdminProtectedRoute = ({ children }) => {
@@ -40,82 +44,107 @@ const App = () => {
   return (
     <AuthProvider>
       <LanguageProvider>
-        <Router>
-          <div>
-            <Routes>
-              <Route path="/" element={<LandingPage />} />
+        <CartProvider> {/* Wrap with CartProvider */}
+          <Router>
+            <div>
+              <Routes>
+                <Route path="/" element={<LandingPage />} />
 
-              {/* Auth routes - using AuthSlider for both login and register */}
-              <Route path="/login" element={<AuthSlider />} />
-              <Route path="/register" element={<AuthSlider />} />
-              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-              <Route path="/verif-email" element={<EmailVerificationPage />} />
-              <Route path="/success-email" element={<EmailVerificationSuccess />} />
-              <Route path="/reset-password" element={<ResetPasswordPage />} />
+                {/* Auth routes - using AuthSlider for both login and register */}
+                <Route path="/login" element={<AuthSlider />} />
+                <Route path="/register" element={<AuthSlider />} />
+                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                <Route path="/verif-email" element={<EmailVerificationPage />} />
+                <Route path="/success-email" element={<EmailVerificationSuccess />} />
+                <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-              {/* Protected user routes */}
-              <Route path="/profile" element={<ProfilePage />} />
+                {/* Cart Route */}
+                <Route path="/cart" element={<CartPage />} />
 
-              {/* New Wishlist route - Protected */}
-              <Route
-                path="/wishlist"
-                element={
-                  <ProtectedRoute>
-                    <WishlistPage />
-                  </ProtectedRoute>
-                }
-              />
+                {/* Protected user routes */}
+                <Route path="/profile" element={<ProfilePage />} />
 
-              {/* Payment Routes - Protected */}
-              <Route
-                path="/payment/:id"
-                element={
-                  <ProtectedRoute>
-                    <MidtransPayment />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/payment/success"
-                element={
-                  <ProtectedRoute>
-                    <PaymentSuccess />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/payment/pending"
-                element={
-                  <ProtectedRoute>
-                    <PaymentPending />
-                  </ProtectedRoute>
-                }
-              />
+                {/* My Products route - Protected */}
+                <Route
+                  path="/my-products"
+                  element={
+                    <ProtectedRoute>
+                      <MyProductsPage />
+                    </ProtectedRoute>
+                  }
+                />
 
-              {/* Admin Routes */}
-              <Route path="/admin/login" element={<AdminLogin />} />
-              <Route path="/admin/dashboard" element={
-                <AdminProtectedRoute>
-                  <AdminDashboard />
-                </AdminProtectedRoute>
-              } />
-              <Route path="/admin" element={<Navigate to="/admin/dashboard" />} />
+                {/* Edit Product route - Protected */}
+                <Route
+                  path="/edit-product/:id"
+                  element={
+                    <ProtectedRoute>
+                      <EditProduct />
+                    </ProtectedRoute>
+                  }
+                />
 
-              {/* Product routes */}
-              <Route path="/product-list" element={<ProductCatalog />} />
-              <Route path="/products/:id" element={<ProductDetail />} />
-              <Route
-                path="/upload-product"
-                element={
-                  <ProtectedRoute>
-                    <UploadProduct />
-                  </ProtectedRoute>
-                }
-              />
-              <Route path="/rating" element={<RatingUlasan />} />
-            </Routes>
-          </div>
-        </Router>
+                {/* New Wishlist route - Protected */}
+                <Route
+                  path="/wishlist"
+                  element={
+                    <ProtectedRoute>
+                      <WishlistPage />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Payment Routes - Protected */}
+                <Route
+                  path="/payment/:id"
+                  element={
+                    <ProtectedRoute>
+                      <MidtransPayment />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/payment/success"
+                  element={
+                    <ProtectedRoute>
+                      <PaymentSuccess />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/payment/pending"
+                  element={
+                    <ProtectedRoute>
+                      <PaymentPending />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Admin Routes */}
+                <Route path="/admin/login" element={<AdminLogin />} />
+                <Route path="/admin/dashboard" element={
+                  <AdminProtectedRoute>
+                    <AdminDashboard />
+                  </AdminProtectedRoute>
+                } />
+                <Route path="/admin" element={<Navigate to="/admin/dashboard" />} />
+
+                {/* Product routes */}
+                <Route path="/product-list" element={<ProductCatalog />} />
+                <Route path="/products/:id" element={<ProductDetail />} />
+                <Route
+                  path="/upload-product"
+                  element={
+                    <ProtectedRoute>
+                      <UploadProduct />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route path="/rating" element={<RatingUlasan />} />
+              </Routes>
+            </div>
+          </Router>
+        </CartProvider>
       </LanguageProvider>
     </AuthProvider>
   );

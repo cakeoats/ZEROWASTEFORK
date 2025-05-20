@@ -4,9 +4,11 @@ import {
     HiOutlineLogin,
     HiOutlineLogout,
     HiOutlineHeart,
+    HiOutlineShoppingCart,
     HiOutlineExclamationCircle
 } from 'react-icons/hi';
 import { useAuth } from '../contexts/AuthContext';
+import { useCart } from '../contexts/CartContext'; // Import useCart
 import { useNavigate, Link } from 'react-router-dom';
 import LanguageSwitcher from './LanguageSwitcher';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -16,6 +18,7 @@ function NavbarComponent() {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [showLogoutModal, setShowLogoutModal] = useState(false);
     const { user, logout } = useAuth();
+    const { cartCount } = useCart(); // Get the cart count from CartContext
     const navigate = useNavigate();
     const { language } = useLanguage();
     const translate = useTranslate(language);
@@ -88,6 +91,16 @@ function NavbarComponent() {
                     <div className="flex items-center space-x-2">
                         {/* Language Switcher */}
                         <LanguageSwitcher />
+
+                        {/* Cart Button - new */}
+                        <Link to="/cart" className="p-2 rounded-full hover:bg-gray-700 transition-colors relative">
+                            <HiOutlineShoppingCart className="h-5 w-5 text-white" />
+                            {cartCount > 0 && (
+                                <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                                    {cartCount > 99 ? '99+' : cartCount}
+                                </span>
+                            )}
+                        </Link>
 
                         {/* Wishlist Button - only shown when logged in */}
                         {user && (

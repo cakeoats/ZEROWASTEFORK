@@ -9,7 +9,8 @@
     "myProducts": "My Products",
     "profile": "Profile",
     "search": "Search products...",
-    "language": "Language"
+    "language": "Language",
+    "cart": "Cart"
   },
   "home": {
     "hero": {
@@ -50,6 +51,8 @@
     "maxPhotos": "Maximum 5 photos",
     "productInfo": "Product Information",
     "uploadError": "Failed to upload product",
+    "addToCart": "Add to Cart",
+    "quantity": "Quantity",
     "myProducts": {
       "title": "My Products",
       "subtitle": "Manage products you have uploaded here.",
@@ -69,6 +72,28 @@
       "delete": "Delete",
       "views": "views"
     }
+  },
+  "cart": {
+    "title": "Shopping Cart",
+    "items": "Items in your cart",
+    "empty": "Your cart is empty",
+    "addItems": "Start shopping to add products to your cart",
+    "continueShop": "Continue Shopping",
+    "clearCart": "Clear Cart",
+    "summary": "Order Summary",
+    "subtotal": "Subtotal",
+    "shippingFee": "Shipping Fee",
+    "total": "Total",
+    "checkout": "Checkout Now",
+    "processing": "Processing...",
+    "terms": "By checking out, you agree to our terms and conditions",
+    "cartItems": "Cart Items",
+    "emptyCart": "Your cart is empty",
+    "startShopping": "Start shopping to add products to your cart.",
+    "exploreProducts": "Explore Products",
+    "free": "Free",
+    "addedToCart": "Product added to cart!",
+    "viewCart": "View Cart"
   },
   "auth": {
     "welcomeBack": "Welcome Back",

@@ -58,7 +58,6 @@ exports.addToWishlist = async (req, res) => {
     }
 };
 
-// Remove from wishlist
 exports.removeFromWishlist = async (req, res) => {
     try {
         const productId = req.params.id;
@@ -83,7 +82,6 @@ exports.removeFromWishlist = async (req, res) => {
     }
 };
 
-// Check if a product is in wishlist
 exports.checkWishlist = async (req, res) => {
     try {
         const productId = req.params.id;

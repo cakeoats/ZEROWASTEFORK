@@ -1,8 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import NavbarComponent from '../../components/NavbarComponent';
-import { useAuth } from '../../contexts/AuthContext'; // Added import for useAuth
+import { useAuth } from '../../contexts/AuthContext';
+import { useCart } from '../../contexts/CartContext'; // Import the cart context
+import { useLanguage } from '../../contexts/LanguageContext';
+import { useTranslate } from '../../utils/languageUtils';
+import Footer from '../../components/Footer';
+import { Alert } from 'flowbite-react';
 
 // Konstanta untuk API Base URL
 const API_BASE_URL = 'http://localhost:5000';
@@ -10,13 +15,19 @@ const API_BASE_URL = 'http://localhost:5000';
 export default function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { token } = useAuth(); // Get token from AuthContext
+  const { token } = useAuth();
+  const { language } = useLanguage();
+  const translate = useTranslate(language);
+  const { addToCart } = useCart(); // Use the cart context
+
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isLoved, setIsLoved] = useState(false);
   const [activeImage, setActiveImage] = useState(0);
   const [showFullscreenCarousel, setShowFullscreenCarousel] = useState(false);
+  const [quantity, setQuantity] = useState(1); // Add quantity state
+  const [addedToCart, setAddedToCart] = useState(false); // State to show cart notification
 
   console.log("Current URL:", window.location.pathname);
   console.log("ID from useParams:", id);
@@ -113,16 +124,27 @@ export default function ProductDetail() {
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
-  // New function for handling payment via Midtrans
+  // Function for handling payment via Midtrans
   const handlePayment = () => {
     if (!token) {
       // Redirect to login if user is not authenticated
       navigate('/login', { state: { from: `/products/${id}` } });
       return;
     }
-    
+
     // Redirect to payment page with product ID
     navigate(`/payment/${id}`);
+  };
+
+  // New function to handle adding product to cart
+  const handleAddToCart = () => {
+    addToCart(product, quantity);
+    setAddedToCart(true);
+
+    // Hide the notification after 3 seconds
+    setTimeout(() => {
+      setAddedToCart(false);
+    }, 3000);
   };
 
   if (!product) {
@@ -144,6 +166,20 @@ export default function ProductDetail() {
       <NavbarComponent />
 
       <div className="pt-24 px-6 pb-12 bg-[#FFF5E4]">
+        {/* Cart notification */}
+        {addedToCart && (
+          <div className="fixed top-20 right-4 z-50">
+            <Alert color="success" className="animate-fadeIn shadow-lg">
+              {language === 'id'
+                ? 'Produk ditambahkan ke keranjang!'
+                : 'Product added to cart!'}
+              <Link to="/cart" className="ml-2 underline font-medium">
+                {language === 'id' ? 'Lihat Keranjang' : 'View Cart'}
+              </Link>
+            </Alert>
+          </div>
+        )}
+
         <div className="w-full max-w-6xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
           <div className="p-6 md:p-10">
             {/* Breadcrumb */}
@@ -301,6 +337,34 @@ export default function ProductDetail() {
                   )}
                 </div>
 
+                {/* Quantity Selector - NEW */}
+                <div className="space-y-2">
+                  <h3 className="font-semibold">
+                    {language === 'id' ? 'Jumlah' : 'Quantity'}
+                  </h3>
+                  <div className="flex items-center">
+                    <button
+                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      className="w-10 h-10 rounded-l-lg border border-gray-300 flex items-center justify-center hover:bg-gray-100"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                    <div className="w-12 h-10 border-t border-b border-gray-300 flex items-center justify-center text-gray-700">
+                      {quantity}
+                    </div>
+                    <button
+                      onClick={() => setQuantity(quantity + 1)}
+                      className="w-10 h-10 rounded-r-lg border border-gray-300 flex items-center justify-center hover:bg-gray-100"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
                 <div className="space-y-4">
                   <h3 className="font-semibold text-lg">Informasi Produk</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -368,17 +432,28 @@ export default function ProductDetail() {
                 </div>
 
                 <div className="pt-6 border-t border-gray-100">
-                  <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    {/* Add to Cart Button - NEW */}
                     <button
-                      onClick={handleBuy}
-                      className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-base font-medium w-full transition-all duration-300 transform hover:scale-[1.02] hover:shadow-lg flex items-center justify-center"
+                      onClick={handleAddToCart}
+                      className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-base font-medium w-full transition-all duration-300 flex items-center justify-center"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                       </svg>
-                      Beli via WhatsApp
+                      {language === 'id' ? 'Tambah ke Keranjang' : 'Add to Cart'}
                     </button>
-                    
+
+                    <button
+                      onClick={handleBuy}
+                      className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-base font-medium w-full transition-all duration-300 flex items-center justify-center"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                      {language === 'id' ? 'Beli via WhatsApp' : 'Buy via WhatsApp'}
+                    </button>
+
                     <button
                       onClick={handlePayment}
                       className="border border-amber-500 bg-white text-amber-500 hover:bg-amber-50 px-4 py-2 rounded-lg text-base font-medium w-full transition-all duration-300 flex items-center justify-center"
@@ -386,7 +461,7 @@ export default function ProductDetail() {
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                       </svg>
-                      Beli dengan Midtrans
+                      {language === 'id' ? 'Beli dengan Midtrans' : 'Buy with Midtrans'}
                     </button>
                   </div>
                 </div>
@@ -484,6 +559,8 @@ export default function ProductDetail() {
           </div>
         </div>
       )}
+
+      <Footer />
     </div>
   );
 }
