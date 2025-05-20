@@ -1,19 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Button, Avatar, TextInput, Textarea, Modal, Tabs, Toast } from 'flowbite-react';
-import {
-  HiOutlinePencilAlt, HiOutlineMail, HiOutlinePhone,
-  HiOutlineLocationMarker, HiOutlineDocumentText, HiOutlineLockClosed,
-  HiOutlineUser, HiOutlineShoppingBag, HiCheck, HiX
-} from 'react-icons/hi';
+import { Button, Avatar, TextInput, Textarea, Modal } from 'flowbite-react';
+import { HiOutlinePencilAlt, HiOutlineMail, HiOutlinePhone, HiOutlineLocationMarker, HiOutlineDocumentText, HiOutlineLockClosed } from 'react-icons/hi';
 import { Link } from 'react-router-dom';
 import NavbarComponent from '../components/NavbarComponent';
-import UserProductsTab from './product/UserProductsTab'; // Import the new component
 import axios from 'axios';
 
 function ProfilePage() {
-  // State for active tab
-  const [activeTab, setActiveTab] = useState(0);
-
   const [isEditing, setIsEditing] = useState(false);
   const [userData, setUserData] = useState({
     full_name: '',
@@ -26,12 +18,7 @@ function ProfilePage() {
     profilePicture: '',
   });
 
-  // State for success/error alerts
-  const [showSuccessToast, setShowSuccessToast] = useState(false);
-  const [showErrorToast, setShowErrorToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-
-  // State for change password modal
+  // State untuk change password modal
   const [isPasswordModalOpen, setPasswordModalOpen] = useState(false);
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -41,26 +28,12 @@ function ProfilePage() {
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState('');
 
-  // State for profile picture
+  // State untuk foto profil
   const [profileImage, setProfileImage] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
   const fileInputRef = useRef(null);
 
   const API_URL = 'http://localhost:5000';
-
-  // Helper to show success toast
-  const showSuccess = (message) => {
-    setToastMessage(message);
-    setShowSuccessToast(true);
-    setTimeout(() => setShowSuccessToast(false), 3000);
-  };
-
-  // Helper to show error toast
-  const showError = (message) => {
-    setToastMessage(message);
-    setShowErrorToast(true);
-    setTimeout(() => setShowErrorToast(false), 3000);
-  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -76,7 +49,7 @@ function ProfilePage() {
     try {
       const token = localStorage.getItem('token');
       if (!token) throw new Error('No token found');
-
+      
       // Log what we're sending to help with debugging
       console.log('Sending data:', {
         full_name: userData.full_name,
@@ -85,7 +58,7 @@ function ProfilePage() {
         address: userData.address,
         bio: userData.bio
       });
-
+      
       const res = await axios.put(
         `${API_URL}/api/users/profile`,
         {
@@ -99,9 +72,9 @@ function ProfilePage() {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-
+      
       console.log('Response:', res.data);
-
+      
       setUserData((prev) => ({
         ...prev,
         full_name: res.data.user.full_name,
@@ -111,14 +84,12 @@ function ProfilePage() {
         bio: res.data.user.bio,
         joinedAt: res.data.user.joinedAt,
       }));
-
+      
       setIsEditing(false);
-      // Show success toast instead of alert
-      showSuccess('Profil berhasil diperbarui!');
+      alert('Profil berhasil diperbarui!');
     } catch (error) {
       console.error('Error updating profile:', error.response?.data || error.message);
-      // Show error toast instead of alert
-      showError(error.response?.data?.message || 'Gagal memperbarui profil');
+      alert('Gagal memperbarui profil: ' + (error.response?.data?.message || error.message));
     }
   };
 
@@ -161,7 +132,7 @@ function ProfilePage() {
       );
 
       setPasswordSuccess('Password berhasil diubah!');
-
+      
       // Reset form
       setPasswordData({
         currentPassword: '',
@@ -173,7 +144,6 @@ function ProfilePage() {
       setTimeout(() => {
         setPasswordModalOpen(false);
         setPasswordSuccess('');
-        showSuccess('Password berhasil diubah!');
       }, 2000);
 
     } catch (error) {
@@ -211,9 +181,9 @@ function ProfilePage() {
         `${API_URL}/api/users/profile-picture`,
         formData,
         {
-          headers: {
+          headers: { 
             'Content-Type': 'multipart/form-data',
-            Authorization: `Bearer ${token}`
+            Authorization: `Bearer ${token}` 
           }
         }
       );
@@ -225,10 +195,10 @@ function ProfilePage() {
 
       // Reset file input
       setProfileImage(null);
-      showSuccess('Foto profil berhasil diperbarui!');
+      alert('Foto profil berhasil diperbarui!');
     } catch (error) {
       console.error('Error uploading profile picture:', error.response?.data || error.message);
-      showError(error.response?.data?.message || 'Gagal mengupload foto profil');
+      alert('Gagal mengupload foto profil: ' + (error.response?.data?.message || error.message));
     }
   };
 
@@ -237,7 +207,7 @@ function ProfilePage() {
       try {
         const token = localStorage.getItem('token');
         if (!token) {
-          showError('Silakan login terlebih dahulu.');
+          alert('Silakan login terlebih dahulu.');
           return;
         }
         const res = await axios.get(`${API_URL}/api/users/profile`, {
@@ -247,21 +217,21 @@ function ProfilePage() {
         setUserData(res.data);
       } catch (error) {
         console.error('Error fetching profile:', error.response?.data || error.message);
-        showError(error.response?.data?.message || 'Gagal memuat data profil.');
+        alert(error.response?.data?.message || 'Gagal memuat data profil.');
       }
     };
     fetchProfile();
   }, []);
 
-  // Conditional render profile picture URL
-  const profilePictureUrl = previewImage ||
-    (userData.profilePicture ? `${API_URL}/${userData.profilePicture}` :
-      'https://randomuser.me/api/portraits/men/32.jpg');
+  // Kondisional render profile picture URL
+  const profilePictureUrl = previewImage || 
+    (userData.profilePicture ? `${API_URL}/${userData.profilePicture}` : 
+    'https://randomuser.me/api/portraits/men/32.jpg');
 
   return (
     <div className="min-h-screen bg-amber-50">
       <NavbarComponent />
-      <div className="max-w-6xl mx-auto py-8 px-4">
+      <div className="max-w-4xl mx-auto py-8 px-4">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Profile</h1>
           <Link to="/" className="text-blue-600 hover:underline">
@@ -269,34 +239,7 @@ function ProfilePage() {
           </Link>
         </div>
 
-        {/* Success Toast */}
-        {showSuccessToast && (
-          <div className="fixed top-20 right-4 z-50">
-            <Toast>
-              <div className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-green-100 text-green-500">
-                <HiCheck className="h-5 w-5" />
-              </div>
-              <div className="ml-3 text-sm font-normal">{toastMessage}</div>
-              <Toast.Toggle onDismiss={() => setShowSuccessToast(false)} />
-            </Toast>
-          </div>
-        )}
-
-        {/* Error Toast */}
-        {showErrorToast && (
-          <div className="fixed top-20 right-4 z-50">
-            <Toast>
-              <div className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-100 text-red-500">
-                <HiX className="h-5 w-5" />
-              </div>
-              <div className="ml-3 text-sm font-normal">{toastMessage}</div>
-              <Toast.Toggle onDismiss={() => setShowErrorToast(false)} />
-            </Toast>
-          </div>
-        )}
-
-        {/* Profile Header Card */}
-        <div className="bg-white rounded-xl shadow-md overflow-hidden mb-6">
+        <div className="bg-white rounded-xl shadow-md overflow-hidden">
           <div className="bg-white p-6 text-black">
             <div className="flex flex-col md:flex-row items-center">
               <div className="relative mb-4 md:mb-0 md:mr-6">
@@ -306,16 +249,16 @@ function ProfilePage() {
                   size="xl"
                 />
                 {isEditing && (
-                  <button
+                  <button 
                     className="absolute bottom-0 right-0 bg-white p-2 rounded-full shadow-md"
                     onClick={() => fileInputRef.current.click()}
                   >
                     <HiOutlinePencilAlt className="h-5 w-5 text-amber-600" />
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={handleProfilePictureChange}
-                      className="hidden"
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      onChange={handleProfilePictureChange} 
+                      className="hidden" 
                       accept="image/*"
                     />
                   </button>
@@ -342,12 +285,12 @@ function ProfilePage() {
                       day: 'numeric',
                     })}
                 </p>
-
-                {/* Show upload button if image is selected and in edit mode */}
+                
+                {/* Tampilkan tombol Upload jika ada gambar yang dipilih dan dalam mode edit */}
                 {profileImage && isEditing && (
-                  <Button
-                    color="success"
-                    size="sm"
+                  <Button 
+                    color="success" 
+                    size="sm" 
                     className="mt-2"
                     onClick={handleUploadProfilePicture}
                   >
@@ -357,122 +300,101 @@ function ProfilePage() {
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Tabs Section - Fixed the style prop issue here */}
-        <Tabs aria-label="Profile tabs">
-          {/* Profile Tab */}
-          <Tabs.Item
-            active={activeTab === 0}
-            title="Profile Info"
-            icon={HiOutlineUser}
-            onClick={() => setActiveTab(0)}
-          >
-            <div className="bg-white rounded-xl shadow-md overflow-hidden p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                <div className="flex items-start">
-                  <HiOutlineMail className="h-6 w-6 text-amber-600 mr-3 mt-1" />
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500">Email</h4>
-                    <p className="text-gray-800">{userData.email}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start">
-                  <HiOutlinePhone className="h-6 w-6 text-amber-600 mr-3 mt-1" />
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500">Telepon</h4>
-                    {isEditing ? (
-                      <TextInput
-                        name="phone"
-                        value={userData.phone || ''}
-                        onChange={handleInputChange}
-                        className="bg-white/90 rounded"
-                        placeholder="Nomor Telepon"
-                      />
-                    ) : (
-                      <p className="text-gray-800">{userData.phone || '-'}</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-start">
-                  <HiOutlineLocationMarker className="h-6 w-6 text-amber-600 mr-3 mt-1" />
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500">Alamat</h4>
-                    {isEditing ? (
-                      <TextInput
-                        name="address"
-                        value={userData.address || ''}
-                        onChange={handleInputChange}
-                        className="bg-white/90 rounded"
-                        placeholder="Alamat"
-                      />
-                    ) : (
-                      <p className="text-gray-800">{userData.address || '-'}</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-start col-span-1 md:col-span-2">
-                  <HiOutlineDocumentText className="h-6 w-6 text-amber-600 mr-3 mt-1" />
-                  <div className="w-full">
-                    <h4 className="text-sm font-medium text-gray-500">Bio</h4>
-                    {isEditing ? (
-                      <Textarea
-                        name="bio"
-                        value={userData.bio || ''}
-                        onChange={handleInputChange}
-                        className="bg-white/90 rounded w-full"
-                        placeholder="Ceritakan tentang diri Anda"
-                        rows={3}
-                      />
-                    ) : (
-                      <p className="text-gray-800">{userData.bio || 'Belum ada bio'}</p>
-                    )}
-                  </div>
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              <div className="flex items-start">
+                <HiOutlineMail className="h-6 w-6 text-amber-600 mr-3 mt-1" />
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500">Email</h4>
+                  <p className="text-gray-800">{userData.email}</p>
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-4">
-                {isEditing ? (
-                  <>
-                    <Button gradientDuoTone="amberToOrange" onClick={handleSave}>
-                      Simpan Perubahan
-                    </Button>
-                    <Button color="light" onClick={() => setIsEditing(false)}>
-                      Batal
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Button gradientDuoTone="amberToOrange" onClick={() => setIsEditing(true)}>
-                      <HiOutlinePencilAlt className="mr-2 h-5 w-5" />
-                      Edit Profil
-                    </Button>
-                    <Button
-                      color="blue"
-                      onClick={() => setPasswordModalOpen(true)}
-                    >
-                      <HiOutlineLockClosed className="mr-2 h-5 w-5" />
-                      Ganti Password
-                    </Button>
-                  </>
-                )}
+              <div className="flex items-start">
+                <HiOutlinePhone className="h-6 w-6 text-amber-600 mr-3 mt-1" />
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500">Telepon</h4>
+                  {isEditing ? (
+                    <TextInput
+                      name="phone"
+                      value={userData.phone || ''}
+                      onChange={handleInputChange}
+                      className="bg-white/90 rounded"
+                      placeholder="Nomor Telepon"
+                    />
+                  ) : (
+                    <p className="text-gray-800">{userData.phone || '-'}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-start">
+                <HiOutlineLocationMarker className="h-6 w-6 text-amber-600 mr-3 mt-1" />
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500">Alamat</h4>
+                  {isEditing ? (
+                    <TextInput
+                      name="address"
+                      value={userData.address || ''}
+                      onChange={handleInputChange}
+                      className="bg-white/90 rounded"
+                      placeholder="Alamat"
+                    />
+                  ) : (
+                    <p className="text-gray-800">{userData.address || '-'}</p>
+                  )}
+                </div>
+              </div>
+              
+              <div className="flex items-start col-span-1 md:col-span-2">
+                <HiOutlineDocumentText className="h-6 w-6 text-amber-600 mr-3 mt-1" />
+                <div className="w-full">
+                  <h4 className="text-sm font-medium text-gray-500">Bio</h4>
+                  {isEditing ? (
+                    <Textarea
+                      name="bio"
+                      value={userData.bio || ''}
+                      onChange={handleInputChange}
+                      className="bg-white/90 rounded w-full"
+                      placeholder="Ceritakan tentang diri Anda"
+                      rows={3}
+                    />
+                  ) : (
+                    <p className="text-gray-800">{userData.bio || 'Belum ada bio'}</p>
+                  )}
+                </div>
               </div>
             </div>
-          </Tabs.Item>
 
-          {/* My Products Tab */}
-          <Tabs.Item
-            active={activeTab === 1}
-            title="My Products"
-            icon={HiOutlineShoppingBag}
-            onClick={() => setActiveTab(1)}
-          >
-            <UserProductsTab />
-          </Tabs.Item>
-        </Tabs>
+            <div className="flex flex-wrap gap-4">
+              {isEditing ? (
+                <>
+                  <Button gradientDuoTone="amberToOrange" onClick={handleSave}>
+                    Simpan Perubahan
+                  </Button>
+                  <Button color="light" onClick={() => setIsEditing(false)}>
+                    Batal
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button gradientDuoTone="amberToOrange" onClick={() => setIsEditing(true)}>
+                    <HiOutlinePencilAlt className="mr-2 h-5 w-5" />
+                    Edit Profil
+                  </Button>
+                  <Button 
+                    color="blue" 
+                    onClick={() => setPasswordModalOpen(true)}
+                  >
+                    <HiOutlineLockClosed className="mr-2 h-5 w-5" />
+                    Ganti Password
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Modal Change Password */}
