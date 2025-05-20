@@ -1,16 +1,15 @@
 import React from "react";
 import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-dom";
 import LandingPage from "./pages/LandingPage";
-import AuthSlider from "./pages/auth/AuthSlider"; // Import AuthSlider component
+import AuthSlider from "./pages/auth/AuthSlider";
 import ForgotPasswordPage from "./pages/auth/ForgetPasswordPage";
 import EmailVerificationPage from "./pages/auth/EmailVerificationPage";
 import EmailVerificationSuccess from "./pages/auth/EmailVerificationSuccess";
 import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
 import ProtectedRoute from "./components/ProtectedRoute";
-import { AuthProvider } from "./contexts/AuthContext";
-import { LanguageProvider } from "./contexts/LanguageContext";
-import 'tailwindcss/tailwind.css';
 import ProfilePage from "./pages/ProfilePage";
+import MyProductsPage from "./pages/MyProductsPage"; // Import the My Products page
+import EditProduct from "./pages/product/EditProduct"; // Import the Edit Product page
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminLogin from "./pages/admin/AdminLogin";
 import ProductCatalog from "./pages/product/ProductCatalog";
@@ -18,20 +17,10 @@ import ProductDetail from "./pages/product/ProductDetail";
 import UploadProduct from "./pages/product/UploadProduct";
 import RatingUlasan from "./pages/product/RatingUlasan";
 import WishlistPage from "./pages/product/WishlistPage";
-
-// Admin ProtectedRoute component
-const AdminProtectedRoute = ({ children }) => {
-  const adminToken = localStorage.getItem('adminToken');
-  const adminId = localStorage.getItem('adminId');
-
-  if (!adminToken || !adminId) {
-    // If not logged in, redirect to admin login page
-    return <Navigate to="/admin/login" />;
-  }
-
-  // If logged in, show the protected component
-  return children;
-};
+import { AuthProvider } from "./contexts/AuthContext";
+import { LanguageProvider } from "./contexts/LanguageContext";
+import 'tailwindcss/tailwind.css';
+import AdminProtectedRoute from "./components/AdminProtectedRoute";
 
 const App = () => {
   return (
@@ -53,7 +42,27 @@ const App = () => {
               {/* Protected user routes */}
               <Route path="/profile" element={<ProfilePage />} />
 
-              {/* New Wishlist route - Protected */}
+              {/* My Products route - Protected */}
+              <Route
+                path="/my-products"
+                element={
+                  <ProtectedRoute>
+                    <MyProductsPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Edit Product route - Protected */}
+              <Route
+                path="/edit-product/:id"
+                element={
+                  <ProtectedRoute>
+                    <EditProduct />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Wishlist route - Protected */}
               <Route
                 path="/wishlist"
                 element={

@@ -6,6 +6,7 @@
     "register": "Register",
     "forgotPassword": "Forgot Password?",
     "myWishlist": "My Wishlist",
+    "myProducts": "My Products",
     "profile": "Profile",
     "search": "Search products...",
     "language": "Language"
@@ -48,7 +49,26 @@
     "mainPhoto": "First photo will be the main photo",
     "maxPhotos": "Maximum 5 photos",
     "productInfo": "Product Information",
-    "uploadError": "Failed to upload product"
+    "uploadError": "Failed to upload product",
+    "myProducts": {
+      "title": "My Products",
+      "subtitle": "Manage products you have uploaded here.",
+      "backToProfile": "Back to Profile",
+      "addProduct": "Add Product",
+      "noProductsYet": "No Products Yet",
+      "uploadProduct": "Upload Product",
+      "emptyMessage": "You haven't uploaded any products yet. Start uploading your products now!",
+      "deleteProduct": "Delete Product",
+      "deleteConfirmation": "Are you sure you want to delete the product \"{name}\"? This action cannot be undone.",
+      "cancel": "Cancel",
+      "confirmDelete": "Yes, Delete",
+      "deleteSuccess": "Product \"{name}\" successfully deleted",
+      "deleteError": "Failed to delete product",
+      "view": "View",
+      "edit": "Edit",
+      "delete": "Delete",
+      "views": "views"
+    }
   },
   "auth": {
     "welcomeBack": "Welcome Back",
@@ -114,7 +134,10 @@
     "enterCurrentPassword": "Enter current password",
     "enterNewPassword": "Enter new password",
     "confirmNewPasswordPlaceholder": "Confirm new password",
-    "uploadPhoto": "Upload Photo"
+    "uploadPhoto": "Upload Photo",
+    "manageProducts": "Manage your products",
+    "viewWishlist": "View your wishlist",
+    "updatePassword": "Update your password"
   },
   "passwordChange": {
     "currentRequired": "Current password is required",

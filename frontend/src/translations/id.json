@@ -6,6 +6,7 @@
     "register": "Daftar",
     "forgotPassword": "Lupa Password?",
     "myWishlist": "Wishlist Saya",
+    "myProducts": "Produk Saya",
     "profile": "Profil",
     "search": "Cari produk...",
     "language": "Bahasa"
@@ -48,7 +49,26 @@
     "mainPhoto": "Foto pertama akan menjadi foto utama",
     "maxPhotos": "Maksimal 5 foto",
     "productInfo": "Informasi Produk",
-    "uploadError": "Gagal mengunggah produk"
+    "uploadError": "Gagal mengunggah produk",
+    "myProducts": {
+      "title": "Produk Saya",
+      "subtitle": "Kelola produk yang telah Anda unggah di sini.",
+      "backToProfile": "Kembali ke Profil",
+      "addProduct": "Tambah Produk",
+      "noProductsYet": "Belum Ada Produk",
+      "uploadProduct": "Unggah Produk",
+      "emptyMessage": "Anda belum mengunggah produk apapun. Mulai unggah produk Anda sekarang!",
+      "deleteProduct": "Hapus Produk",
+      "deleteConfirmation": "Apakah Anda yakin ingin menghapus produk \"{name}\"? Tindakan ini tidak dapat dibatalkan.",
+      "cancel": "Batal",
+      "confirmDelete": "Ya, Hapus",
+      "deleteSuccess": "Produk \"{name}\" berhasil dihapus",
+      "deleteError": "Gagal menghapus produk",
+      "view": "Lihat",
+      "edit": "Edit",
+      "delete": "Hapus",
+      "views": "dilihat"
+    }
   },
   "auth": {
     "welcomeBack": "Selamat Datang Kembali",
@@ -114,7 +134,10 @@
     "enterCurrentPassword": "Masukkan password saat ini",
     "enterNewPassword": "Masukkan password baru",
     "confirmNewPasswordPlaceholder": "Konfirmasi password baru",
-    "uploadPhoto": "Unggah Foto"
+    "uploadPhoto": "Unggah Foto",
+    "manageProducts": "Kelola produk Anda",
+    "viewWishlist": "Lihat wishlist Anda",
+    "updatePassword": "Perbarui password Anda"
   },
   "passwordChange": {
     "currentRequired": "Password saat ini wajib diisi",

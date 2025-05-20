@@ -88,7 +88,7 @@ function NavbarComponent() {
                     <div className="flex items-center space-x-2">
                         {/* Language Switcher */}
                         <LanguageSwitcher />
-                        
+
                         {/* Wishlist Button - only shown when logged in */}
                         {user && (
                             <Link to="/wishlist" className="p-2 rounded-full hover:bg-gray-700 transition-colors relative">
@@ -118,14 +118,6 @@ function NavbarComponent() {
                                             >
                                                 {user.username}
                                             </button>
-                                            <Link
-                                                to="/wishlist"
-                                                className="flex items-center w-full text-left px-4 py-2 text-gray-700 hover:bg-amber-50 transition-colors text-sm font-medium"
-                                                onClick={() => setIsDropdownOpen(false)}
-                                            >
-                                                <HiOutlineHeart className="mr-2" />
-                                                {translate('common.myWishlist')}
-                                            </Link>
                                             <div className="border-t border-gray-200 my-1"></div>
                                             <button
                                                 onClick={() => {

@@ -1,11 +1,22 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button, Avatar, TextInput, Textarea, Modal } from 'flowbite-react';
-import { HiOutlinePencilAlt, HiOutlineMail, HiOutlinePhone, HiOutlineLocationMarker, HiOutlineDocumentText, HiOutlineLockClosed } from 'react-icons/hi';
+import {
+  HiOutlinePencilAlt,
+  HiOutlineMail,
+  HiOutlinePhone,
+  HiOutlineLocationMarker,
+  HiOutlineDocumentText,
+  HiOutlineLockClosed,
+  HiOutlineShoppingBag,
+  HiOutlineHeart,
+  HiArrowRight
+} from 'react-icons/hi';
 import { Link } from 'react-router-dom';
 import NavbarComponent from '../components/NavbarComponent';
 import axios from 'axios';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTranslate } from '../utils/languageUtils';
+import Footer from '../components/Footer';
 
 function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
@@ -55,7 +66,7 @@ function ProfilePage() {
     try {
       const token = localStorage.getItem('token');
       if (!token) throw new Error('No token found');
-      
+
       // Log what we're sending to help with debugging
       console.log('Sending data:', {
         full_name: userData.full_name,
@@ -64,7 +75,7 @@ function ProfilePage() {
         address: userData.address,
         bio: userData.bio
       });
-      
+
       const res = await axios.put(
         `${API_URL}/api/users/profile`,
         {
@@ -78,9 +89,9 @@ function ProfilePage() {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-      
+
       console.log('Response:', res.data);
-      
+
       setUserData((prev) => ({
         ...prev,
         full_name: res.data.user.full_name,
@@ -90,7 +101,7 @@ function ProfilePage() {
         bio: res.data.user.bio,
         joinedAt: res.data.user.joinedAt,
       }));
-      
+
       setIsEditing(false);
       alert('Profil berhasil diperbarui!');
     } catch (error) {
@@ -138,7 +149,7 @@ function ProfilePage() {
       );
 
       setPasswordSuccess(translate('passwordChange.success'));
-      
+
       // Reset form
       setPasswordData({
         currentPassword: '',
@@ -189,9 +200,9 @@ function ProfilePage() {
         `${API_URL}/api/users/profile-picture`,
         formData,
         {
-          headers: { 
+          headers: {
             'Content-Type': 'multipart/form-data',
-            Authorization: `Bearer ${token}` 
+            Authorization: `Bearer ${token}`
           }
         }
       );
@@ -232,9 +243,9 @@ function ProfilePage() {
   }, []);
 
   // Conditional render profile picture URL
-  const profilePictureUrl = previewImage || 
-    (userData.profilePicture ? `${API_URL}/${userData.profilePicture}` : 
-    'https://randomuser.me/api/portraits/men/32.jpg');
+  const profilePictureUrl = previewImage ||
+    (userData.profilePicture ? `${API_URL}/${userData.profilePicture}` :
+      'https://randomuser.me/api/portraits/men/32.jpg');
 
   return (
     <div className="min-h-screen bg-amber-50">
@@ -257,16 +268,16 @@ function ProfilePage() {
                   size="xl"
                 />
                 {isEditing && (
-                  <button 
+                  <button
                     className="absolute bottom-0 right-0 bg-white p-2 rounded-full shadow-md"
                     onClick={() => fileInputRef.current && fileInputRef.current.click()}
                   >
                     <HiOutlinePencilAlt className="h-5 w-5 text-amber-600" />
-                    <input 
-                      type="file" 
-                      ref={fileInputRef} 
-                      onChange={handleProfilePictureChange} 
-                      className="hidden" 
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleProfilePictureChange}
+                      className="hidden"
                       accept="image/*"
                     />
                   </button>
@@ -293,12 +304,12 @@ function ProfilePage() {
                       day: 'numeric',
                     })}
                 </p>
-                
+
                 {/* Show Upload button if image is selected and in edit mode */}
                 {profileImage && isEditing && (
-                  <Button 
-                    color="success" 
-                    size="sm" 
+                  <Button
+                    color="success"
+                    size="sm"
                     className="mt-2"
                     onClick={handleUploadProfilePicture}
                   >
@@ -307,6 +318,51 @@ function ProfilePage() {
                 )}
               </div>
             </div>
+          </div>
+
+          {/* Quick Action Links */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-6 bg-gray-50 border-t border-b border-gray-100">
+            <Link
+              to="/my-products"
+              className="flex items-center space-x-3 p-3 bg-amber-50 rounded-lg hover:bg-amber-100 transition-colors"
+            >
+              <div className="p-2 bg-amber-100 rounded-lg">
+                <HiOutlineShoppingBag className="h-6 w-6 text-amber-600" />
+              </div>
+              <div>
+                <div className="font-medium">{language === 'id' ? 'Produk Saya' : 'My Products'}</div>
+                <p className="text-sm text-gray-500">{language === 'id' ? 'Kelola produk Anda' : 'Manage your products'}</p>
+              </div>
+              <HiArrowRight className="ml-auto text-amber-500" />
+            </Link>
+
+            <Link
+              to="/wishlist"
+              className="flex items-center space-x-3 p-3 bg-pink-50 rounded-lg hover:bg-pink-100 transition-colors"
+            >
+              <div className="p-2 bg-pink-100 rounded-lg">
+                <HiOutlineHeart className="h-6 w-6 text-pink-600" />
+              </div>
+              <div>
+                <div className="font-medium">{translate('common.myWishlist')}</div>
+                <p className="text-sm text-gray-500">{language === 'id' ? 'Lihat wishlist Anda' : 'View your wishlist'}</p>
+              </div>
+              <HiArrowRight className="ml-auto text-pink-500" />
+            </Link>
+
+            <button
+              onClick={() => setPasswordModalOpen(true)}
+              className="flex items-center space-x-3 p-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+            >
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <HiOutlineLockClosed className="h-6 w-6 text-blue-600" />
+              </div>
+              <div>
+                <div className="font-medium">{translate('profile.changePassword')}</div>
+                <p className="text-sm text-gray-500">{language === 'id' ? 'Perbarui password Anda' : 'Update your password'}</p>
+              </div>
+              <HiArrowRight className="ml-auto text-blue-500" />
+            </button>
           </div>
 
           <div className="p-6">
@@ -354,7 +410,7 @@ function ProfilePage() {
                   )}
                 </div>
               </div>
-              
+
               <div className="flex items-start col-span-1 md:col-span-2">
                 <HiOutlineDocumentText className="h-6 w-6 text-amber-600 mr-3 mt-1" />
                 <div className="w-full">
@@ -390,13 +446,6 @@ function ProfilePage() {
                   <Button gradientDuoTone="amberToOrange" onClick={() => setIsEditing(true)}>
                     <HiOutlinePencilAlt className="mr-2 h-5 w-5" />
                     {translate('profile.editProfile')}
-                  </Button>
-                  <Button 
-                    color="blue" 
-                    onClick={() => setPasswordModalOpen(true)}
-                  >
-                    <HiOutlineLockClosed className="mr-2 h-5 w-5" />
-                    {translate('profile.changePassword')}
                   </Button>
                 </>
               )}
@@ -481,6 +530,8 @@ function ProfilePage() {
           </Button>
         </Modal.Footer>
       </Modal>
+
+      <Footer />
     </div>
   );
 }
