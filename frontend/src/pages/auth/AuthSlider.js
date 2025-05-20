@@ -4,14 +4,18 @@ import { HiUser, HiMail, HiPhone, HiLockClosed, HiInformationCircle, HiHome } fr
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { useTranslate } from '../../utils/languageUtils';
 import WelcomePopup from '../../components/WelcomePopup';
 import { ClipLoader } from 'react-spinners';
-import './AuthSlider.css'; // Make sure this import is correct
+import './AuthSlider.css';
 
 function AuthSlider() {
     const location = useLocation();
     const navigate = useNavigate();
     const { login } = useAuth();
+    const { language } = useLanguage();
+    const translate = useTranslate(language);
 
     // Determine initial form mode based on the route
     const [isLoginMode, setIsLoginMode] = useState(location.pathname === '/login');
@@ -167,7 +171,7 @@ function AuthSlider() {
                 <div className="w-full md:w-1/2 p-8">
                     <div className="flex justify-center mb-6">
                         <h1 className="text-3xl font-bold text-gray-700">
-                            {isLoginMode ? 'Welcome Back' : 'Create Account'}
+                            {isLoginMode ? translate('auth.welcomeBack') : translate('auth.createAccount')}
                         </h1>
                     </div>
 
@@ -188,7 +192,7 @@ function AuthSlider() {
                             <TextInput
                                 id="username"
                                 type="text"
-                                placeholder="Username"
+                                placeholder={translate('auth.username')}
                                 icon={HiUser}
                                 required
                                 value={loginData.username}
@@ -200,7 +204,7 @@ function AuthSlider() {
                             <TextInput
                                 id="password"
                                 type="password"
-                                placeholder="Password"
+                                placeholder={translate('auth.password')}
                                 icon={HiLockClosed}
                                 required
                                 value={loginData.password}
@@ -214,7 +218,7 @@ function AuthSlider() {
                                     to="/forgot-password"
                                     className="text-sm text-blue-600 hover:text-amber-800 transition-colors font-medium"
                                 >
-                                    Forgot password?
+                                    {translate('common.forgotPassword')}
                                 </Link>
                             </div>
 
@@ -227,10 +231,10 @@ function AuthSlider() {
                                 {isLoading ? (
                                     <>
                                         <ClipLoader size={20} color="#ffffff" className="mr-2" />
-                                        Logging in...
+                                        {translate('auth.loggingIn')}
                                     </>
                                 ) : (
-                                    'Login'
+                                    translate('auth.loginButton')
                                 )}
                             </Button>
                         </form>
@@ -238,20 +242,20 @@ function AuthSlider() {
                         // Register Form
                         <form onSubmit={handleRegister} className={`space-y-4 ${isAnimating ? 'opacity-0' : 'opacity-100 transition-opacity duration-500'}`}>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <TextInput id="full_name" type="text" placeholder="Full Name" icon={HiUser} required onChange={handleRegisterChange} value={registerData.full_name} disabled={isLoading} className="focus:ring-blue-500" />
-                                <TextInput id="username" type="text" placeholder="Username" icon={HiUser} required onChange={handleRegisterChange} value={registerData.username} disabled={isLoading} className="focus:ring-blue-500" />
+                                <TextInput id="full_name" type="text" placeholder={translate('auth.fullName')} icon={HiUser} required onChange={handleRegisterChange} value={registerData.full_name} disabled={isLoading} className="focus:ring-blue-500" />
+                                <TextInput id="username" type="text" placeholder={translate('auth.username')} icon={HiUser} required onChange={handleRegisterChange} value={registerData.username} disabled={isLoading} className="focus:ring-blue-500" />
                             </div>
 
-                            <TextInput id="email" type="email" placeholder="Email" icon={HiMail} required onChange={handleRegisterChange} value={registerData.email} disabled={isLoading} className="focus:ring-blue-500" />
+                            <TextInput id="email" type="email" placeholder={translate('auth.email')} icon={HiMail} required onChange={handleRegisterChange} value={registerData.email} disabled={isLoading} className="focus:ring-blue-500" />
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <TextInput id="phone" type="tel" placeholder="Phone Number" icon={HiPhone} required onChange={handleRegisterChange} value={registerData.phone} disabled={isLoading} className="focus:ring-blue-500" />
-                                <TextInput id="address" type="text" placeholder="Address" icon={HiHome} required onChange={handleRegisterChange} value={registerData.address} disabled={isLoading} className="focus:ring-blue-500" />
+                                <TextInput id="phone" type="tel" placeholder={translate('auth.phone')} icon={HiPhone} required onChange={handleRegisterChange} value={registerData.phone} disabled={isLoading} className="focus:ring-blue-500" />
+                                <TextInput id="address" type="text" placeholder={translate('auth.address')} icon={HiHome} required onChange={handleRegisterChange} value={registerData.address} disabled={isLoading} className="focus:ring-blue-500" />
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <TextInput id="password" type="password" placeholder="Password" icon={HiLockClosed} required onChange={handleRegisterChange} value={registerData.password} disabled={isLoading} className="focus:ring-blue-500" />
-                                <TextInput id="confirmPassword" type="password" placeholder="Confirm Password" icon={HiLockClosed} required onChange={handleRegisterChange} value={registerData.confirmPassword} disabled={isLoading} className="focus:ring-blue-500" />
+                                <TextInput id="password" type="password" placeholder={translate('auth.password')} icon={HiLockClosed} required onChange={handleRegisterChange} value={registerData.password} disabled={isLoading} className="focus:ring-blue-500" />
+                                <TextInput id="confirmPassword" type="password" placeholder={translate('auth.confirmPassword')} icon={HiLockClosed} required onChange={handleRegisterChange} value={registerData.confirmPassword} disabled={isLoading} className="focus:ring-blue-500" />
                             </div>
 
                             <Button
@@ -263,23 +267,23 @@ function AuthSlider() {
                                 {isLoading ? (
                                     <>
                                         <ClipLoader size={20} color="#ffffff" className="mr-2" />
-                                        Registering...
+                                        {translate('auth.registering')}
                                     </>
                                 ) : (
-                                    'REGISTER'
+                                    translate('auth.registerButton')
                                 )}
                             </Button>
                         </form>
                     )}
 
                     <div className="mt-6 text-center text-sm text-gray-600">
-                        {isLoginMode ? "Don't have an account?" : "Already have an account?"}
+                        {isLoginMode ? translate('auth.noAccount') : translate('auth.haveAccount')}
                         <button
                             type="button"
                             onClick={toggleMode}
                             className={`font-medium ml-1 ${isLoginMode ? 'text-blue-600 hover:text-blue-700' : 'text-amber-600 hover:text-amber-700'}`}
                         >
-                            {isLoginMode ? 'Sign Up' : 'Sign In'}
+                            {isLoginMode ? translate('auth.signUp') : translate('auth.signIn')}
                         </button>
                     </div>
                 </div>
@@ -295,7 +299,7 @@ function AuthSlider() {
 
                         <h1 className="text-3xl font-bold mb-4">ZeroWasteMarket</h1>
                         <h2 className="text-2xl font-bold mb-3">
-                            {isLoginMode ? 'New here?' : 'Welcome back!'}
+                            {isLoginMode ? translate('auth.noAccount') : translate('auth.haveAccount')}
                         </h2>
                         <p className="mb-8 text-white/80">
                             {isLoginMode
@@ -307,7 +311,7 @@ function AuthSlider() {
                             className="px-8 py-3 border-2 border-white rounded-full font-bold text-white hover:bg-white hover:text-amber-600 transition-colors duration-300"
                             disabled={isAnimating}
                         >
-                            {isLoginMode ? 'SIGN UP' : 'SIGN IN'}
+                            {isLoginMode ? translate('auth.signUp') : translate('auth.signIn')}
                         </button>
                     </div>
                 </div>

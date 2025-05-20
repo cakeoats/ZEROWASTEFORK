@@ -1,0 +1,49 @@
+.language-dropdown {
+  transition: transform 0.2s ease, opacity 0.2s ease;
+  transform-origin: top right;
+}
+
+.language-dropdown-enter {
+  opacity: 0;
+  transform: scale(0.95) translateY(-10px);
+}
+
+.language-dropdown-enter-active {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+.language-dropdown-exit {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+.language-dropdown-exit-active {
+  opacity: 0;
+  transform: scale(0.95) translateY(-10px);
+}
+
+.language-option {
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.language-option:hover {
+  background-color: rgba(251, 191, 36, 0.1);
+}
+
+.language-option.active {
+  background-color: rgba(251, 191, 36, 0.2);
+  color: rgb(217, 119, 6);
+  font-weight: 500;
+}
+
+/* Flag icon animations */
+.flag-icon {
+  display: inline-block;
+  margin-right: 0.5rem;
+  transition: transform 0.3s ease;
+}
+
+.language-option:hover .flag-icon {
+  transform: scale(1.2);
+}

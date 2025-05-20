@@ -3,6 +3,8 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { HiSearch, HiOutlineHeart, HiOutlineEye } from 'react-icons/hi';
 import NavbarComponent from '../../components/NavbarComponent';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { useTranslate } from '../../utils/languageUtils';
 import axios from 'axios';
 import Footer from '../../components/Footer';
 
@@ -13,12 +15,14 @@ const ProductCatalog = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const { token } = useAuth();
+    const { language } = useLanguage();
+    const translate = useTranslate(language);
 
     // Parse URL query parameters
     const queryParams = new URLSearchParams(location.search);
     const categoryFromUrl = queryParams.get('category');
 
-    // State untuk produk dan loading
+    // State for products and loading
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -29,7 +33,7 @@ const ProductCatalog = () => {
     const [sortBy, setSortBy] = useState('newest');
     const [wishlist, setWishlist] = useState([]);
 
-    // Data kategori
+    // Category data
     const categories = [
         { name: 'All', icon: '🛍️', count: 42 },
         { name: 'Men Fashion', icon: '👔', count: 120 },
@@ -80,7 +84,7 @@ const ProductCatalog = () => {
             setError(null);
 
             try {
-                // Buat query parameters untuk filter
+                // Create query parameters for filter
                 const params = new URLSearchParams();
 
                 if (selectedCategory && selectedCategory !== 'All') {
@@ -99,7 +103,7 @@ const ProductCatalog = () => {
                 setProducts(response.data);
             } catch (err) {
                 console.error('Error fetching products:', err);
-                setError('Gagal memuat produk. Silakan coba lagi nanti.');
+                setError('Failed to load products. Please try again later.');
             } finally {
                 setLoading(false);
             }
@@ -108,10 +112,10 @@ const ProductCatalog = () => {
         fetchProducts();
     }, [selectedCategory, sortBy, searchQuery]);
 
-    // Fungsi untuk melakukan pencarian
+    // Function to perform search
     const handleSearch = () => {
-        // Fungsi pencarian akan dijalankan ketika komponen di-mount ulang
-        // dengan searchQuery yang sudah diupdate
+        // Function will be run when component is re-mounted
+        // with searchQuery already updated
         const fetchProducts = async () => {
             setLoading(true);
             setError(null);
@@ -135,7 +139,7 @@ const ProductCatalog = () => {
                 setProducts(response.data);
             } catch (err) {
                 console.error('Error searching products:', err);
-                setError('Gagal mencari produk. Silakan coba lagi nanti.');
+                setError('Failed to search products. Please try again later.');
             } finally {
                 setLoading(false);
             }
@@ -146,7 +150,7 @@ const ProductCatalog = () => {
 
     // Simplified price display without "Rp" prefix
     const simplifyPrice = (price) => {
-        return `Rp${price.toLocaleString('id-ID')}`;
+        return `Rp${price.toLocaleString(language === 'id' ? 'id-ID' : 'en-US')}`;
     };
 
     // Handle upload click for users that are not authenticated
@@ -195,25 +199,25 @@ const ProductCatalog = () => {
         }
     };
 
-    // Fungsi untuk mendapatkan URL gambar
+    // Function to get image URL
     const getImageUrl = (product) => {
-        // Jika produk memiliki imageUrl (yang sudah diformat dari backend)
+        // If product has imageUrl (already formatted from backend)
         if (product.imageUrl) {
             return product.imageUrl;
         }
 
-        // Jika produk memiliki images (array)
+        // If product has images (array)
         if (product.images && product.images.length > 0) {
-            // Jika image path sudah berupa URL lengkap
+            // If image path is already a full URL
             if (product.images[0].startsWith('http')) {
                 return product.images[0];
             }
 
-            // Jika image path relatif, gabungkan dengan BASE_URL
+            // If image path is relative, combine with BASE_URL
             return `${API_URL}/${product.images[0]}`;
         }
 
-        // Fallback ke image placeholder
+        // Fallback to image placeholder
         return 'https://via.placeholder.com/300';
     };
 
@@ -224,9 +228,9 @@ const ProductCatalog = () => {
             {/* Breadcrumb navigation */}
             <div className="container mx-auto px-4 py-4">
                 <div className="flex items-center text-sm text-gray-500">
-                    <Link to="/" className="hover:text-gray-700">Home</Link>
+                    <Link to="/" className="hover:text-gray-700">{translate('footer.home')}</Link>
                     <span className="mx-2">/</span>
-                    <span className="font-medium text-gray-700">Product</span>
+                    <span className="font-medium text-gray-700">{translate('footer.products')}</span>
                 </div>
             </div>
 
@@ -247,12 +251,12 @@ const ProductCatalog = () => {
                     {/* Left Sidebar - Filters */}
                     <div className="w-full md:w-64 bg-white rounded-lg shadow-sm p-4">
                         <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-lg font-medium">Filter</h2>
+                            <h2 className="text-lg font-medium">{translate('product.filter')}</h2>
                         </div>
 
-                        {/* Kategori Filter */}
+                        {/* Category Filter */}
                         <div className="mb-6">
-                            <h3 className="font-medium mb-3">Kategori</h3>
+                            <h3 className="font-medium mb-3">{translate('product.categories')}</h3>
                             <div className="space-y-2">
                                 {categories.map((category) => (
                                     <div
@@ -264,7 +268,7 @@ const ProductCatalog = () => {
                                         onClick={() => setSelectedCategory(category.name)}
                                     >
                                         <span className="mr-2">{category.icon}</span>
-                                        <span>{category.name}</span>
+                                        <span>{category.name === 'All' ? translate('product.allCategories') : category.name}</span>
                                         <span className="ml-auto text-xs text-gray-500">{category.count}</span>
                                     </div>
                                 ))}
@@ -281,7 +285,7 @@ const ProductCatalog = () => {
                             }}
                             className="w-full py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors"
                         >
-                            Clear Filters
+                            {translate('product.clearFilters')}
                         </button>
                     </div>
 
@@ -292,7 +296,7 @@ const ProductCatalog = () => {
                             <div className="relative w-full md:w-64 mb-4 md:mb-0">
                                 <input
                                     type="text"
-                                    placeholder="Search products..."
+                                    placeholder={translate('common.search')}
                                     className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -310,15 +314,15 @@ const ProductCatalog = () => {
                             </div>
 
                             <div className="flex items-center">
-                                <span className="text-sm text-gray-600 mr-2">Sort:</span>
+                                <span className="text-sm text-gray-600 mr-2">{translate('product.sort')}:</span>
                                 <select
                                     value={sortBy}
                                     onChange={(e) => setSortBy(e.target.value)}
                                     className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500"
                                 >
-                                    <option value="newest">Terbaru</option>
-                                    <option value="price-desc">Harga: Tinggi ke Rendah</option>
-                                    <option value="price-asc">Harga: Rendah ke Tinggi</option>
+                                    <option value="newest">{translate('product.newest')}</option>
+                                    <option value="price-desc">{translate('product.priceHighToLow')}</option>
+                                    <option value="price-asc">{translate('product.priceLowToHigh')}</option>
                                 </select>
                             </div>
                         </div>
@@ -398,7 +402,7 @@ const ProductCatalog = () => {
                                 <div className="inline-flex justify-center items-center w-24 h-24 bg-gray-100 rounded-full mb-4">
                                     <HiSearch className="w-10 h-10 text-gray-400" />
                                 </div>
-                                <h3 className="text-xl font-medium text-gray-900 mb-2">No Products Found</h3>
+                                <h3 className="text-xl font-medium text-gray-900 mb-2">{translate('product.noProducts')}</h3>
                                 <p className="text-gray-500 mb-6">Try a different search term or filter</p>
                                 <button
                                     onClick={() => {
@@ -409,7 +413,7 @@ const ProductCatalog = () => {
                                     }}
                                     className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg transition-colors"
                                 >
-                                    Clear Filters
+                                    {translate('product.clearFilters')}
                                 </button>
                             </div>
                         )}
@@ -422,4 +426,4 @@ const ProductCatalog = () => {
     );
 };
 
-export default ProductCatalog;
+export default ProductCatalog;  

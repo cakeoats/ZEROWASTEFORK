@@ -1,0 +1,127 @@
+{
+  "common": {
+    "welcome": "Welcome",
+    "login": "Login",
+    "logout": "Logout",
+    "register": "Register",
+    "forgotPassword": "Forgot Password?",
+    "myWishlist": "My Wishlist",
+    "profile": "Profile",
+    "search": "Search products...",
+    "language": "Language"
+  },
+  "home": {
+    "hero": {
+      "welcome": "Hello, Welcome",
+      "title": "Find Your Dream Items at Affordable Prices",
+      "trends": "Current Trends: Zara, iPhone, Dress, iPad, Adidas, Crocs, Apple Watch, Furniture",
+      "shopNow": "Shop Now"
+    },
+    "categories": {
+      "title": "Discover Your Favorite Categories",
+      "subtitle": "Explore our best collections"
+    }
+  },
+  "product": {
+    "categories": "Categories",
+    "sort": "Sort",
+    "filter": "Filter",
+    "clearFilters": "Clear Filters",
+    "noProducts": "No products found",
+    "newest": "Newest",
+    "priceHighToLow": "Price: High to Low",
+    "priceLowToHigh": "Price: Low to High",
+    "buyNow": "Buy Now",
+    "allCategories": "All Categories",
+    "upload": "Upload Product",
+    "uploadSuccess": "Product Successfully Uploaded!",
+    "thanksContribute": "Thank you for contributing to the zero waste lifestyle.",
+    "viewProducts": "View Products",
+    "uploadAgain": "Upload Again",
+    "productName": "Product Name",
+    "price": "Price",
+    "description": "Description",
+    "condition": "Condition",
+    "new": "New",
+    "used": "Used",
+    "uploadPhotos": "Upload Product Photos",
+    "mainPhoto": "First photo will be the main photo",
+    "maxPhotos": "Maximum 5 photos",
+    "productInfo": "Product Information",
+    "uploadError": "Failed to upload product"
+  },
+  "auth": {
+    "welcomeBack": "Welcome Back",
+    "createAccount": "Create Account",
+    "fullName": "Full Name",
+    "username": "Username",
+    "email": "Email",
+    "phone": "Phone Number",
+    "address": "Address",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "loginButton": "Login",
+    "registerButton": "REGISTER",
+    "loggingIn": "Logging in...",
+    "registering": "Registering...",
+    "noAccount": "Don't have an account?",
+    "haveAccount": "Already have an account?",
+    "signUp": "Sign Up",
+    "signIn": "Sign In",
+    "passwordsNotMatch": "Passwords do not match",
+    "passwordChangeSuccess": "Password changed successfully!"
+  },
+  "wishlist": {
+    "title": "My Wishlist",
+    "subtitle": "Items you've saved for later",
+    "empty": "Your wishlist is empty",
+    "saveItems": "Save items you love to your wishlist and come back to them anytime.",
+    "exploreProducts": "Explore Products"
+  },
+  "footer": {
+    "about": "The best online shopping platform to find quality products at the best prices.",
+    "quickLinks": "Quick Links",
+    "home": "Home",
+    "products": "Products",
+    "categories": "Categories",
+    "about": "About Us",
+    "contact": "Contact",
+    "contactUs": "Contact Us"
+  },
+  "nav": {
+    "luxury": "Luxury",
+    "fashion": "Fashion",
+    "electronics": "Electronics",
+    "property": "Property",
+    "cars": "Cars"
+  },
+  "profile": {
+    "profile": "Profile",
+    "backToHome": "Back to Home",
+    "joinedSince": "Joined since:",
+    "email": "Email",
+    "phone": "Phone",
+    "address": "Address",
+    "bio": "Bio",
+    "noBio": "No bio yet",
+    "editProfile": "Edit Profile",
+    "changePassword": "Change Password",
+    "saveChanges": "Save Changes",
+    "cancel": "Cancel",
+    "currentPassword": "Current Password",
+    "newPassword": "New Password",
+    "confirmNewPassword": "Confirm New Password",
+    "enterCurrentPassword": "Enter current password",
+    "enterNewPassword": "Enter new password",
+    "confirmNewPasswordPlaceholder": "Confirm new password",
+    "uploadPhoto": "Upload Photo"
+  },
+  "passwordChange": {
+    "currentRequired": "Current password is required",
+    "newRequired": "New password is required",
+    "noMatch": "Password confirmation does not match",
+    "minLength": "New password must be at least 6 characters",
+    "success": "Password changed successfully!",
+    "failed": "Failed to change password"
+  }
+}

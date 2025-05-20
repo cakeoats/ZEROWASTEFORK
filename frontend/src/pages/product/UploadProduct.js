@@ -2,6 +2,9 @@ import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import NavbarComponent from '../../components/NavbarComponent';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { useTranslate } from '../../utils/languageUtils';
+import Footer from '../../components/Footer';
 
 // Konstanta untuk API
 const API_URL = 'http://localhost:5000';
@@ -10,6 +13,8 @@ export default function ProductUpload() {
   // Hooks
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
+  const { language } = useLanguage();
+  const translate = useTranslate(language);
 
   // States
   const [loading, setLoading] = useState(false);
@@ -45,7 +50,7 @@ export default function ProductUpload() {
     const files = Array.from(e.target.files);
 
     if (formData.images.length + files.length > 5) {
-      setError('Maksimum 5 gambar yang diperbolehkan');
+      setError(language === 'id' ? 'Maksimum 5 gambar yang diperbolehkan' : 'Maximum 5 images allowed');
       setTimeout(() => setError(null), 3000);
       return;
     }
@@ -55,7 +60,9 @@ export default function ProductUpload() {
 
     files.forEach(file => {
       if (!file.type.match('image.*')) {
-        setError('Harap upload file gambar saja (JPG, PNG, atau GIF)');
+        setError(language === 'id' ? 
+          'Harap upload file gambar saja (JPG, PNG, atau GIF)' : 
+          'Please upload image files only (JPG, PNG, or GIF)');
         setTimeout(() => setError(null), 3000);
         return;
       }
@@ -89,22 +96,28 @@ export default function ProductUpload() {
   // Form validation
   const validateForm = () => {
     if (!formData.name.trim()) {
-      setError('Nama produk harus diisi'); return false;
+      setError(language === 'id' ? 'Nama produk harus diisi' : 'Product name is required');
+      return false;
     }
     if (!formData.price) {
-      setError('Harga produk harus diisi'); return false;
+      setError(language === 'id' ? 'Harga produk harus diisi' : 'Price is required');
+      return false;
     }
     if (!formData.category) {
-      setError('Kategori produk harus dipilih'); return false;
+      setError(language === 'id' ? 'Kategori produk harus dipilih' : 'Category is required');
+      return false;
     }
     if (!formData.tipe) {
-      setError('Tipe produk harus dipilih'); return false;
+      setError(language === 'id' ? 'Tipe produk harus dipilih' : 'Product type is required');
+      return false;
     }
     if (!formData.description.trim()) {
-      setError('Deskripsi produk harus diisi'); return false;
+      setError(language === 'id' ? 'Deskripsi produk harus diisi' : 'Description is required');
+      return false;
     }
     if (formData.images.length === 0) {
-      setError('Upload minimal 1 gambar produk'); return false;
+      setError(language === 'id' ? 'Upload minimal 1 gambar produk' : 'Upload at least 1 product image');
+      return false;
     }
     return true;
   };
@@ -137,7 +150,9 @@ export default function ProductUpload() {
       const token = localStorage.getItem('token');
 
       if (!token) {
-        setError('Anda harus login untuk mengunggah produk. Silakan login dan coba lagi.');
+        setError(language === 'id' ? 
+          'Anda harus login untuk mengunggah produk. Silakan login dan coba lagi.' : 
+          'You must be logged in to upload a product. Please login and try again.');
         setLoading(false);
         navigate('/login', { state: { from: '/upload-product' } });
         return;
@@ -162,9 +177,14 @@ export default function ProductUpload() {
     } catch (err) {
       console.error('Error uploading product:', err);
       if (err.response?.status === 401) {
-        setError('Otentikasi gagal. Silakan login kembali dan coba lagi.');
+        setError(language === 'id' ? 
+          'Otentikasi gagal. Silakan login kembali dan coba lagi.' : 
+          'Authentication failed. Please log in again and try again.');
       } else {
-        setError(err.response?.data?.message || 'Gagal mengunggah produk. Silakan coba lagi.');
+        setError(err.response?.data?.message || 
+          (language === 'id' ? 
+            'Gagal mengunggah produk. Silakan coba lagi.' : 
+            'Failed to upload product. Please try again.'));
       }
       setTimeout(() => setError(null), 5000);
     } finally {
@@ -187,14 +207,26 @@ export default function ProductUpload() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <h2 className="text-xl font-bold text-gray-800 mb-2">Produk Berhasil Diunggah!</h2>
-                <p className="text-gray-600 mb-4">Terima kasih telah berkontribusi pada gaya hidup zero waste.</p>
+                <h2 className="text-xl font-bold text-gray-800 mb-2">
+                  {translate('product.uploadSuccess')}
+                </h2>
+                <p className="text-gray-600 mb-4">
+                  {translate('product.thanksContribute')}
+                </p>
                 <div className="flex space-x-4">
-                  <button onClick={() => navigate('/product-list')} className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg" type="button">
-                    Lihat Produk
+                  <button 
+                    onClick={() => navigate('/product-list')} 
+                    className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg" 
+                    type="button"
+                  >
+                    {language === 'id' ? 'Lihat Produk' : 'View Products'}
                   </button>
-                  <button onClick={() => window.location.reload()} className="px-4 py-2 border border-amber-500 text-amber-500 hover:bg-amber-50 rounded-lg" type="button">
-                    Upload Lagi
+                  <button 
+                    onClick={() => window.location.reload()} 
+                    className="px-4 py-2 border border-amber-500 text-amber-500 hover:bg-amber-50 rounded-lg" 
+                    type="button"
+                  >
+                    {language === 'id' ? 'Upload Lagi' : 'Upload Again'}
                   </button>
                 </div>
               </div>
@@ -209,12 +241,14 @@ export default function ProductUpload() {
                   </div>
                 )}
 
-                <h2 className="text-xl font-bold text-gray-800 mb-4">Upload Produk Zero Waste</h2>
+                <h2 className="text-xl font-bold text-gray-800 mb-4">
+                  {translate('product.upload')}
+                </h2>
 
                 {/* Upload Photos */}
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Foto Produk <span className="text-red-500">*</span>
+                    {translate('product.uploadPhotos')} <span className="text-red-500">*</span>
                   </label>
 
                   <div className="border-2 border-dashed border-amber-200 rounded-lg p-4 bg-amber-50">
@@ -228,7 +262,7 @@ export default function ProductUpload() {
                               </div>
                               {index === 0 && (
                                 <span className="absolute top-1 left-1 bg-amber-500 text-white text-xs px-1 rounded">
-                                  Utama
+                                  {language === 'id' ? 'Utama' : 'Main'}
                                 </span>
                               )}
                               <button
@@ -255,7 +289,9 @@ export default function ProductUpload() {
                             </button>
                           )}
                         </div>
-                        <p className="text-xs text-gray-500">Foto pertama akan menjadi foto utama. Maksimal 5 foto.</p>
+                        <p className="text-xs text-gray-500">
+                          {translate('product.mainPhoto')}. {translate('product.maxPhotos')}.
+                        </p>
                       </div>
                     ) : (
                       <div
@@ -265,8 +301,12 @@ export default function ProductUpload() {
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-amber-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        <p className="text-sm text-gray-600 mb-1">Klik untuk mengunggah foto produk</p>
-                        <p className="text-xs text-gray-500">Format: JPG, PNG, GIF (Maks. 5 foto)</p>
+                        <p className="text-sm text-gray-600 mb-1">
+                          {language === 'id' ? 'Klik untuk mengunggah foto produk' : 'Click to upload product photos'}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {language === 'id' ? 'Format: JPG, PNG, GIF (Maks. 5 foto)' : 'Format: JPG, PNG, GIF (Max. 5 photos)'}
+                        </p>
                       </div>
                     )}
 
@@ -288,7 +328,7 @@ export default function ProductUpload() {
                     {/* Nama Produk */}
                     <div>
                       <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                        Nama Produk <span className="text-red-500">*</span>
+                        {translate('product.productName')} <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
@@ -297,14 +337,14 @@ export default function ProductUpload() {
                         value={formData.name}
                         onChange={handleChange}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500"
-                        placeholder="Nama produk"
+                        placeholder={language === 'id' ? "Nama produk" : "Product name"}
                       />
                     </div>
 
                     {/* Harga */}
                     <div>
                       <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-1">
-                        Harga (Rp) <span className="text-red-500">*</span>
+                        {translate('product.price')} (Rp) <span className="text-red-500">*</span>
                       </label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
@@ -328,7 +368,7 @@ export default function ProductUpload() {
                     {/* Kategori */}
                     <div>
                       <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
-                        Kategori <span className="text-red-500">*</span>
+                        {translate('product.categories')} <span className="text-red-500">*</span>
                       </label>
                       <select
                         id="category"
@@ -337,7 +377,9 @@ export default function ProductUpload() {
                         onChange={handleChange}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white"
                       >
-                        <option value="" disabled>Pilih kategori</option>
+                        <option value="" disabled>
+                          {language === 'id' ? 'Pilih kategori' : 'Select category'}
+                        </option>
                         {categories.map((category) => (
                           <option key={category} value={category.toLowerCase()}>
                             {category}
@@ -349,7 +391,7 @@ export default function ProductUpload() {
                     {/* Tipe sebagai dropdown */}
                     <div>
                       <label htmlFor="tipe" className="block text-sm font-medium text-gray-700 mb-1">
-                        Tipe Produk <span className="text-red-500">*</span>
+                        {language === 'id' ? 'Tipe Produk' : 'Product Type'} <span className="text-red-500">*</span>
                       </label>
                       <select
                         id="tipe"
@@ -358,9 +400,9 @@ export default function ProductUpload() {
                         onChange={handleChange}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white"
                       >
-                        <option value="Sell">Jual</option>
-                        <option value="Donation">Donasi</option>
-                        <option value="Swap">Tukar</option>
+                        <option value="Sell">{language === 'id' ? 'Jual' : 'Sell'}</option>
+                        <option value="Donation">{language === 'id' ? 'Donasi' : 'Donation'}</option>
+                        <option value="Swap">{language === 'id' ? 'Tukar' : 'Swap'}</option>
                       </select>
                     </div>
                   </div>
@@ -368,7 +410,7 @@ export default function ProductUpload() {
                   {/* Kondisi */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Kondisi <span className="text-red-500">*</span>
+                      {translate('product.condition')} <span className="text-red-500">*</span>
                     </label>
                     <div className="flex space-x-4">
                       <label className={`flex items-center px-3 py-2 border rounded-lg cursor-pointer ${formData.condition === 'new' ? 'bg-amber-50 border-amber-300' : 'border-gray-200'}`}>
@@ -380,7 +422,7 @@ export default function ProductUpload() {
                           onChange={handleChange}
                           className="mr-2"
                         />
-                        <span>Baru</span>
+                        <span>{language === 'id' ? 'Baru' : 'New'}</span>
                       </label>
 
                       <label className={`flex items-center px-3 py-2 border rounded-lg cursor-pointer ${formData.condition === 'used' ? 'bg-amber-50 border-amber-300' : 'border-gray-200'}`}>
@@ -392,7 +434,7 @@ export default function ProductUpload() {
                           onChange={handleChange}
                           className="mr-2"
                         />
-                        <span>Bekas</span>
+                        <span>{language === 'id' ? 'Bekas' : 'Used'}</span>
                       </label>
                     </div>
                   </div>
@@ -400,7 +442,7 @@ export default function ProductUpload() {
                   {/* Deskripsi */}
                   <div>
                     <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-                      Deskripsi Produk <span className="text-red-500">*</span>
+                      {translate('product.description')} <span className="text-red-500">*</span>
                     </label>
                     <textarea
                       id="description"
@@ -409,10 +451,12 @@ export default function ProductUpload() {
                       onChange={handleChange}
                       rows={3}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500"
-                      placeholder="Deskripsikan produk Anda secara detail, termasuk bahan, ukuran, dan cara penggunaan."
+                      placeholder={language === 'id' ? 
+                        "Deskripsikan produk Anda secara detail, termasuk bahan, ukuran, dan cara penggunaan." : 
+                        "Describe your product in detail, including materials, size, and usage instructions."}
                     />
                     <p className="mt-1 text-xs text-gray-500">
-                      {formData.description.length}/1000 karakter
+                      {formData.description.length}/1000 {language === 'id' ? 'karakter' : 'characters'}
                     </p>
                   </div>
                 </div>
@@ -430,9 +474,9 @@ export default function ProductUpload() {
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        Mengunggah...
+                        {language === 'id' ? 'Mengunggah...' : 'Uploading...'}
                       </span>
-                    ) : 'Upload Produk'}
+                    ) : translate('product.upload')}
                   </button>
                 </div>
               </form>
@@ -441,12 +485,15 @@ export default function ProductUpload() {
             {/* Footer Note */}
             {!success && (
               <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 text-center text-xs text-gray-500">
-                Dengan mengupload produk, Anda menyetujui persyaratan layanan kami.
+                {language === 'id' ? 
+                  'Dengan mengupload produk, Anda menyetujui persyaratan layanan kami.' : 
+                  'By uploading a product, you agree to our terms of service.'}
               </div>
             )}
           </div>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

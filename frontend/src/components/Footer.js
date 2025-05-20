@@ -1,8 +1,13 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { FaFacebook, FaTwitter, FaInstagram, FaLinkedin } from "react-icons/fa";
+import { useLanguage } from "../contexts/LanguageContext";
+import { useTranslate } from "../utils/languageUtils";
 
 function Footer() {
+    const { language } = useLanguage();
+    const translate = useTranslate(language);
+
     return (
         <footer className="bg-gray-900 text-white pt-12 pb-8">
             <div className="container mx-auto px-4">
@@ -12,7 +17,7 @@ function Footer() {
                     <div>
                         <h3 className="text-xl font-bold mb-4 text-white-400">ZeroWasteMarket</h3>
                         <p className="text-gray-400">
-                            Platform belanja online terbaik untuk menemukan produk berkualitas dengan harga terbaik.
+                            {translate('footer.about')}
                         </p>
                         <div className="flex space-x-4 mt-4">
                             <a href="#" className="text-gray-400 hover:text-amber-400 transition-colors">
@@ -32,31 +37,31 @@ function Footer() {
 
                     {/* Quick Links */}
                     <div>
-                        <h4 className="text-lg font-semibold mb-4">Tautan Cepat</h4>
+                        <h4 className="text-lg font-semibold mb-4">{translate('footer.quickLinks')}</h4>
                         <ul className="space-y-2">
-                            <li><Link to="/" className="text-gray-400 hover:text-amber-400 transition-colors">Beranda</Link></li>
-                            <li><Link to="/product-list" className="text-gray-400 hover:text-amber-400 transition-colors">Produk</Link></li>
-                            <li><Link to="/categories" className="text-gray-400 hover:text-amber-400 transition-colors">Kategori</Link></li>
-                            <li><Link to="/about" className="text-gray-400 hover:text-amber-400 transition-colors">Tentang Kami</Link></li>
-                            <li><Link to="/contact" className="text-gray-400 hover:text-amber-400 transition-colors">Kontak</Link></li>
+                            <li><Link to="/" className="text-gray-400 hover:text-amber-400 transition-colors">{translate('footer.home')}</Link></li>
+                            <li><Link to="/product-list" className="text-gray-400 hover:text-amber-400 transition-colors">{translate('footer.products')}</Link></li>
+                            <li><Link to="/categories" className="text-gray-400 hover:text-amber-400 transition-colors">{translate('footer.categories')}</Link></li>
+                            <li><Link to="/about" className="text-gray-400 hover:text-amber-400 transition-colors">{translate('footer.about')}</Link></li>
+                            <li><Link to="/contact" className="text-gray-400 hover:text-amber-400 transition-colors">{translate('footer.contact')}</Link></li>
                         </ul>
                     </div>
 
                     {/* Categories */}
                     <div>
-                        <h4 className="text-lg font-semibold mb-4">Kategori</h4>
+                        <h4 className="text-lg font-semibold mb-4">{translate('product.categories')}</h4>
                         <ul className="space-y-2">
-                            <li><Link to="/category/fashion" className="text-gray-400 hover:text-amber-400 transition-colors">Fashion</Link></li>
-                            <li><Link to="/category/electronics" className="text-gray-400 hover:text-amber-400 transition-colors">Elektronik</Link></li>
-                            <li><Link to="/category/vehicles" className="text-gray-400 hover:text-amber-400 transition-colors">Kendaraan</Link></li>
+                            <li><Link to="/category/fashion" className="text-gray-400 hover:text-amber-400 transition-colors">{translate('nav.fashion')}</Link></li>
+                            <li><Link to="/category/electronics" className="text-gray-400 hover:text-amber-400 transition-colors">{translate('nav.electronics')}</Link></li>
+                            <li><Link to="/category/vehicles" className="text-gray-400 hover:text-amber-400 transition-colors">{translate('nav.cars')}</Link></li>
                             <li><Link to="/category/gadgets" className="text-gray-400 hover:text-amber-400 transition-colors">Gadget</Link></li>
-                            <li><Link to="/category/furniture" className="text-gray-400 hover:text-amber-400 transition-colors">Perabotan</Link></li>
+                            <li><Link to="/category/furniture" className="text-gray-400 hover:text-amber-400 transition-colors">Furniture</Link></li>
                         </ul>
                     </div>
 
                     {/* Contact Info */}
                     <div>
-                        <h4 className="text-lg font-semibold mb-4">Hubungi Kami</h4>
+                        <h4 className="text-lg font-semibold mb-4">{translate('footer.contactUs')}</h4>
                         <ul className="space-y-2 text-gray-400">
                             <li className="flex items-start">
                                 <svg className="h-5 w-5 mr-2 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -1,0 +1,127 @@
+{
+  "common": {
+    "welcome": "Selamat Datang",
+    "login": "Masuk",
+    "logout": "Keluar",
+    "register": "Daftar",
+    "forgotPassword": "Lupa Password?",
+    "myWishlist": "Wishlist Saya",
+    "profile": "Profil",
+    "search": "Cari produk...",
+    "language": "Bahasa"
+  },
+  "home": {
+    "hero": {
+      "welcome": "Halo, Selamat Datang",
+      "title": "Temukan Barang Murah Impianmu",
+      "trends": "Trend Terkini: Zara, iPhone, Dress, iPad, Adidas, Crocs, Apple Watch, Perabotan",
+      "shopNow": "Belanja Sekarang"
+    },
+    "categories": {
+      "title": "Temukan Kategori Favoritmu",
+      "subtitle": "Jelajahi koleksi terbaik kami"
+    }
+  },
+  "product": {
+    "categories": "Kategori",
+    "sort": "Urutkan",
+    "filter": "Filter",
+    "clearFilters": "Hapus Filter",
+    "noProducts": "Tidak ada produk ditemukan",
+    "newest": "Terbaru",
+    "priceHighToLow": "Harga: Tinggi ke Rendah",
+    "priceLowToHigh": "Harga: Rendah ke Tinggi",
+    "buyNow": "Beli Sekarang",
+    "allCategories": "Semua Kategori",
+    "upload": "Unggah Produk",
+    "uploadSuccess": "Produk Berhasil Diunggah!",
+    "thanksContribute": "Terima kasih telah berkontribusi pada gaya hidup zero waste.",
+    "viewProducts": "Lihat Produk",
+    "uploadAgain": "Upload Lagi",
+    "productName": "Nama Produk",
+    "price": "Harga",
+    "description": "Deskripsi",
+    "condition": "Kondisi",
+    "new": "Baru",
+    "used": "Bekas",
+    "uploadPhotos": "Unggah Foto Produk",
+    "mainPhoto": "Foto pertama akan menjadi foto utama",
+    "maxPhotos": "Maksimal 5 foto",
+    "productInfo": "Informasi Produk",
+    "uploadError": "Gagal mengunggah produk"
+  },
+  "auth": {
+    "welcomeBack": "Selamat Datang Kembali",
+    "createAccount": "Buat Akun",
+    "fullName": "Nama Lengkap",
+    "username": "Nama Pengguna",
+    "email": "Email",
+    "phone": "Nomor Telepon",
+    "address": "Alamat",
+    "password": "Kata Sandi",
+    "confirmPassword": "Konfirmasi Kata Sandi",
+    "loginButton": "Masuk",
+    "registerButton": "DAFTAR",
+    "loggingIn": "Masuk...",
+    "registering": "Mendaftar...",
+    "noAccount": "Belum punya akun?",
+    "haveAccount": "Sudah punya akun?",
+    "signUp": "Daftar",
+    "signIn": "Masuk",
+    "passwordsNotMatch": "Kata sandi tidak cocok",
+    "passwordChangeSuccess": "Kata sandi berhasil diubah!"
+  },
+  "wishlist": {
+    "title": "Wishlist Saya",
+    "subtitle": "Item yang Anda simpan untuk nanti",
+    "empty": "Wishlist Anda kosong",
+    "saveItems": "Simpan item yang Anda sukai ke wishlist dan kembali ke sini kapan saja.",
+    "exploreProducts": "Jelajahi Produk"
+  },
+  "footer": {
+    "about": "Platform belanja online terbaik untuk menemukan produk berkualitas dengan harga terbaik.",
+    "quickLinks": "Tautan Cepat",
+    "home": "Beranda",
+    "products": "Produk",
+    "categories": "Kategori",
+    "about": "Tentang Kami",
+    "contact": "Kontak",
+    "contactUs": "Hubungi Kami"
+  },
+  "nav": {
+    "luxury": "Mewah",
+    "fashion": "Fashion",
+    "electronics": "Elektronik",
+    "property": "Properti",
+    "cars": "Mobil"
+  },
+  "profile": {
+    "profile": "Profil",
+    "backToHome": "Kembali ke Beranda",
+    "joinedSince": "Bergabung sejak:",
+    "email": "Email",
+    "phone": "Telepon",
+    "address": "Alamat",
+    "bio": "Bio",
+    "noBio": "Belum ada bio",
+    "editProfile": "Edit Profil",
+    "changePassword": "Ganti Password",
+    "saveChanges": "Simpan Perubahan",
+    "cancel": "Batal",
+    "currentPassword": "Password Saat Ini",
+    "newPassword": "Password Baru",
+    "confirmNewPassword": "Konfirmasi Password Baru",
+    "enterCurrentPassword": "Masukkan password saat ini",
+    "enterNewPassword": "Masukkan password baru",
+    "confirmNewPasswordPlaceholder": "Konfirmasi password baru",
+    "uploadPhoto": "Unggah Foto"
+  },
+  "passwordChange": {
+    "currentRequired": "Password saat ini wajib diisi",
+    "newRequired": "Password baru wajib diisi",
+    "noMatch": "Konfirmasi password tidak sesuai",
+    "minLength": "Password baru harus minimal 6 karakter",
+    "success": "Password berhasil diubah!",
+    "failed": "Gagal mengubah password"
+  }
+}

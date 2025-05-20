@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { HiOutlineHeart, HiOutlineEye, HiTrash, HiOutlineShoppingCart } from 'react-icons/hi';
 import NavbarComponent from '../../components/NavbarComponent';
 import { useAuth } from '../../contexts/AuthContext';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { useTranslate } from '../../utils/languageUtils';
 import axios from 'axios';
 import Footer from '../../components/Footer';
 
@@ -11,6 +13,8 @@ const API_URL = 'http://localhost:5000';
 const WishlistPage = () => {
     const navigate = useNavigate();
     const { token, user } = useAuth();
+    const { language } = useLanguage();
+    const translate = useTranslate(language);
     const [wishlistItems, setWishlistItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -61,7 +65,7 @@ const WishlistPage = () => {
 
     // Helper to format price
     const simplifyPrice = (price) => {
-        return `Rp${price.toLocaleString('id-ID')}`;
+        return `Rp${price.toLocaleString(language === 'id' ? 'id-ID' : 'en-US')}`;
     };
 
     // Function to get product image URL
@@ -91,17 +95,17 @@ const WishlistPage = () => {
             {/* Breadcrumb navigation */}
             <div className="container mx-auto px-4 py-4">
                 <div className="flex items-center text-sm text-gray-500">
-                    <Link to="/" className="hover:text-gray-700">Home</Link>
+                    <Link to="/" className="hover:text-gray-700">{translate('footer.home')}</Link>
                     <span className="mx-2">/</span>
-                    <span className="font-medium text-gray-700">Wishlist</span>
+                    <span className="font-medium text-gray-700">{translate('common.myWishlist')}</span>
                 </div>
             </div>
 
             {/* Main Content */}
             <div className="container mx-auto px-4 pb-12">
                 <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-                    <h1 className="text-2xl font-bold text-gray-800 mb-2">My Wishlist</h1>
-                    <p className="text-gray-600">Items you've saved for later</p>
+                    <h1 className="text-2xl font-bold text-gray-800 mb-2">{translate('wishlist.title')}</h1>
+                    <p className="text-gray-600">{translate('wishlist.subtitle')}</p>
                 </div>
 
                 {/* Error message */}
@@ -122,10 +126,10 @@ const WishlistPage = () => {
                         <div className="inline-flex justify-center items-center w-20 h-20 bg-gray-100 rounded-full mb-4">
                             <HiOutlineHeart className="w-10 h-10 text-gray-400" />
                         </div>
-                        <h2 className="text-xl font-medium text-gray-900 mb-2">Your wishlist is empty</h2>
-                        <p className="text-gray-500 mb-6">Save items you love to your wishlist and come back to them anytime.</p>
+                        <h2 className="text-xl font-medium text-gray-900 mb-2">{translate('wishlist.empty')}</h2>
+                        <p className="text-gray-500 mb-6">{translate('wishlist.saveItems')}</p>
                         <Link to="/product-list" className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-2 rounded-lg transition-colors inline-block">
-                            Explore Products
+                            {translate('wishlist.exploreProducts')}
                         </Link>
                     </div>
                 ) : (
@@ -179,7 +183,7 @@ const WishlistPage = () => {
                                             className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-2 rounded-lg transition-colors text-sm flex items-center justify-center"
                                         >
                                             <HiOutlineShoppingCart className="mr-1 w-4 h-4" />
-                                            Buy Now
+                                            {translate('product.buyNow')}
                                         </Link>
                                         <Link
                                             to={`/products/${item.product_id._id}`}

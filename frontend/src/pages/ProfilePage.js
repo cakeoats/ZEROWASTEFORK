@@ -4,6 +4,8 @@ import { HiOutlinePencilAlt, HiOutlineMail, HiOutlinePhone, HiOutlineLocationMar
 import { Link } from 'react-router-dom';
 import NavbarComponent from '../components/NavbarComponent';
 import axios from 'axios';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useTranslate } from '../utils/languageUtils';
 
 function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
@@ -18,7 +20,11 @@ function ProfilePage() {
     profilePicture: '',
   });
 
-  // State untuk change password modal
+  // Language hooks
+  const { language } = useLanguage();
+  const translate = useTranslate(language);
+
+  // State for change password modal
   const [isPasswordModalOpen, setPasswordModalOpen] = useState(false);
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -28,7 +34,7 @@ function ProfilePage() {
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState('');
 
-  // State untuk foto profil
+  // State for profile picture
   const [profileImage, setProfileImage] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
   const fileInputRef = useRef(null);
@@ -93,26 +99,26 @@ function ProfilePage() {
     }
   };
 
-  // Handler untuk mengubah password
+  // Handler for changing password
   const handleChangePassword = async () => {
     setPasswordError('');
     setPasswordSuccess('');
 
-    // Validasi
+    // Validation
     if (!passwordData.currentPassword) {
-      setPasswordError('Password saat ini wajib diisi');
+      setPasswordError(translate('passwordChange.currentRequired'));
       return;
     }
     if (!passwordData.newPassword) {
-      setPasswordError('Password baru wajib diisi');
+      setPasswordError(translate('passwordChange.newRequired'));
       return;
     }
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setPasswordError('Konfirmasi password tidak sesuai');
+      setPasswordError(translate('passwordChange.noMatch'));
       return;
     }
     if (passwordData.newPassword.length < 6) {
-      setPasswordError('Password baru harus minimal 6 karakter');
+      setPasswordError(translate('passwordChange.minLength'));
       return;
     }
 
@@ -131,7 +137,7 @@ function ProfilePage() {
         }
       );
 
-      setPasswordSuccess('Password berhasil diubah!');
+      setPasswordSuccess(translate('passwordChange.success'));
       
       // Reset form
       setPasswordData({
@@ -148,11 +154,11 @@ function ProfilePage() {
 
     } catch (error) {
       console.error('Error changing password:', error.response?.data || error.message);
-      setPasswordError(error.response?.data?.message || 'Gagal mengubah password');
+      setPasswordError(error.response?.data?.message || translate('passwordChange.failed'));
     }
   };
 
-  // Handler untuk foto profil
+  // Handler for profile picture
   const handleProfilePictureChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -161,7 +167,9 @@ function ProfilePage() {
       // Preview image
       const reader = new FileReader();
       reader.onload = () => {
-        setPreviewImage(reader.result);
+        if (reader.result) {
+          setPreviewImage(reader.result.toString());
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -223,7 +231,7 @@ function ProfilePage() {
     fetchProfile();
   }, []);
 
-  // Kondisional render profile picture URL
+  // Conditional render profile picture URL
   const profilePictureUrl = previewImage || 
     (userData.profilePicture ? `${API_URL}/${userData.profilePicture}` : 
     'https://randomuser.me/api/portraits/men/32.jpg');
@@ -233,9 +241,9 @@ function ProfilePage() {
       <NavbarComponent />
       <div className="max-w-4xl mx-auto py-8 px-4">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Profile</h1>
+          <h1 className="text-3xl font-bold text-gray-900">{translate('profile.profile')}</h1>
           <Link to="/" className="text-blue-600 hover:underline">
-            Kembali ke Beranda
+            {translate('profile.backToHome')}
           </Link>
         </div>
 
@@ -251,7 +259,7 @@ function ProfilePage() {
                 {isEditing && (
                   <button 
                     className="absolute bottom-0 right-0 bg-white p-2 rounded-full shadow-md"
-                    onClick={() => fileInputRef.current.click()}
+                    onClick={() => fileInputRef.current && fileInputRef.current.click()}
                   >
                     <HiOutlinePencilAlt className="h-5 w-5 text-amber-600" />
                     <input 
@@ -271,22 +279,22 @@ function ProfilePage() {
                     value={userData.full_name || ''}
                     onChange={handleInputChange}
                     className="text-2xl font-bold mb-1 bg-white/90 rounded"
-                    placeholder="Full Name"
+                    placeholder={translate('auth.fullName')}
                   />
                 ) : (
                   <h2 className="text-2xl font-bold">{userData.full_name || userData.username}</h2>
                 )}
                 <p className="text-sm text-gray-500 mt-1">
-                  Bergabung sejak:{' '}
+                  {translate('profile.joinedSince')}{' '}
                   {userData.joinedAt &&
-                    new Date(userData.joinedAt).toLocaleDateString('id-ID', {
+                    new Date(userData.joinedAt).toLocaleDateString(language === 'id' ? 'id-ID' : 'en-US', {
                       year: 'numeric',
                       month: 'long',
                       day: 'numeric',
                     })}
                 </p>
                 
-                {/* Tampilkan tombol Upload jika ada gambar yang dipilih dan dalam mode edit */}
+                {/* Show Upload button if image is selected and in edit mode */}
                 {profileImage && isEditing && (
                   <Button 
                     color="success" 
@@ -306,7 +314,7 @@ function ProfilePage() {
               <div className="flex items-start">
                 <HiOutlineMail className="h-6 w-6 text-amber-600 mr-3 mt-1" />
                 <div>
-                  <h4 className="text-sm font-medium text-gray-500">Email</h4>
+                  <h4 className="text-sm font-medium text-gray-500">{translate('auth.email')}</h4>
                   <p className="text-gray-800">{userData.email}</p>
                 </div>
               </div>
@@ -314,14 +322,14 @@ function ProfilePage() {
               <div className="flex items-start">
                 <HiOutlinePhone className="h-6 w-6 text-amber-600 mr-3 mt-1" />
                 <div>
-                  <h4 className="text-sm font-medium text-gray-500">Telepon</h4>
+                  <h4 className="text-sm font-medium text-gray-500">{translate('profile.phone')}</h4>
                   {isEditing ? (
                     <TextInput
                       name="phone"
                       value={userData.phone || ''}
                       onChange={handleInputChange}
                       className="bg-white/90 rounded"
-                      placeholder="Nomor Telepon"
+                      placeholder={translate('auth.phone')}
                     />
                   ) : (
                     <p className="text-gray-800">{userData.phone || '-'}</p>
@@ -332,14 +340,14 @@ function ProfilePage() {
               <div className="flex items-start">
                 <HiOutlineLocationMarker className="h-6 w-6 text-amber-600 mr-3 mt-1" />
                 <div>
-                  <h4 className="text-sm font-medium text-gray-500">Alamat</h4>
+                  <h4 className="text-sm font-medium text-gray-500">{translate('profile.address')}</h4>
                   {isEditing ? (
                     <TextInput
                       name="address"
                       value={userData.address || ''}
                       onChange={handleInputChange}
                       className="bg-white/90 rounded"
-                      placeholder="Alamat"
+                      placeholder={translate('auth.address')}
                     />
                   ) : (
                     <p className="text-gray-800">{userData.address || '-'}</p>
@@ -350,7 +358,7 @@ function ProfilePage() {
               <div className="flex items-start col-span-1 md:col-span-2">
                 <HiOutlineDocumentText className="h-6 w-6 text-amber-600 mr-3 mt-1" />
                 <div className="w-full">
-                  <h4 className="text-sm font-medium text-gray-500">Bio</h4>
+                  <h4 className="text-sm font-medium text-gray-500">{translate('profile.bio')}</h4>
                   {isEditing ? (
                     <Textarea
                       name="bio"
@@ -361,7 +369,7 @@ function ProfilePage() {
                       rows={3}
                     />
                   ) : (
-                    <p className="text-gray-800">{userData.bio || 'Belum ada bio'}</p>
+                    <p className="text-gray-800">{userData.bio || translate('profile.noBio')}</p>
                   )}
                 </div>
               </div>
@@ -371,24 +379,24 @@ function ProfilePage() {
               {isEditing ? (
                 <>
                   <Button gradientDuoTone="amberToOrange" onClick={handleSave}>
-                    Simpan Perubahan
+                    {translate('profile.saveChanges')}
                   </Button>
                   <Button color="light" onClick={() => setIsEditing(false)}>
-                    Batal
+                    {translate('profile.cancel')}
                   </Button>
                 </>
               ) : (
                 <>
                   <Button gradientDuoTone="amberToOrange" onClick={() => setIsEditing(true)}>
                     <HiOutlinePencilAlt className="mr-2 h-5 w-5" />
-                    Edit Profil
+                    {translate('profile.editProfile')}
                   </Button>
                   <Button 
                     color="blue" 
                     onClick={() => setPasswordModalOpen(true)}
                   >
                     <HiOutlineLockClosed className="mr-2 h-5 w-5" />
-                    Ganti Password
+                    {translate('profile.changePassword')}
                   </Button>
                 </>
               )}
@@ -403,7 +411,7 @@ function ProfilePage() {
         onClose={() => setPasswordModalOpen(false)}
       >
         <Modal.Header>
-          Ganti Password
+          {translate('profile.changePassword')}
         </Modal.Header>
         <Modal.Body>
           <div className="space-y-4">
@@ -419,7 +427,7 @@ function ProfilePage() {
             )}
             <div>
               <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                Password Saat Ini
+                {translate('profile.currentPassword')}
               </label>
               <TextInput
                 id="currentPassword"
@@ -427,12 +435,12 @@ function ProfilePage() {
                 type="password"
                 value={passwordData.currentPassword}
                 onChange={handlePasswordChange}
-                placeholder="Masukkan password saat ini"
+                placeholder={translate('profile.enterCurrentPassword')}
               />
             </div>
             <div>
               <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                Password Baru
+                {translate('profile.newPassword')}
               </label>
               <TextInput
                 id="newPassword"
@@ -440,12 +448,12 @@ function ProfilePage() {
                 type="password"
                 value={passwordData.newPassword}
                 onChange={handlePasswordChange}
-                placeholder="Masukkan password baru"
+                placeholder={translate('profile.enterNewPassword')}
               />
             </div>
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                Konfirmasi Password Baru
+                {translate('profile.confirmNewPassword')}
               </label>
               <TextInput
                 id="confirmPassword"
@@ -453,7 +461,7 @@ function ProfilePage() {
                 type="password"
                 value={passwordData.confirmPassword}
                 onChange={handlePasswordChange}
-                placeholder="Konfirmasi password baru"
+                placeholder={translate('profile.confirmNewPasswordPlaceholder')}
               />
             </div>
           </div>
@@ -463,13 +471,13 @@ function ProfilePage() {
             gradientDuoTone="amberToOrange"
             onClick={handleChangePassword}
           >
-            Ubah Password
+            {translate('profile.changePassword')}
           </Button>
           <Button
             color="gray"
             onClick={() => setPasswordModalOpen(false)}
           >
-            Batal
+            {translate('profile.cancel')}
           </Button>
         </Modal.Footer>
       </Modal>

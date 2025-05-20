@@ -3,9 +3,13 @@ import { Button } from "flowbite-react";
 import { Link, useNavigate } from "react-router-dom";
 import Footer from "../components/Footer";
 import NavbarComponent from "../components/NavbarComponent";
+import { useLanguage } from "../contexts/LanguageContext";
+import { useTranslate } from "../utils/languageUtils";
 
 function LandingPage() {
   const navigate = useNavigate();
+  const { language } = useLanguage();
+  const translate = useTranslate(language);
 
   // Data kategori produk
   const kategoriProduk = [
@@ -77,18 +81,18 @@ function LandingPage() {
             {/* Konten Kiri */}
             <div className="w-full md:w-1/2 mb-12 md:mb-0">
               <h2 className="text-gray-700 font-bold mb-4">
-                Halo, Selamat Datang
+                {translate('home.hero.welcome')}
               </h2>
               <h1 className="text-4xl md:text-5xl font-bold mb-4 text-gray-900">
-                Temukan Barang<br />Murah Impianmu
+                {translate('home.hero.title')}
               </h1>
               <p className="mb-5 mt-5 text-gray-700">
-                Trend Terkini: Zara, iPhone, Dress, iPad, Adidas, Crocs, Apple Watch, Perabotan
+                {translate('home.hero.trends')}
               </p>
               <div className="flex space-x-5">
                 <Link to="/product-list">
                   <Button color="blue" className="px-7 py-2 font-semibold">
-                    Shop Now
+                    {translate('home.hero.shopNow')}
                   </Button>
                 </Link>
               </div>
@@ -110,8 +114,8 @@ function LandingPage() {
       <section className="py-16 bg-white px-4">
         <div className="container mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900">Temukan Kategori Favoritmu</h2>
-            <p className="text-gray-600 mt-3">Jelajahi koleksi terbaik kami</p>
+            <h2 className="text-3xl font-bold text-gray-900">{translate('home.categories.title')}</h2>
+            <p className="text-gray-600 mt-3">{translate('home.categories.subtitle')}</p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
