@@ -171,13 +171,13 @@ function MyProductsPage() {
                             className="inline-flex items-center px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-colors"
                         >
                             <HiOutlinePlusCircle className="mr-2 h-5 w-5" />
-                            <span>{language === 'id' ? 'Tambah Produk' : 'Add Product'}</span>
+                            <span>{language === 'id' ? 'Jual Produk' : 'Sell Product'}</span>
                         </Link>
                     </div>
                     <p className="text-gray-600">
                         {language === 'id'
-                            ? 'Kelola produk yang telah Anda unggah di sini.'
-                            : 'Manage products you have uploaded here.'}
+                            ? 'Kelola produk yang telah Anda Jual di sini.'
+                            : 'Manage products you have Sell here.'}
                     </p>
                 </div>
 

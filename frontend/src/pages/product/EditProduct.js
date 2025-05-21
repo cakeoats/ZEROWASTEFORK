@@ -8,7 +8,7 @@ import { Link } from 'react-router-dom';
 import { HiChevronLeft, HiOutlineCamera } from 'react-icons/hi';
 import Footer from '../../components/Footer';
 
-// Konstanta untuk API
+// API Base URL constant
 const API_URL = 'http://localhost:5000';
 
 export default function EditProduct() {
@@ -54,20 +54,41 @@ export default function EditProduct() {
                     return;
                 }
 
+                console.log(`Fetching product details for ID: ${id}`);
                 const res = await axios.get(`${API_URL}/api/products/${id}`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
 
+                console.log("Product data received:", res.data);
                 const product = res.data;
 
                 // Check if the current user is the owner of the product
-                const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
-                if (product.seller_id._id !== userInfo.user._id) {
-                    setError(language === 'id' ?
-                        'Anda tidak memiliki izin untuk mengedit produk ini.' :
-                        'You do not have permission to edit this product.');
-                    setLoading(false);
-                    return;
+                // Get user info from token payload 
+                try {
+                    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+                    console.log("User info:", userInfo);
+                    console.log("Product seller:", product.seller_id);
+                    
+                    const isOwner = userInfo.user && 
+                        product.seller_id && 
+                        (product.seller_id._id === userInfo.user.id || 
+                         product.seller_id === userInfo.user.id);
+                    
+                    console.log("Is owner check:", {
+                        userId: userInfo.user?.id,
+                        sellerId: product.seller_id?._id || product.seller_id,
+                        isOwner
+                    });
+                    
+                    if (!isOwner) {
+                        setError(language === 'id' ?
+                            'Anda tidak memiliki izin untuk mengedit produk ini.' :
+                            'You do not have permission to edit this product.');
+                        setLoading(false);
+                        return;
+                    }
+                } catch (err) {
+                    console.error("Error checking ownership:", err);
                 }
 
                 // Set form data from product
@@ -233,6 +254,18 @@ export default function EditProduct() {
 
             // Add new images
             newImages.forEach(image => updateData.append('images', image));
+
+            console.log('Sending product update request with data:', {
+                id,
+                name: formData.name,
+                price: formData.price,
+                category: formData.category,
+                tipe: formData.tipe,
+                condition: formData.condition,
+                description: formData.description,
+                imagesToDelete: imagesToDelete.length,
+                newImages: newImages.length
+            });
 
             const response = await axios.put(
                 `${API_URL}/api/products/${id}`,

@@ -1,4 +1,3 @@
-// backend/controller/productController.js
 const Product = require('../models/product');
 const User = require('../models/User');
 const path = require('path');
@@ -135,6 +134,8 @@ const updateProduct = async (req, res) => {
     const { id } = req.params;
     const userId = req.user._id;
 
+    console.log(`Updating product ${id} for user ${userId}`);
+
     // Find the product
     const product = await Product.findById(id);
 
@@ -143,8 +144,17 @@ const updateProduct = async (req, res) => {
       return res.status(404).json({ message: 'Product not found' });
     }
 
+    console.log('Found product:', {
+      id: product._id,
+      name: product.name,
+      sellerId: product.seller_id
+    });
+
     // Check if user is the owner of the product
-    if (product.seller_id.toString() !== userId.toString()) {
+    const isOwner = product.seller_id.toString() === userId.toString();
+    console.log(`Ownership check: User ${userId} is${isOwner ? '' : ' not'} the owner of product ${id}`);
+
+    if (!isOwner) {
       return res.status(403).json({ message: 'You do not have permission to update this product' });
     }
 
@@ -159,6 +169,18 @@ const updateProduct = async (req, res) => {
       tipe,
       imagesToDelete // Array of image paths to delete
     } = req.body;
+
+    console.log('Received update data:', {
+      name,
+      price,
+      category,
+      condition,
+      tipe,
+      imagesToDeleteCount: imagesToDelete ? 
+        (typeof imagesToDelete === 'string' ? JSON.parse(imagesToDelete).length : imagesToDelete.length) 
+        : 0,
+      newImagesCount: req.files?.length || 0,
+    });
 
     // Update fields
     const updateData = {
@@ -176,34 +198,52 @@ const updateProduct = async (req, res) => {
 
     if (imagesToDelete) {
       // Parse JSON string if needed
-      const imagesToDeleteArray = typeof imagesToDelete === 'string'
-        ? JSON.parse(imagesToDelete)
-        : imagesToDelete;
+      let imagesToDeleteArray;
+      try {
+        imagesToDeleteArray = typeof imagesToDelete === 'string'
+          ? JSON.parse(imagesToDelete)
+          : imagesToDelete;
+        
+        console.log('Images to delete:', imagesToDeleteArray);
 
-      // Remove images from the array
-      updatedImages = updatedImages.filter(img => !imagesToDeleteArray.includes(img));
+        // Remove images from the array
+        updatedImages = updatedImages.filter(img => !imagesToDeleteArray.includes(img));
 
-      // Delete actual files
-      imagesToDeleteArray.forEach(imgPath => {
-        try {
-          const fullPath = path.join(__dirname, '..', imgPath);
-          if (fs.existsSync(fullPath)) {
-            fs.unlinkSync(fullPath);
+        // Delete actual files
+        imagesToDeleteArray.forEach(imgPath => {
+          try {
+            const fullPath = path.join(__dirname, '..', imgPath);
+            console.log('Attempting to delete file at path:', fullPath);
+            
+            if (fs.existsSync(fullPath)) {
+              fs.unlinkSync(fullPath);
+              console.log('Successfully deleted file');
+            } else {
+              console.log('File does not exist, skipping delete');
+            }
+          } catch (err) {
+            console.error('Error deleting image file:', err);
           }
-        } catch (err) {
-          console.error('Error deleting image file:', err);
-        }
-      });
+        });
+      } catch (err) {
+        console.error('Error parsing imagesToDelete:', err);
+      }
     }
 
     // Add new images if any
     if (req.files && req.files.length > 0) {
       const newImages = req.files.map(file => path.join('uploads', file.filename));
+      console.log('New images to add:', newImages);
       updatedImages = [...updatedImages, ...newImages];
     }
 
     // Update the image field
     updateData.images = updatedImages;
+
+    console.log('Final update data:', {
+      ...updateData,
+      imageCount: updateData.images.length
+    });
 
     // Update the product in the database
     const updatedProduct = await Product.findByIdAndUpdate(

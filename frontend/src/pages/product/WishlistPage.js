@@ -55,8 +55,11 @@ const WishlistPage = () => {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
-            // Update local state
-            setWishlistItems(wishlistItems.filter(item => item.product_id._id !== productId));
+            // Update local state - Fixed to safely check if product_id exists and has _id
+            setWishlistItems(wishlistItems.filter(item => 
+                item.product_id && item.product_id._id ? 
+                item.product_id._id !== productId : true
+            ));
         } catch (err) {
             console.error('Error removing from wishlist:', err);
             setError('Failed to remove item from wishlist.');
@@ -70,6 +73,8 @@ const WishlistPage = () => {
 
     // Function to get product image URL
     const getImageUrl = (product) => {
+        if (!product) return 'https://via.placeholder.com/300?text=Product+Unavailable';
+        
         if (product.imageUrl) {
             return product.imageUrl;
         }
@@ -135,66 +140,73 @@ const WishlistPage = () => {
                 ) : (
                     // Wishlist items grid
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {wishlistItems.map((item) => (
-                            <div key={item._id} className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow relative">
-                                <div className="relative">
-                                    <Link to={`/products/${item.product_id._id}`}>
-                                        <img
-                                            src={getImageUrl(item.product_id)}
-                                            alt={item.product_id.name}
-                                            className="w-full aspect-square object-cover"
-                                            onError={(e) => {
-                                                e.target.src = 'https://via.placeholder.com/300?text=No+Image';
-                                            }}
-                                        />
-                                    </Link>
+                        {wishlistItems.map((item) => {
+                            // Skip rendering items with missing product data
+                            if (!item.product_id) {
+                                return null;
+                            }
+                            
+                            return (
+                                <div key={item._id} className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow relative">
+                                    <div className="relative">
+                                        <Link to={`/products/${item.product_id._id}`}>
+                                            <img
+                                                src={getImageUrl(item.product_id)}
+                                                alt={item.product_id.name || 'Product'}
+                                                className="w-full aspect-square object-cover"
+                                                onError={(e) => {
+                                                    e.target.src = 'https://via.placeholder.com/300?text=No+Image';
+                                                }}
+                                            />
+                                        </Link>
 
-                                    {/* Remove button */}
-                                    <button
-                                        onClick={() => removeFromWishlist(item.product_id._id)}
-                                        className="absolute top-2 right-2 p-1.5 bg-white rounded-full text-gray-400 hover:text-red-500 transition-colors"
-                                    >
-                                        <HiTrash className="w-5 h-5" />
-                                    </button>
+                                        {/* Remove button */}
+                                        <button
+                                            onClick={() => removeFromWishlist(item.product_id._id)}
+                                            className="absolute top-2 right-2 p-1.5 bg-white rounded-full text-gray-400 hover:text-red-500 transition-colors"
+                                        >
+                                            <HiTrash className="w-5 h-5" />
+                                        </button>
 
-                                    {/* Sale Badge */}
-                                    {item.product_id.discount && (
-                                        <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 text-xs font-semibold rounded">
-                                            SALE
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="p-4">
-                                    <Link to={`/products/${item.product_id._id}`}>
-                                        <h3 className="font-medium text-gray-800 mb-1 truncate">{item.product_id.name}</h3>
-                                    </Link>
-                                    <p className="text-sm text-gray-500 mb-2 capitalize">{item.product_id.category}</p>
-
-                                    <div className="flex items-center justify-between mb-3">
-                                        <div className="font-semibold text-gray-800">
-                                            {simplifyPrice(item.product_id.price)}
-                                        </div>
+                                        {/* Sale Badge */}
+                                        {item.product_id.discount && (
+                                            <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 text-xs font-semibold rounded">
+                                                SALE
+                                            </div>
+                                        )}
                                     </div>
 
-                                    <div className="flex space-x-2">
-                                        <Link
-                                            to={`/products/${item.product_id._id}`}
-                                            className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-2 rounded-lg transition-colors text-sm flex items-center justify-center"
-                                        >
-                                            <HiOutlineShoppingCart className="mr-1 w-4 h-4" />
-                                            {translate('product.buyNow')}
+                                    <div className="p-4">
+                                        <Link to={`/products/${item.product_id._id}`}>
+                                            <h3 className="font-medium text-gray-800 mb-1 truncate">{item.product_id.name}</h3>
                                         </Link>
-                                        <Link
-                                            to={`/products/${item.product_id._id}`}
-                                            className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                                        >
-                                            <HiOutlineEye className="w-4 h-4" />
-                                        </Link>
+                                        <p className="text-sm text-gray-500 mb-2 capitalize">{item.product_id.category}</p>
+
+                                        <div className="flex items-center justify-between mb-3">
+                                            <div className="font-semibold text-gray-800">
+                                                {simplifyPrice(item.product_id.price)}
+                                            </div>
+                                        </div>
+
+                                        <div className="flex space-x-2">
+                                            <Link
+                                                to={`/products/${item.product_id._id}`}
+                                                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-2 rounded-lg transition-colors text-sm flex items-center justify-center"
+                                            >
+                                                <HiOutlineShoppingCart className="mr-1 w-4 h-4" />
+                                                {translate('product.buyNow')}
+                                            </Link>
+                                            <Link
+                                                to={`/products/${item.product_id._id}`}
+                                                className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                                            >
+                                                <HiOutlineEye className="w-4 h-4" />
+                                            </Link>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </div>
