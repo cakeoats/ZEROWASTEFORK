@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import NavbarComponent from '../../components/NavbarComponent';
@@ -26,7 +26,6 @@ export default function ProductDetail() {
   const [isLoved, setIsLoved] = useState(false);
   const [activeImage, setActiveImage] = useState(0);
   const [showFullscreenCarousel, setShowFullscreenCarousel] = useState(false);
-  const [quantity, setQuantity] = useState(1); // Add quantity state
   const [addedToCart, setAddedToCart] = useState(false); // State to show cart notification
 
   console.log("Current URL:", window.location.pathname);
@@ -73,7 +72,23 @@ export default function ProductDetail() {
     };
 
     fetchProduct();
-  }, [id]);
+    
+    // Check wishlist status
+    const checkWishlistStatus = async () => {
+      if (!token || !id) return;
+      
+      try {
+        const response = await axios.get(`${API_BASE_URL}/api/wishlist/check/${id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setIsLoved(response.data.inWishlist);
+      } catch (err) {
+        console.error('Error checking wishlist status:', err);
+      }
+    };
+    
+    checkWishlistStatus();
+  }, [id, token]);
 
   if (error) {
     return (
@@ -109,8 +124,33 @@ export default function ProductDetail() {
     );
   }
 
-  const toggleWishlist = () => {
-    setIsLoved(!isLoved);
+  const toggleWishlist = async () => {
+    if (!token) {
+      // Redirect to login if not authenticated
+      navigate('/login', { state: { from: `/products/${id}` } });
+      return;
+    }
+
+    try {
+      if (isLoved) {
+        // Remove from wishlist
+        await axios.delete(`${API_BASE_URL}/api/wishlist/${id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      } else {
+        // Add to wishlist
+        await axios.post(`${API_BASE_URL}/api/wishlist`, {
+          productId: id
+        }, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      }
+      // Toggle state after successful API call
+      setIsLoved(!isLoved);
+    } catch (err) {
+      console.error('Error updating wishlist:', err);
+      // Show error notification if needed
+    }
   };
 
   const handleBuy = () => {
@@ -136,9 +176,9 @@ export default function ProductDetail() {
     navigate(`/payment/${id}`);
   };
 
-  // New function to handle adding product to cart
+  // New function to handle adding product to cart with fixed quantity of 1
   const handleAddToCart = () => {
-    addToCart(product, quantity);
+    addToCart(product, 1); // Always use quantity of 1
     setAddedToCart(true);
 
     // Hide the notification after 3 seconds
@@ -313,17 +353,6 @@ export default function ProductDetail() {
                       </svg>
                     </button>
                   </div>
-
-                  <div className="flex items-center mt-2">
-                    <div className="text-amber-500 font-medium flex items-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" className="w-5 h-5 mr-1">
-                        <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
-                      </svg>
-                      <span>{product.rating || '4.5'}</span>
-                    </div>
-                    <span className="mx-2 text-gray-300">|</span>
-                    <span className="text-gray-500">Terjual {product.sold || '50'}+</span>
-                  </div>
                 </div>
 
                 <div className="py-4 border-t border-b border-gray-100">
@@ -335,34 +364,6 @@ export default function ProductDetail() {
                       Rp {product.old_price.toLocaleString('id-ID')}
                     </div>
                   )}
-                </div>
-
-                {/* Quantity Selector - NEW */}
-                <div className="space-y-2">
-                  <h3 className="font-semibold">
-                    {language === 'id' ? 'Jumlah' : 'Quantity'}
-                  </h3>
-                  <div className="flex items-center">
-                    <button
-                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      className="w-10 h-10 rounded-l-lg border border-gray-300 flex items-center justify-center hover:bg-gray-100"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
-                      </svg>
-                    </button>
-                    <div className="w-12 h-10 border-t border-b border-gray-300 flex items-center justify-center text-gray-700">
-                      {quantity}
-                    </div>
-                    <button
-                      onClick={() => setQuantity(quantity + 1)}
-                      className="w-10 h-10 rounded-r-lg border border-gray-300 flex items-center justify-center hover:bg-gray-100"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
-                      </svg>
-                    </button>
-                  </div>
                 </div>
 
                 <div className="space-y-4">
@@ -433,7 +434,7 @@ export default function ProductDetail() {
 
                 <div className="pt-6 border-t border-gray-100">
                   <div className="grid gap-4 sm:grid-cols-3">
-                    {/* Add to Cart Button - NEW */}
+                    {/* Add to Cart Button */}
                     <button
                       onClick={handleAddToCart}
                       className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-base font-medium w-full transition-all duration-300 flex items-center justify-center"
