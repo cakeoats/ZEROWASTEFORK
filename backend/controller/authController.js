@@ -34,7 +34,7 @@ exports.register = async (req, res) => {
 
     await newUser.save();
 
-    const verificationLink = `http://localhost:5000/api/auth/verify-email?token=${verificationToken}`;
+    const verificationLink = `${process.env.BASE_URL || 'http://localhost:5000'}/api/auth/verify-email?token=${verificationToken}`;
     const emailContent = `
   <div style="font-family: Arial, sans-serif; line-height: 1.6;">
     <h2>Hi, ${full_name || username}!</h2>
@@ -77,7 +77,7 @@ exports.verifyEmail = async (req, res) => {
     });
 
     if (!user) {
-      return res.redirect('http://localhost:3000/verif-email?status=expired');
+      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/verif-email?status=expired`);
     }
 
     user.isVerified = true;
@@ -85,10 +85,10 @@ exports.verifyEmail = async (req, res) => {
     user.verificationTokenExpires = null;
     await user.save();
 
-    return res.redirect('http://localhost:3000/success-email');
+    return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/success-email`);
   } catch (err) {
     console.error('Email Verification Error:', err);
-    return res.redirect('http://localhost:3000/verif-email?status=error');
+    return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/verif-email?status=error`);
   }
 };
 
@@ -143,7 +143,7 @@ exports.forgotPassword = async (req, res) => {
     user.resetPasswordExpires = resetTokenExpires;
     await user.save();
 
-    const resetLink = `http://localhost:3000/reset-password?token=${resetToken}`;
+    const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
     const emailContent = `
   <div style="font-family: Arial, sans-serif; line-height: 1.6;">
     <h3>Halo ${user.full_name},</h3>
@@ -218,7 +218,7 @@ exports.resendVerificationEmail = async (req, res) => {
     user.verificationTokenExpires = newTokenExpires;
     await user.save();
 
-    const verificationLink = `http://localhost:5000/api/auth/verify-email?token=${newToken}`;
+    const verificationLink = `${process.env.BASE_URL || 'http://localhost:5000'}/api/auth/verify-email?token=${newToken}`;
     const emailContent = `
       <div style="font-family: Arial, sans-serif;">
   <h3>Halo ${user.full_name},</h3>
