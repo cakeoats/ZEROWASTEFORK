@@ -50,7 +50,7 @@ function ProfilePage() {
   const [previewImage, setPreviewImage] = useState(null);
   const fileInputRef = useRef(null);
 
-  const API_URL = 'http://localhost:5000';
+  const API_URL = 'https://zerowastemarket-production.up.railway.app';
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;

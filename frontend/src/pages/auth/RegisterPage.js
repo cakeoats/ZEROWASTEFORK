@@ -31,7 +31,7 @@ function RegisterPage() {
     }
 
     try {
-      const res = await axios.post('http://localhost:5000/api/auth/register', {
+      const res = await axios.post('https://zerowastemarket-production.up.railway.app/api/auth/register', {
         username: formData.username,
         email: formData.email,
         password: formData.password,

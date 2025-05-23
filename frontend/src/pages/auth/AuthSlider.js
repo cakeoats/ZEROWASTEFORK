@@ -90,7 +90,7 @@ function AuthSlider() {
         setIsLoading(true);
 
         try {
-            const res = await axios.post('http://localhost:5000/api/auth/login', {
+            const res = await axios.post('https://zerowastemarket-production.up.railway.app/api/auth/login', {
                 username: loginData.username,
                 password: loginData.password
             });
@@ -135,7 +135,7 @@ function AuthSlider() {
         setIsLoading(true);
 
         try {
-            const res = await axios.post('http://localhost:5000/api/auth/register', {
+            const res = await axios.post('https://zerowastemarket-production.up.railway.app/api/auth/register', {
                 username: registerData.username,
                 email: registerData.email,
                 password: registerData.password,

@@ -7,7 +7,7 @@ import { useTranslate } from '../utils/languageUtils';
 import { HiTrash, HiPencil, HiEye, HiOutlinePlusCircle, HiChevronLeft } from 'react-icons/hi';
 import Footer from '../components/Footer';
 
-const API_URL = 'http://localhost:5000';
+const API_URL = 'https://zerowastemarket-production.up.railway.app';
 
 function MyProductsPage() {
     const navigate = useNavigate();

@@ -39,14 +39,14 @@ function AdminDashboard() {
     const fetchDashboardData = async (token) => {
         try {
             // Fetch product count and recent products
-            const productsResponse = await axios.get('http://localhost:5000/api/admin/products', {
+            const productsResponse = await axios.get('https://zerowastemarket-production.up.railway.app/api/admin/products', {
                 headers: { 
                     Authorization: `Bearer ${token}`
                 }
             });
             
             // Fetch user count
-            const usersResponse = await axios.get('http://localhost:5000/api/admin/users/count', {
+            const usersResponse = await axios.get('https://zerowastemarket-production.up.railway.app/api/admin/users/count', {
                 headers: { 
                     Authorization: `Bearer ${token}`
                 }
@@ -448,7 +448,7 @@ function ProductManagement() {
             setLoading(true);
             const token = localStorage.getItem('adminToken');
             
-            const response = await axios.get('http://localhost:5000/api/admin/products', {
+            const response = await axios.get('https://zerowastemarket-production.up.railway.app/api/admin/products', {
                 headers: { 
                     Authorization: `Bearer ${token}`
                 }
@@ -473,7 +473,7 @@ function ProductManagement() {
         try {
             const token = localStorage.getItem('adminToken');
             
-            await axios.delete(`http://localhost:5000/api/admin/products/${productToDelete._id}`, {
+            await axios.delete(`https://zerowastemarket-production.up.railway.app/api/admin/products/${productToDelete._id}`, {
                 headers: { 
                     Authorization: `Bearer ${token}`
                 },
@@ -625,7 +625,7 @@ function ProductManagement() {
                                                         src={
                                                             product.imageUrl ||
                                                             (product.images && product.images.length > 0
-                                                                ? `http://localhost:5000/${product.images[0]}`
+                                                                ? `https://zerowastemarket-production.up.railway.app/${product.images[0]}`
                                                                 : "https://via.placeholder.com/100"
                                                             )
                                                         } 

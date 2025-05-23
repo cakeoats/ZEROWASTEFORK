@@ -8,7 +8,7 @@ import { useTranslate } from '../../utils/languageUtils';
 import { useAuth } from '../../contexts/AuthContext';
 import Footer from '../../components/Footer';
 
-const API_URL = 'http://localhost:5000';
+const API_URL = 'https://zerowastemarket-production.up.railway.app';
 
 const MidtransPayment = () => {
   const { id } = useParams(); // Product ID from URL

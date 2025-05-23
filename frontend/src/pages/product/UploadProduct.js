@@ -7,7 +7,7 @@ import { useTranslate } from '../../utils/languageUtils';
 import Footer from '../../components/Footer';
 
 // Konstanta untuk API
-const API_URL = 'http://localhost:5000';
+const API_URL = 'https://zerowastemarket-production.up.railway.app';
 
 export default function ProductUpload() {
   // Hooks

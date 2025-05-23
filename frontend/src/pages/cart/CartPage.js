@@ -10,7 +10,7 @@ import { useTranslate } from '../../utils/languageUtils';
 import Footer from '../../components/Footer';
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000';
+const API_URL = 'https://zerowastemarket-production.up.railway.app';
 
 const CartPage = () => {
     const { cartItems, cartTotal, updateQuantity, removeFromCart, clearCart } = useCart();

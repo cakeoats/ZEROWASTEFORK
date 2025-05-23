@@ -20,7 +20,7 @@ function EmailVerificationPage() {
     setResendError('');
 
     try {
-      const res = await axios.post('http://localhost:5000/api/auth/resend-verification', {
+      const res = await axios.post('https://zerowastemarket-production.up.railway.app/api/auth/resend-verification', {
         email,
       });
       setResendSuccess(res.data.message || 'Verification email resent successfully.');

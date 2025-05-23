@@ -25,7 +25,7 @@ function AdminLogin() {
     setLoading(true);
 
     try {
-      const response = await axios.post('http://localhost:5000/api/admin/login', {
+      const response = await axios.post('https://zerowastemarket-production.up.railway.app/api/admin/login', {
         username,
         password,
       });

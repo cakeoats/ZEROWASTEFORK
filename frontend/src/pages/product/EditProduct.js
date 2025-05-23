@@ -9,7 +9,7 @@ import { HiChevronLeft, HiOutlineCamera } from 'react-icons/hi';
 import Footer from '../../components/Footer';
 
 // API Base URL constant
-const API_URL = 'http://localhost:5000';
+const API_URL = 'https://zerowastemarket-production.up.railway.app';
 
 export default function EditProduct() {
     // Get product ID from URL params

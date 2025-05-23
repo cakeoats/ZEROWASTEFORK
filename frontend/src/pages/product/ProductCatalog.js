@@ -8,7 +8,7 @@ import { useTranslate } from '../../utils/languageUtils';
 import axios from 'axios';
 import Footer from '../../components/Footer';
 
-const API_URL = 'http://localhost:5000';
+const API_URL = 'https://zerowastemarket-production.up.railway.app';
 
 const ProductCatalog = () => {
     // Hook to get location (URL info)

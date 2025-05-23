@@ -10,7 +10,7 @@ import Footer from '../../components/Footer';
 import { Alert } from 'flowbite-react';
 
 // Konstanta untuk API Base URL
-const API_BASE_URL = 'http://localhost:5000';
+const API_BASE_URL = 'https://zerowastemarket-production.up.railway.app';
 
 export default function ProductDetail() {
   const { id } = useParams();
