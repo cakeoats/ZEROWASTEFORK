@@ -7,44 +7,84 @@ const Order = require('../../models/order');
 // For single product transactions
 exports.createTransaction = async (req, res) => {
   try {
+    // Debug log untuk environment variables
+    console.log('Environment Variables Check:', {
+      MIDTRANS_SERVER_KEY: process.env.MIDTRANS_SERVER_KEY ? `SET (${process.env.MIDTRANS_SERVER_KEY.substring(0, 20)}...)` : 'NOT SET',
+      MIDTRANS_CLIENT_KEY: process.env.MIDTRANS_CLIENT_KEY ? `SET (${process.env.MIDTRANS_CLIENT_KEY.substring(0, 20)}...)` : 'NOT SET',
+      MIDTRANS_IS_PRODUCTION: process.env.MIDTRANS_IS_PRODUCTION,
+      NODE_ENV: process.env.NODE_ENV,
+      FRONTEND_URL: process.env.FRONTEND_URL
+    });
+
     const { productId, quantity = 1 } = req.body;
     const userId = req.user._id;
 
+    console.log('Request data:', { productId, quantity, userId: userId.toString() });
+
     // Validate input
     if (!productId) {
+      console.log('❌ Product ID missing');
       return res.status(400).json({
         success: false,
         message: 'ID produk diperlukan'
       });
     }
 
+    // Check if Midtrans keys are available
+    if (!process.env.MIDTRANS_SERVER_KEY || !process.env.MIDTRANS_CLIENT_KEY) {
+      console.error('❌ Midtrans API keys not configured');
+      return res.status(500).json({
+        success: false,
+        message: 'Payment gateway not configured properly. Please contact support.'
+      });
+    }
+
     // Ambil data produk dari database
+    console.log('🔍 Fetching product...');
     const product = await Product.findById(productId);
     if (!product) {
+      console.log('❌ Product not found:', productId);
       return res.status(404).json({
         success: false,
         message: 'Produk tidak ditemukan'
       });
     }
+    console.log('✅ Product found:', { id: product._id, name: product.name, price: product.price });
 
     // Ambil data user
+    console.log('🔍 Fetching user...');
     const user = await User.findById(userId);
     if (!user) {
+      console.log('❌ User not found:', userId);
       return res.status(404).json({
         success: false,
         message: 'User tidak ditemukan'
       });
     }
+    console.log('✅ User found:', { id: user._id, username: user.username, email: user.email });
 
     // Buat instance Snap dari Midtrans
-    let snap = new midtransClient.Snap({
-      isProduction: process.env.MIDTRANS_IS_PRODUCTION === 'true',
-      serverKey: process.env.MIDTRANS_SERVER_KEY,
-      clientKey: process.env.MIDTRANS_CLIENT_KEY
-    });
+    console.log('🔧 Creating Midtrans Snap instance...');
+    let snap;
+    try {
+      snap = new midtransClient.Snap({
+        isProduction: process.env.MIDTRANS_IS_PRODUCTION === 'true',
+        serverKey: process.env.MIDTRANS_SERVER_KEY,
+        clientKey: process.env.MIDTRANS_CLIENT_KEY
+      });
+      console.log('✅ Midtrans Snap instance created successfully');
+    } catch (midtransError) {
+      console.error('❌ Failed to create Midtrans instance:', midtransError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to initialize payment gateway',
+        error: midtransError.message
+      });
+    }
 
     // Buat ID transaksi unik
     const transactionId = `ORDER-${Date.now()}-${userId.toString().substring(0, 5)}`;
+    console.log('🆔 Generated transaction ID:', transactionId);
 
     // Parameter untuk Midtrans
     const parameter = {
@@ -53,7 +93,7 @@ exports.createTransaction = async (req, res) => {
         gross_amount: product.price * quantity
       },
       item_details: [{
-        id: product._id,
+        id: product._id.toString(),
         price: product.price,
         quantity: quantity,
         name: product.name.substring(0, 50) // Midtrans membatasi panjang nama
@@ -64,20 +104,25 @@ exports.createTransaction = async (req, res) => {
         phone: user.phone || ''
       },
       callbacks: {
-        finish: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/payment/success`,
-        error: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/payment/error`,
-        pending: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/payment/pending`
+        finish: `${process.env.FRONTEND_URL || 'https://frontend-a61sij8us-dafiibras-projects.vercel.app'}/payment/success`,
+        error: `${process.env.FRONTEND_URL || 'https://frontend-a61sij8us-dafiibras-projects.vercel.app'}/payment/error`,
+        pending: `${process.env.FRONTEND_URL || 'https://frontend-a61sij8us-dafiibras-projects.vercel.app'}/payment/pending`
       }
     };
 
-    console.log('Creating Midtrans transaction with parameters:', parameter);
+    console.log('📋 Midtrans parameters:', JSON.stringify(parameter, null, 2));
 
     // Buat transaksi di Midtrans
+    console.log('🚀 Creating Midtrans transaction...');
     const transaction = await snap.createTransaction(parameter);
 
-    console.log('Midtrans transaction created:', transaction);
+    console.log('✅ Midtrans transaction created successfully:', {
+      token: transaction.token ? 'TOKEN_RECEIVED' : 'NO_TOKEN',
+      redirect_url: transaction.redirect_url ? 'URL_RECEIVED' : 'NO_URL'
+    });
 
     // Create an order in our database
+    console.log('💾 Saving order to database...');
     const newOrder = new Order({
       buyer: userId,
       seller: product.seller_id,
@@ -88,6 +133,7 @@ exports.createTransaction = async (req, res) => {
     });
 
     await newOrder.save();
+    console.log('✅ Order saved to database:', newOrder._id);
 
     // Kirim token ke frontend
     res.status(200).json({
@@ -98,12 +144,22 @@ exports.createTransaction = async (req, res) => {
       orderId: newOrder._id
     });
 
+    console.log('✅ Response sent to frontend successfully');
+
   } catch (error) {
-    console.error('Midtrans payment error:', error);
+    console.error('💥 Payment Controller Error Details:', {
+      message: error.message,
+      stack: error.stack,
+      response: error.response?.data,
+      status: error.response?.status,
+      statusText: error.response?.statusText
+    });
+    
     res.status(500).json({
       success: false,
       message: 'Gagal membuat transaksi pembayaran',
-      error: error.message
+      error: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : 'Internal server error'
     });
   }
 };
@@ -111,15 +167,27 @@ exports.createTransaction = async (req, res) => {
 // For cart-based transactions (multiple products)
 exports.createCartTransaction = async (req, res) => {
   try {
+    console.log('🛒 Starting cart transaction...');
+    
     const userId = req.user._id;
-
-    // Gunakan data dari request body yang dikirim frontend
     const { items, totalAmount } = req.body;
 
-    console.log('Cart Transaction Request Data:', req.body);
+    console.log('Cart Transaction Request Data:', {
+      userId: userId.toString(),
+      itemsCount: items?.length || 0,
+      totalAmount,
+      items: items
+    });
+
+    // Debug environment variables
+    console.log('Environment Check for Cart:', {
+      MIDTRANS_SERVER_KEY: process.env.MIDTRANS_SERVER_KEY ? 'SET' : 'NOT SET',
+      MIDTRANS_CLIENT_KEY: process.env.MIDTRANS_CLIENT_KEY ? 'SET' : 'NOT SET'
+    });
 
     // Validasi data request
     if (!items || !Array.isArray(items) || items.length === 0) {
+      console.log('❌ Invalid items data');
       return res.status(400).json({
         success: false,
         message: 'Cart items required and must be a non-empty array'
@@ -127,15 +195,26 @@ exports.createCartTransaction = async (req, res) => {
     }
 
     if (!totalAmount) {
+      console.log('❌ Total amount missing');
       return res.status(400).json({
         success: false,
         message: 'Total amount is required'
       });
     }
 
+    // Check Midtrans keys
+    if (!process.env.MIDTRANS_SERVER_KEY || !process.env.MIDTRANS_CLIENT_KEY) {
+      console.error('❌ Midtrans keys not configured for cart transaction');
+      return res.status(500).json({
+        success: false,
+        message: 'Payment gateway not configured'
+      });
+    }
+
     // Get user data
     const user = await User.findById(userId);
     if (!user) {
+      console.log('❌ User not found for cart transaction');
       return res.status(404).json({
         success: false,
         message: 'User not found'
@@ -147,6 +226,7 @@ exports.createCartTransaction = async (req, res) => {
     for (const item of items) {
       const product = await Product.findById(item.productId);
       if (!product) {
+        console.log('❌ Product not found in cart:', item.productId);
         return res.status(404).json({
           success: false,
           message: `Product with ID ${item.productId} not found`
@@ -159,12 +239,25 @@ exports.createCartTransaction = async (req, res) => {
       });
     }
 
+    console.log('✅ All products found for cart transaction');
+
     // Create Midtrans Snap instance
-    let snap = new midtransClient.Snap({
-      isProduction: process.env.MIDTRANS_IS_PRODUCTION === 'true',
-      serverKey: process.env.MIDTRANS_SERVER_KEY,
-      clientKey: process.env.MIDTRANS_CLIENT_KEY
-    });
+    let snap;
+    try {
+      snap = new midtransClient.Snap({
+        isProduction: process.env.MIDTRANS_IS_PRODUCTION === 'true',
+        serverKey: process.env.MIDTRANS_SERVER_KEY,
+        clientKey: process.env.MIDTRANS_CLIENT_KEY
+      });
+      console.log('✅ Midtrans Snap instance created for cart');
+    } catch (midtransError) {
+      console.error('❌ Failed to create Midtrans instance for cart:', midtransError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to initialize payment gateway',
+        error: midtransError.message
+      });
+    }
 
     // Create a unique transaction ID
     const transactionId = `CART-${Date.now()}-${userId.toString().substring(0, 5)}`;
@@ -189,18 +282,21 @@ exports.createCartTransaction = async (req, res) => {
         phone: user.phone || ''
       },
       callbacks: {
-        finish: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/payment/success`,
-        error: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/payment/error`,
-        pending: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/payment/pending`
+        finish: `${process.env.FRONTEND_URL || 'https://frontend-a61sij8us-dafiibras-projects.vercel.app'}/payment/success`,
+        error: `${process.env.FRONTEND_URL || 'https://frontend-a61sij8us-dafiibras-projects.vercel.app'}/payment/error`,
+        pending: `${process.env.FRONTEND_URL || 'https://frontend-a61sij8us-dafiibras-projects.vercel.app'}/payment/pending`
       }
     };
 
-    console.log('Creating Midtrans cart transaction with parameters:', parameter);
+    console.log('Creating Midtrans cart transaction with parameters:', JSON.stringify(parameter, null, 2));
 
     // Create transaction in Midtrans
     const transaction = await snap.createTransaction(parameter);
 
-    console.log('Midtrans cart transaction created:', transaction);
+    console.log('Midtrans cart transaction created:', {
+      token: transaction.token ? 'TOKEN_RECEIVED' : 'NO_TOKEN',
+      redirect_url: transaction.redirect_url ? 'URL_RECEIVED' : 'NO_URL'
+    });
 
     // Group items by seller
     const sellerOrders = {};
@@ -245,6 +341,8 @@ exports.createCartTransaction = async (req, res) => {
       orderIds.push(newOrder._id);
     }
 
+    console.log('✅ Cart orders saved to database:', orderIds);
+
     // Send token to frontend
     res.status(200).json({
       success: true,
@@ -254,12 +352,20 @@ exports.createCartTransaction = async (req, res) => {
       orderIds: orderIds
     });
 
+    console.log('✅ Cart transaction response sent successfully');
+
   } catch (error) {
-    console.error('Midtrans cart payment error:', error);
+    console.error('💥 Cart Payment Error Details:', {
+      message: error.message,
+      stack: error.stack,
+      response: error.response?.data
+    });
+    
     res.status(500).json({
       success: false,
       message: 'Failed to create cart payment transaction',
-      error: error.message
+      error: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : 'Internal server error'
     });
   }
 };
@@ -267,6 +373,8 @@ exports.createCartTransaction = async (req, res) => {
 // Handle webhook notifications from Midtrans
 exports.handleNotification = async (req, res) => {
   try {
+    console.log('📨 Midtrans notification received:', req.body);
+    
     const notificationJson = req.body;
 
     // Create Core API instance
@@ -283,7 +391,7 @@ exports.handleNotification = async (req, res) => {
     const transactionStatus = statusResponse.transaction_status;
     const fraudStatus = statusResponse.fraud_status;
 
-    console.log(`Transaction notification received. Order ID: ${orderId}. Transaction status: ${transactionStatus}. Fraud status: ${fraudStatus}`);
+    console.log(`📋 Transaction notification processed - Order ID: ${orderId}, Status: ${transactionStatus}, Fraud: ${fraudStatus}`);
 
     // Find orders with this transaction ID
     const orders = await Order.find({
@@ -294,6 +402,7 @@ exports.handleNotification = async (req, res) => {
     });
 
     if (orders.length === 0) {
+      console.log('❌ No orders found for transaction ID:', orderId);
       return res.status(404).json({
         success: false,
         message: 'Orders not found for this transaction ID'
@@ -305,20 +414,15 @@ exports.handleNotification = async (req, res) => {
 
     if (transactionStatus == 'capture') {
       if (fraudStatus == 'challenge') {
-        // TODO: handle challenge transaction
         orderStatus = 'pending';
       } else if (fraudStatus == 'accept') {
-        // TODO: handle successful transaction
         orderStatus = 'paid';
       }
     } else if (transactionStatus == 'settlement') {
-      // TODO: handle successful transaction
       orderStatus = 'paid';
     } else if (transactionStatus == 'cancel' || transactionStatus == 'deny' || transactionStatus == 'expire') {
-      // TODO: handle failed transaction
       orderStatus = 'cancelled';
     } else if (transactionStatus == 'pending') {
-      // TODO: handle pending transaction
       orderStatus = 'pending';
     }
 
@@ -328,11 +432,17 @@ exports.handleNotification = async (req, res) => {
       await order.save();
     }
 
+    console.log(`✅ Updated ${orders.length} orders to status: ${orderStatus}`);
+
     // Return success to Midtrans
     res.status(200).json({ success: true });
 
   } catch (error) {
-    console.error('Error handling Midtrans notification:', error);
+    console.error('💥 Notification handling error:', {
+      message: error.message,
+      stack: error.stack
+    });
+    
     res.status(500).json({
       success: false,
       message: 'Error handling notification',

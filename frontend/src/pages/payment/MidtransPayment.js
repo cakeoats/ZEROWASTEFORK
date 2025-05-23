@@ -8,7 +8,8 @@ import { useTranslate } from '../../utils/languageUtils';
 import { useAuth } from '../../contexts/AuthContext';
 import Footer from '../../components/Footer';
 
-const API_URL = 'https://zerowastemarket-production.up.railway.app';
+// Use environment variable with fallback
+const API_URL = process.env.REACT_APP_API_URL || 'https://zerowastemarket-production.up.railway.app';
 
 const MidtransPayment = () => {
   const { id } = useParams(); // Product ID from URL
@@ -28,12 +29,21 @@ const MidtransPayment = () => {
   useEffect(() => {
     const fetchProduct = async () => {
       try {
+        console.log('🔍 Fetching product from:', `${API_URL}/api/products/${id}`);
         setLoading(true);
-        const response = await axios.get(`${API_URL}/api/products/${id}`);
+        
+        const response = await axios.get(`${API_URL}/api/products/${id}`, {
+          headers: {
+            'Authorization': token ? `Bearer ${token}` : undefined
+          }
+        });
+        
+        console.log('✅ Product fetched successfully:', response.data);
         setProduct(response.data);
       } catch (err) {
-        console.error('Error fetching product:', err);
-        setError('Failed to load product details');
+        console.error('❌ Error fetching product:', err);
+        console.error('Response:', err.response?.data);
+        setError(`Failed to load product details: ${err.response?.data?.message || err.message}`);
       } finally {
         setLoading(false);
       }
@@ -42,39 +52,43 @@ const MidtransPayment = () => {
     if (id) {
       fetchProduct();
     }
-  }, [id]);
+  }, [id, token]);
   
   // Load Midtrans script
   useEffect(() => {
     // Check if script is already loaded
     if (document.getElementById('midtrans-snap')) {
+      console.log('✅ Midtrans script already loaded');
       setSnapScriptLoaded(true);
       return;
     }
+    
+    console.log('🔧 Loading Midtrans Snap script...');
     
     // Load Midtrans Snap JS when component mounts
     const script = document.createElement('script');
     script.id = 'midtrans-snap';
     script.src = 'https://app.sandbox.midtrans.com/snap/snap.js';
-    script.setAttribute('data-client-key', 'SB-Mid-client-D5UY5aGYO_BSvIUk'); // Replace with your actual Midtrans client key
+    script.setAttribute('data-client-key', 'SB-Mid-client-D5UY5aGYO_BSvIUk');
     
     script.onload = () => {
-      console.log('Midtrans Snap script loaded successfully');
+      console.log('✅ Midtrans Snap script loaded successfully');
       setSnapScriptLoaded(true);
     };
     
     script.onerror = () => {
-      console.error('Failed to load Midtrans Snap script');
+      console.error('❌ Failed to load Midtrans Snap script');
       setError('Failed to load payment gateway. Please refresh and try again.');
     };
     
     document.body.appendChild(script);
     
     return () => {
-      // Don't remove the script on unmount as it might be needed by other components
-      // If you really want to remove it, you can use this:
-      // const existingScript = document.getElementById('midtrans-snap');
-      // if (existingScript) document.body.removeChild(existingScript);
+      // Clean up on unmount
+      const existingScript = document.getElementById('midtrans-snap');
+      if (existingScript) {
+        document.body.removeChild(existingScript);
+      }
     };
   }, []);
   
@@ -83,25 +97,37 @@ const MidtransPayment = () => {
   
   // Handle payment process
   const handlePayment = async () => {
+    console.log('🚀 Starting payment process...');
+    
     if (!token) {
+      console.log('❌ No token, redirecting to login');
       navigate('/login', { state: { from: `/payment/${id}` } });
       return;
     }
     
     if (!product) {
+      console.log('❌ No product data');
       setError('Product information not available');
       return;
     }
     
     if (!snapScriptLoaded || !window.snap) {
+      console.log('❌ Snap script not loaded');
       setError('Payment gateway is still loading. Please wait a moment and try again.');
       return;
     }
     
     setPaymentLoading(true);
-    setError(null); // Clear any previous errors
+    setError(null);
     
     try {
+      console.log('📦 Creating transaction with data:', {
+        productId: product._id,
+        quantity: quantity,
+        totalAmount: totalPrice,
+        API_URL
+      });
+      
       // Create transaction on backend
       const response = await axios.post(
         `${API_URL}/api/payment/create-transaction`,
@@ -111,51 +137,62 @@ const MidtransPayment = () => {
           totalAmount: totalPrice,
         },
         {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
         }
       );
       
-      // Get the snap token from response
-      const { token: snapToken } = response.data;
+      console.log('✅ Transaction created:', response.data);
       
-      console.log('Received token from server:', snapToken);
+      // Get the snap token from response
+      const { token: snapToken, success } = response.data;
+      
+      if (!success) {
+        throw new Error(response.data.message || 'Transaction creation failed');
+      }
       
       if (!snapToken) {
         throw new Error('Payment token not received from server');
       }
       
+      console.log('🎫 Snap token received, opening payment popup...');
+      
       // Open Midtrans Snap payment page
       window.snap.pay(snapToken, {
         onSuccess: function(result) {
-          /* You can process the transaction result here */
-          console.log('Payment success:', result);
+          console.log('✅ Payment success:', result);
           navigate('/payment/success?order_id=' + result.order_id + '&transaction_status=' + result.transaction_status);
         },
         onPending: function(result) {
-          /* Transaction is pending */
-          console.log('Payment pending:', result);
+          console.log('⏳ Payment pending:', result);
           navigate('/payment/pending?order_id=' + result.order_id + '&payment_type=' + result.payment_type);
         },
         onError: function(result) {
-          /* Transaction failed */
-          console.error('Payment error:', result);
+          console.error('❌ Payment error:', result);
           setError('Payment failed: ' + (result.status_message || 'Please try again.'));
           setPaymentLoading(false);
         },
         onClose: function() {
-          /* Customer closed the payment page without completing payment */
-          console.log('Payment window closed');
+          console.log('🚫 Payment window closed');
           setError('Payment canceled. Please try again to complete your purchase.');
           setPaymentLoading(false);
         }
       });
     } catch (err) {
-      console.error('Payment error:', err);
-      setError(
-        err.response?.data?.message || 
-        err.message || 
-        'Failed to process payment. Please try again.'
-      );
+      console.error('💥 Payment error details:', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status
+      });
+      
+      const errorMessage = err.response?.data?.message || 
+                          err.response?.data?.error || 
+                          err.message || 
+                          'Failed to process payment. Please try again.';
+      
+      setError(errorMessage);
       setPaymentLoading(false);
     }
   };
@@ -167,6 +204,7 @@ const MidtransPayment = () => {
         <div className="container mx-auto px-4 py-8">
           <div className="flex justify-center items-center py-12">
             <div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+            <p className="ml-3 text-gray-600">Loading product details...</p>
           </div>
         </div>
         <Footer />
@@ -174,17 +212,21 @@ const MidtransPayment = () => {
     );
   }
   
-  if (error) {
+  if (error && !product) {
     return (
       <div className="min-h-screen bg-amber-50">
         <NavbarComponent />
         <div className="container mx-auto px-4 py-8">
           <Alert color="failure" className="mb-4">
+            <div className="font-medium">Error:</div>
             {error}
           </Alert>
           <div className="text-center">
-            <Button color="light" onClick={() => navigate(-1)}>
+            <Button color="light" onClick={() => navigate(-1)} className="mr-2">
               Go Back
+            </Button>
+            <Button color="warning" onClick={() => window.location.reload()}>
+              Retry
             </Button>
           </div>
         </div>
@@ -200,6 +242,7 @@ const MidtransPayment = () => {
         <div className="container mx-auto px-4 py-8">
           <div className="text-center py-12">
             <h2 className="text-2xl font-bold mb-4">Product not found</h2>
+            <p className="text-gray-600 mb-4">The product you're looking for doesn't exist or has been removed.</p>
             <Button color="light" onClick={() => navigate('/product-list')}>
               Browse Products
             </Button>
@@ -220,6 +263,7 @@ const MidtransPayment = () => {
             
             {error && (
               <Alert color="failure" className="mb-4">
+                <div className="font-medium">Payment Error:</div>
                 {error}
               </Alert>
             )}
@@ -233,35 +277,39 @@ const MidtransPayment = () => {
                     alt={product.name}
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      e.target.src = 'https://via.placeholder.com/80';
+                      e.target.src = 'https://via.placeholder.com/80?text=No+Image';
                     }}
                   />
                 </div>
                 <div className="flex-1">
                   <h3 className="font-medium">{product.name}</h3>
                   <p className="text-sm text-gray-500 capitalize">{product.category}</p>
+                  <p className="text-xs text-gray-400">
+                    Seller: {product.seller_id?.username || product.seller_id?.full_name || 'Unknown'}
+                  </p>
                 </div>
                 <div className="text-right">
                   <div className="font-semibold">Rp {product.price.toLocaleString('id-ID')}</div>
+                  <div className="text-sm text-gray-500">per item</div>
                 </div>
               </div>
               
-              <div className="mt-4 flex items-center">
-                <div className="mr-auto">Quantity:</div>
+              <div className="mt-4 flex items-center justify-between">
+                <div className="text-sm font-medium">Quantity:</div>
                 <div className="flex items-center">
                   <button 
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="px-2 py-1 border rounded-l-md bg-gray-100"
+                    className="px-3 py-1 border rounded-l-md bg-gray-100 hover:bg-gray-200 disabled:opacity-50"
                     disabled={quantity <= 1}
                   >
                     -
                   </button>
-                  <div className="px-4 py-1 border-t border-b">
+                  <div className="px-4 py-1 border-t border-b bg-white text-center min-w-12">
                     {quantity}
                   </div>
                   <button 
                     onClick={() => setQuantity(quantity + 1)}
-                    className="px-2 py-1 border rounded-r-md bg-gray-100"
+                    className="px-3 py-1 border rounded-r-md bg-gray-100 hover:bg-gray-200"
                   >
                     +
                   </button>
@@ -271,42 +319,67 @@ const MidtransPayment = () => {
             
             <div className="border-b pb-6 mb-6">
               <h2 className="text-lg font-medium mb-4">Price Details</h2>
-              <div className="flex justify-between mb-2">
-                <span>Price ({quantity} item{quantity > 1 ? 's' : ''})</span>
-                <span>Rp {(product.price * quantity).toLocaleString('id-ID')}</span>
-              </div>
-              <div className="flex justify-between mb-2">
-                <span>Delivery Fee</span>
-                <span className="text-green-600">Free</span>
-              </div>
-              <div className="flex justify-between font-bold pt-2 border-t mt-2">
-                <span>Total Amount</span>
-                <span>Rp {totalPrice.toLocaleString('id-ID')}</span>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span>Price ({quantity} item{quantity > 1 ? 's' : ''})</span>
+                  <span>Rp {(product.price * quantity).toLocaleString('id-ID')}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Delivery Fee</span>
+                  <span className="text-green-600">Free</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Service Fee</span>
+                  <span className="text-green-600">Free</span>
+                </div>
+                <div className="flex justify-between font-bold text-lg pt-2 border-t">
+                  <span>Total Amount</span>
+                  <span className="text-amber-600">Rp {totalPrice.toLocaleString('id-ID')}</span>
+                </div>
               </div>
             </div>
             
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <Button 
                 color="light" 
                 onClick={() => navigate(-1)}
+                className="px-6"
               >
-                Continue Shopping
+                ← Continue Shopping
               </Button>
-              <Button 
-                color="warning" 
-                onClick={handlePayment}
-                disabled={paymentLoading || !snapScriptLoaded}
-              >
-                {paymentLoading ? (
-                  <>
-                    <div className="mr-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Processing...
-                  </>
-                ) : (
-                  'Pay with Midtrans'
-                )}
-              </Button>
+              
+              <div className="text-right">
+                <div className="text-sm text-gray-500 mb-2">
+                  Snap Script: {snapScriptLoaded ? '✅ Ready' : '⏳ Loading...'}
+                </div>
+                <Button 
+                  color="warning" 
+                  onClick={handlePayment}
+                  disabled={paymentLoading || !snapScriptLoaded}
+                  className="px-8"
+                >
+                  {paymentLoading ? (
+                    <>
+                      <div className="mr-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Processing...
+                    </>
+                  ) : (
+                    '💳 Pay with Midtrans'
+                  )}
+                </Button>
+              </div>
             </div>
+            
+            {/* Debug Info - Remove in production */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="mt-6 p-4 bg-gray-100 rounded-lg text-xs">
+                <div className="font-medium mb-2">Debug Info:</div>
+                <div>API URL: {API_URL}</div>
+                <div>Product ID: {id}</div>
+                <div>Token: {token ? 'Present' : 'Missing'}</div>
+                <div>Snap Loaded: {snapScriptLoaded ? 'Yes' : 'No'}</div>
+              </div>
+            )}
           </div>
         </div>
       </div>
