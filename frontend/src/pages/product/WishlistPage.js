@@ -72,22 +72,20 @@ const WishlistPage = () => {
     };
 
     // Function to get product image URL
-    const getImageUrl = (product) => {
-        if (!product) return 'https://via.placeholder.com/300?text=Product+Unavailable';
-        
-        if (product.imageUrl) {
-            return product.imageUrl;
-        }
+   const getImageUrl = (product) => {
+  if (product.imageUrl) {
+    return product.imageUrl;
+  }
 
-        if (product.images && product.images.length > 0) {
-            if (product.images[0].startsWith('http')) {
-                return product.images[0];
-            }
-            return `${API_URL}/${product.images[0]}`;
-        }
+  if (product.images && product.images.length > 0) {
+    if (product.images[0].startsWith('http')) {
+      return product.images[0];
+    }
+    return `https://zerowastemarket-production.up.railway.app/${product.images[0]}`;
+  }
 
-        return 'https://via.placeholder.com/300';
-    };
+  return 'https://via.placeholder.com/300?text=No+Image';
+};
 
     if (!token) {
         return null; // Will redirect in useEffect
@@ -155,7 +153,7 @@ const WishlistPage = () => {
                                                 alt={item.product_id.name || 'Product'}
                                                 className="w-full aspect-square object-cover"
                                                 onError={(e) => {
-                                                    e.target.src = 'https://via.placeholder.com/300?text=No+Image';
+                                                    e.target.src = 'https://zerowastemarket-production.up.railway.app/uploads/default-product.jpg?text=No+Image';
                                                 }}
                                             />
                                         </Link>

@@ -108,21 +108,19 @@ const CartPage = () => {
 
     // Get product image URL
     const getImageUrl = (product) => {
-        if (!product) return 'https://via.placeholder.com/100';
+  if (product.imageUrl) {
+    return product.imageUrl;
+  }
 
-        if (product.imageUrl) {
-            return product.imageUrl;
-        }
+  if (product.images && product.images.length > 0) {
+    if (product.images[0].startsWith('http')) {
+      return product.images[0];
+    }
+    return `https://zerowastemarket-production.up.railway.app/${product.images[0]}`;
+  }
 
-        if (product.images && product.images.length > 0) {
-            if (product.images[0].startsWith('http')) {
-                return product.images[0];
-            }
-            return `${API_URL}/${product.images[0]}`;
-        }
-
-        return 'https://via.placeholder.com/100';
-    };
+  return 'https://via.placeholder.com/300?text=No+Image';
+};
 
     // Format price
     const formatPrice = (price) => {

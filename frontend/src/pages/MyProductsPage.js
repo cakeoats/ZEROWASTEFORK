@@ -61,20 +61,20 @@ function MyProductsPage() {
     };
 
     // Get product image URL
-    const getImageUrl = (product) => {
-        if (product.imageUrl) {
-            return product.imageUrl;
-        }
+  const getImageUrl = (product) => {
+  if (product.imageUrl) {
+    return product.imageUrl;
+  }
 
-        if (product.images && product.images.length > 0) {
-            if (product.images[0].startsWith('http')) {
-                return product.images[0];
-            }
-            return `${API_URL}/${product.images[0]}`;
-        }
+  if (product.images && product.images.length > 0) {
+    if (product.images[0].startsWith('http')) {
+      return product.images[0];
+    }
+    return `https://zerowastemarket-production.up.railway.app/${product.images[0]}`;
+  }
 
-        return 'https://via.placeholder.com/300?text=No+Image';
-    };
+  return 'https://via.placeholder.com/300?text=No+Image';
+};
 
     // Format price
     const formatPrice = (price) => {
@@ -271,7 +271,7 @@ function MyProductsPage() {
                                             alt={product.name}
                                             className="w-full h-48 object-cover"
                                             onError={(e) => {
-                                                e.target.src = 'https://via.placeholder.com/300?text=No+Image';
+                                                e.target.src = 'https://zerowastemarket-production.up.railway.app/uploads/default-product.jpg?text=No+Image';
                                             }}
                                         />
                                     </Link>

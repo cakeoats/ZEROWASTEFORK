@@ -32,22 +32,20 @@ export default function ProductDetail() {
   console.log("ID from useParams:", id);
 
   // Fungsi untuk mendapatkan URL gambar lengkap
-  const getImageUrl = (imagePath) => {
-    if (!imagePath) return '/default-product.jpg';
+  const getImageUrl = (product) => {
+  if (product.imageUrl) {
+    return product.imageUrl;
+  }
 
-    // Jika gambar sudah berupa URL lengkap, gunakan langsung
-    if (imagePath.startsWith('http')) {
-      return imagePath;
+  if (product.images && product.images.length > 0) {
+    if (product.images[0].startsWith('http')) {
+      return product.images[0];
     }
+    return `https://zerowastemarket-production.up.railway.app/${product.images[0]}`;
+  }
 
-    // Jika berupa base64 string, gunakan langsung
-    if (imagePath.startsWith('data:image')) {
-      return imagePath;
-    }
-
-    // Gabungkan dengan base URL untuk path relatif
-    return `${API_BASE_URL}/${imagePath}`;
-  };
+  return 'https://via.placeholder.com/300?text=No+Image';
+};
 
   useEffect(() => {
     const fetchProduct = async () => {

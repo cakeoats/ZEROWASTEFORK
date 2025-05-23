@@ -201,25 +201,19 @@ const ProductCatalog = () => {
 
     // Function to get image URL
     const getImageUrl = (product) => {
-        // If product has imageUrl (already formatted from backend)
-        if (product.imageUrl) {
-            return product.imageUrl;
-        }
+  if (product.imageUrl) {
+    return product.imageUrl;
+  }
 
-        // If product has images (array)
-        if (product.images && product.images.length > 0) {
-            // If image path is already a full URL
-            if (product.images[0].startsWith('http')) {
-                return product.images[0];
-            }
+  if (product.images && product.images.length > 0) {
+    if (product.images[0].startsWith('http')) {
+      return product.images[0];
+    }
+    return `https://zerowastemarket-production.up.railway.app/${product.images[0]}`;
+  }
 
-            // If image path is relative, combine with BASE_URL
-            return `${API_URL}/${product.images[0]}`;
-        }
-
-        // Fallback to image placeholder
-        return 'https://via.placeholder.com/300';
-    };
+  return 'https://via.placeholder.com/300?text=No+Image';
+};
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -353,7 +347,7 @@ const ProductCatalog = () => {
                                                     alt={product.name}
                                                     className="w-full aspect-square object-cover"
                                                     onError={(e) => {
-                                                        e.target.src = 'https://via.placeholder.com/300?text=No+Image';
+                                                        e.target.src = 'https://zerowastemarket-production.up.railway.app/uploads/default-product.jpg?text=No+Image';
                                                     }}
                                                 />
                                             </Link>
