@@ -1,0 +1,38 @@
+[33maba2896[m[33m ([m[1;36mHEAD -> [m[1;32mmain[m[33m)[m Add .env to gitignore and remove from tracking
+[33m09c0cc3[m benerin env
+[33m60ace15[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m update PDP
+[33m1e412c0[m update
+[33m16b29f3[m update cart
+[33m7dcfef5[m update
+[33m092791d[m update backend
+[33ma9caa6b[m frontend profile page, user product
+[33m09679fe[m Language Switcher
+[33m96dea42[m Revert "update user product dan profile"
+[33m70d79f5[m update user product dan profile
+[33m85b1657[m update routes
+[33m2d8de42[m update catalog, login dan wishlist barang
+[33m1075def[m update admin dashboard
+[33m0d66cd1[m profile 100%, middleware 'UP', 'PC' DONE
+[33m7fe75e1[m update landing dan catalog
+[33m400ef8c[m update upload product, pdp
+[33meb8dbc9[m fix di fe uploadproduk
+[33mf784c7e[m update
+[33mf62195a[m update pdp dan upload
+[33mbb41f11[m rubah struktur file & BE PDP beres
+[33m019178b[m Upload Product
+[33ma447dd6[m update public
+[33mad6f7f0[m update
+[33mfe024d4[m Revert "update folder/public"
+[33m831fcbf[m Revert "update folder/public"
+[33mbb52042[m update folder/public
+[33m5c71261[m update folder/public
+[33m2565262[m update navbar, popup login & logout
+[33m77f4120[m profile page beres sisa gnti pass belom
+[33m2154288[m update admin dashboard dan product katalog
+[33m37843a9[m update footer dan profile page
+[33mb359f07[m update category di landing page
+[33m09b35ff[m Initial push to new repo with all latest updates
+[33m38ef4cf[m auth beres,verif email beres, kurang forget password dikit lagi beres
+[33m2ff4446[m update
+[33md1d65fa[m test
+[33mcad5cef[m Initial commit
