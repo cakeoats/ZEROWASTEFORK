@@ -4,7 +4,6 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
-// Perbaiki path impor
 const authRoutes = require('./route/authRoutes');
 const userRoutes = require('./route/userRoutes');
 const productRoutes = require('./route/productRoutes');
@@ -18,7 +17,11 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors({
-  origin: 'http://localhost:3000', // Frontend URL
+  origin: [
+    'http://localhost:3000',
+    'https://zerowastemarket.vercel.app',
+    'https://frontend-a61sij8us-dafiibras-projects.vercel.app'
+  ],
   credentials: true, // Untuk cookie atau header auth
 }));
 app.use(express.json()); // Parsing body JSON
