@@ -68,7 +68,8 @@ function NavbarComponent() {
                         </Link>
                     </div>
 
-                    {/* Nav Links with Font Custom */}
+                    {/* BAGIAN INI DIHAPUS - Nav Links with Font Custom */}
+                    {/* 
                     <div className="hidden md:flex space-x-6">
                         <a href="#" className="text-gray-300 hover:text-white transition-colors font-bold tracking-wide text-sm uppercase">
                             {translate('nav.luxury')}
@@ -86,6 +87,7 @@ function NavbarComponent() {
                             {translate('nav.cars')}
                         </a>
                     </div>
+                    */}
 
                     {/* Action Buttons */}
                     <div className="flex items-center space-x-2">
