@@ -140,17 +140,18 @@ const MidtransPayment = () => {
           headers: { 
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
-          }
+          },
+          timeout: 30000 // 30 second timeout
         }
       );
       
       console.log('✅ Transaction created:', response.data);
       
       // Get the snap token from response
-      const { token: snapToken, success } = response.data;
+      const { token: snapToken, success, message } = response.data;
       
       if (!success) {
-        throw new Error(response.data.message || 'Transaction creation failed');
+        throw new Error(message || 'Transaction creation failed');
       }
       
       if (!snapToken) {
@@ -158,6 +159,9 @@ const MidtransPayment = () => {
       }
       
       console.log('🎫 Snap token received, opening payment popup...');
+      
+      // Reset loading state before opening snap
+      setPaymentLoading(false);
       
       // Open Midtrans Snap payment page
       window.snap.pay(snapToken, {
@@ -172,12 +176,10 @@ const MidtransPayment = () => {
         onError: function(result) {
           console.error('❌ Payment error:', result);
           setError('Payment failed: ' + (result.status_message || 'Please try again.'));
-          setPaymentLoading(false);
         },
         onClose: function() {
           console.log('🚫 Payment window closed');
           setError('Payment canceled. Please try again to complete your purchase.');
-          setPaymentLoading(false);
         }
       });
     } catch (err) {
@@ -187,10 +189,15 @@ const MidtransPayment = () => {
         status: err.response?.status
       });
       
-      const errorMessage = err.response?.data?.message || 
-                          err.response?.data?.error || 
-                          err.message || 
-                          'Failed to process payment. Please try again.';
+      let errorMessage = 'Failed to process payment. Please try again.';
+      
+      if (err.response?.status === 500) {
+        errorMessage = 'Server error occurred. Please try again later or contact support.';
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
       
       setError(errorMessage);
       setPaymentLoading(false);
@@ -273,7 +280,14 @@ const MidtransPayment = () => {
               <div className="flex items-center">
                 <div className="w-20 h-20 rounded-md overflow-hidden bg-gray-100 mr-4">
                   <img 
-                    src={product.imageUrl || (product.images && product.images.length > 0 ? `${API_URL}/${product.images[0]}` : 'https://via.placeholder.com/80')} 
+                    src={
+                      product.imageUrl || 
+                      (product.images && product.images.length > 0 ? 
+                        (product.images[0].startsWith('http') ? 
+                          product.images[0] : 
+                          `${API_URL}/${product.images[0]}`) : 
+                        'https://via.placeholder.com/80')
+                    } 
                     alt={product.name}
                     className="w-full h-full object-cover"
                     onError={(e) => {
@@ -378,6 +392,8 @@ const MidtransPayment = () => {
                 <div>Product ID: {id}</div>
                 <div>Token: {token ? 'Present' : 'Missing'}</div>
                 <div>Snap Loaded: {snapScriptLoaded ? 'Yes' : 'No'}</div>
+                <div>Product Price: {product.price}</div>
+                <div>Total Price: {totalPrice}</div>
               </div>
             )}
           </div>

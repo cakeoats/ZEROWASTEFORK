@@ -1,3 +1,4 @@
+// backend/controller/payment/paymentController.js
 const midtransClient = require('midtrans-client');
 const Product = require('../../models/product');
 const User = require('../../models/User');
@@ -7,6 +8,8 @@ const Order = require('../../models/order');
 // For single product transactions
 exports.createTransaction = async (req, res) => {
   try {
+    console.log('🚀 Starting payment transaction creation...');
+    
     // Debug log untuk environment variables
     console.log('Environment Variables Check:', {
       MIDTRANS_SERVER_KEY: process.env.MIDTRANS_SERVER_KEY ? `SET (${process.env.MIDTRANS_SERVER_KEY.substring(0, 20)}...)` : 'NOT SET',
@@ -41,7 +44,7 @@ exports.createTransaction = async (req, res) => {
 
     // Ambil data produk dari database
     console.log('🔍 Fetching product...');
-    const product = await Product.findById(productId);
+    const product = await Product.findById(productId).populate('seller_id', 'username full_name email');
     if (!product) {
       console.log('❌ Product not found:', productId);
       return res.status(404).json({
@@ -63,7 +66,7 @@ exports.createTransaction = async (req, res) => {
     }
     console.log('✅ User found:', { id: user._id, username: user.username, email: user.email });
 
-    // Buat instance Snap dari Midtrans
+    // Buat instance Snap dari Midtrans dengan error handling yang lebih baik
     console.log('🔧 Creating Midtrans Snap instance...');
     let snap;
     try {
@@ -86,54 +89,82 @@ exports.createTransaction = async (req, res) => {
     const transactionId = `ORDER-${Date.now()}-${userId.toString().substring(0, 5)}`;
     console.log('🆔 Generated transaction ID:', transactionId);
 
-    // Parameter untuk Midtrans
+    // Parameter untuk Midtrans dengan validasi yang lebih ketat
+    const grossAmount = Math.round(product.price * quantity);
+    
     const parameter = {
       transaction_details: {
         order_id: transactionId,
-        gross_amount: product.price * quantity
+        gross_amount: grossAmount
       },
       item_details: [{
         id: product._id.toString(),
-        price: product.price,
-        quantity: quantity,
+        price: Math.round(product.price),
+        quantity: parseInt(quantity),
         name: product.name.substring(0, 50) // Midtrans membatasi panjang nama
       }],
       customer_details: {
-        first_name: user.full_name || user.username,
+        first_name: (user.full_name || user.username || 'Customer').substring(0, 20),
         email: user.email,
         phone: user.phone || ''
       },
       callbacks: {
-        finish: `${process.env.FRONTEND_URL || 'https://frontend-a61sij8us-dafiibras-projects.vercel.app'}/payment/success`,
-        error: `${process.env.FRONTEND_URL || 'https://frontend-a61sij8us-dafiibras-projects.vercel.app'}/payment/error`,
-        pending: `${process.env.FRONTEND_URL || 'https://frontend-a61sij8us-dafiibras-projects.vercel.app'}/payment/pending`
+        finish: `${process.env.FRONTEND_URL || 'https://zerowastemarket.vercel.app'}/payment/success`,
+        error: `${process.env.FRONTEND_URL || 'https://zerowastemarket.vercel.app'}/payment/error`,
+        pending: `${process.env.FRONTEND_URL || 'https://zerowastemarket.vercel.app'}/payment/pending`
+      },
+      // Add credit card settings
+      credit_card: {
+        secure: true
+      },
+      // Add expiry settings
+      expiry: {
+        start_time: new Date().toISOString().replace(/T/, ' ').replace(/\..+/, '') + ' +0700',
+        duration: 60,
+        unit: 'minutes'
       }
     };
 
     console.log('📋 Midtrans parameters:', JSON.stringify(parameter, null, 2));
 
-    // Buat transaksi di Midtrans
+    // Buat transaksi di Midtrans dengan better error handling
     console.log('🚀 Creating Midtrans transaction...');
-    const transaction = await snap.createTransaction(parameter);
-
-    console.log('✅ Midtrans transaction created successfully:', {
-      token: transaction.token ? 'TOKEN_RECEIVED' : 'NO_TOKEN',
-      redirect_url: transaction.redirect_url ? 'URL_RECEIVED' : 'NO_URL'
-    });
+    let transaction;
+    try {
+      transaction = await snap.createTransaction(parameter);
+      console.log('✅ Midtrans transaction created successfully:', {
+        token: transaction.token ? 'TOKEN_RECEIVED' : 'NO_TOKEN',
+        redirect_url: transaction.redirect_url ? 'URL_RECEIVED' : 'NO_URL'
+      });
+    } catch (midtransTransactionError) {
+      console.error('❌ Midtrans transaction creation failed:', midtransTransactionError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to create payment transaction',
+        error: midtransTransactionError.message,
+        details: process.env.NODE_ENV === 'development' ? midtransTransactionError : undefined
+      });
+    }
 
     // Create an order in our database
     console.log('💾 Saving order to database...');
-    const newOrder = new Order({
-      buyer: userId,
-      seller: product.seller_id,
-      product: product._id,
-      quantity: quantity,
-      totalAmount: product.price * quantity,
-      status: 'pending'
-    });
+    try {
+      const newOrder = new Order({
+        buyer: userId,
+        seller: product.seller_id._id || product.seller_id,
+        product: product._id,
+        quantity: parseInt(quantity),
+        totalAmount: grossAmount,
+        status: 'pending',
+        transactionId: transactionId
+      });
 
-    await newOrder.save();
-    console.log('✅ Order saved to database:', newOrder._id);
+      await newOrder.save();
+      console.log('✅ Order saved to database:', newOrder._id);
+    } catch (orderError) {
+      console.error('❌ Failed to save order:', orderError);
+      // Don't return error here as Midtrans transaction is already created
+    }
 
     // Kirim token ke frontend
     res.status(200).json({
@@ -141,7 +172,7 @@ exports.createTransaction = async (req, res) => {
       token: transaction.token,
       redirect_url: transaction.redirect_url,
       order_id: transactionId,
-      orderId: newOrder._id
+      message: 'Transaction created successfully'
     });
 
     console.log('✅ Response sent to frontend successfully');
@@ -194,11 +225,11 @@ exports.createCartTransaction = async (req, res) => {
       });
     }
 
-    if (!totalAmount) {
-      console.log('❌ Total amount missing');
+    if (!totalAmount || totalAmount <= 0) {
+      console.log('❌ Invalid total amount');
       return res.status(400).json({
         success: false,
-        message: 'Total amount is required'
+        message: 'Valid total amount is required'
       });
     }
 
@@ -224,7 +255,7 @@ exports.createCartTransaction = async (req, res) => {
     // Ambil informasi produk dari database
     const productDetails = [];
     for (const item of items) {
-      const product = await Product.findById(item.productId);
+      const product = await Product.findById(item.productId).populate('seller_id');
       if (!product) {
         console.log('❌ Product not found in cart:', item.productId);
         return res.status(404).json({
@@ -235,7 +266,7 @@ exports.createCartTransaction = async (req, res) => {
 
       productDetails.push({
         product: product,
-        quantity: item.quantity
+        quantity: parseInt(item.quantity) || 1
       });
     }
 
@@ -265,44 +296,63 @@ exports.createCartTransaction = async (req, res) => {
     // Prepare Midtrans parameters
     const itemDetails = productDetails.map(item => ({
       id: item.product._id.toString(),
-      price: item.product.price,
+      price: Math.round(item.product.price),
       quantity: item.quantity,
       name: item.product.name.substring(0, 50) // Midtrans limits name length
     }));
 
+    const grossAmount = Math.round(totalAmount);
+
     const parameter = {
       transaction_details: {
         order_id: transactionId,
-        gross_amount: parseInt(totalAmount)
+        gross_amount: grossAmount
       },
       item_details: itemDetails,
       customer_details: {
-        first_name: user.full_name || user.username,
+        first_name: (user.full_name || user.username || 'Customer').substring(0, 20),
         email: user.email,
         phone: user.phone || ''
       },
       callbacks: {
-        finish: `${process.env.FRONTEND_URL || 'https://frontend-a61sij8us-dafiibras-projects.vercel.app'}/payment/success`,
-        error: `${process.env.FRONTEND_URL || 'https://frontend-a61sij8us-dafiibras-projects.vercel.app'}/payment/error`,
-        pending: `${process.env.FRONTEND_URL || 'https://frontend-a61sij8us-dafiibras-projects.vercel.app'}/payment/pending`
+        finish: `${process.env.FRONTEND_URL || 'https://zerowastemarket.vercel.app'}/payment/success`,
+        error: `${process.env.FRONTEND_URL || 'https://zerowastemarket.vercel.app'}/payment/error`,
+        pending: `${process.env.FRONTEND_URL || 'https://zerowastemarket.vercel.app'}/payment/pending`
+      },
+      credit_card: {
+        secure: true
+      },
+      expiry: {
+        start_time: new Date().toISOString().replace(/T/, ' ').replace(/\..+/, '') + ' +0700',
+        duration: 60,
+        unit: 'minutes'
       }
     };
 
     console.log('Creating Midtrans cart transaction with parameters:', JSON.stringify(parameter, null, 2));
 
     // Create transaction in Midtrans
-    const transaction = await snap.createTransaction(parameter);
+    let transaction;
+    try {
+      transaction = await snap.createTransaction(parameter);
+      console.log('Midtrans cart transaction created:', {
+        token: transaction.token ? 'TOKEN_RECEIVED' : 'NO_TOKEN',
+        redirect_url: transaction.redirect_url ? 'URL_RECEIVED' : 'NO_URL'
+      });
+    } catch (midtransTransactionError) {
+      console.error('❌ Midtrans cart transaction creation failed:', midtransTransactionError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to create cart payment transaction',
+        error: midtransTransactionError.message
+      });
+    }
 
-    console.log('Midtrans cart transaction created:', {
-      token: transaction.token ? 'TOKEN_RECEIVED' : 'NO_TOKEN',
-      redirect_url: transaction.redirect_url ? 'URL_RECEIVED' : 'NO_URL'
-    });
-
-    // Group items by seller
+    // Group items by seller and create orders
     const sellerOrders = {};
 
     for (const item of productDetails) {
-      const sellerId = item.product.seller_id.toString();
+      const sellerId = (item.product.seller_id._id || item.product.seller_id).toString();
 
       if (!sellerOrders[sellerId]) {
         sellerOrders[sellerId] = {
@@ -324,21 +374,25 @@ exports.createCartTransaction = async (req, res) => {
     const orderIds = [];
 
     for (const [sellerId, orderData] of Object.entries(sellerOrders)) {
-      const newOrder = new Order({
-        buyer: userId,
-        seller: sellerId,
-        products: orderData.items.map(item => ({
-          product: item.product,
-          quantity: item.quantity,
-          price: item.price
-        })),
-        totalAmount: orderData.totalAmount,
-        status: 'pending',
-        transactionId: transactionId
-      });
+      try {
+        const newOrder = new Order({
+          buyer: userId,
+          seller: sellerId,
+          products: orderData.items.map(item => ({
+            product: item.product,
+            quantity: item.quantity,
+            price: item.price
+          })),
+          totalAmount: Math.round(orderData.totalAmount),
+          status: 'pending',
+          transactionId: transactionId
+        });
 
-      await newOrder.save();
-      orderIds.push(newOrder._id);
+        await newOrder.save();
+        orderIds.push(newOrder._id);
+      } catch (orderError) {
+        console.error('❌ Failed to save order for seller:', sellerId, orderError);
+      }
     }
 
     console.log('✅ Cart orders saved to database:', orderIds);
@@ -349,7 +403,8 @@ exports.createCartTransaction = async (req, res) => {
       token: transaction.token,
       redirect_url: transaction.redirect_url,
       order_id: transactionId,
-      orderIds: orderIds
+      orderIds: orderIds,
+      message: 'Cart transaction created successfully'
     });
 
     console.log('✅ Cart transaction response sent successfully');
