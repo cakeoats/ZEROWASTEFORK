@@ -1,3 +1,5 @@
+// frontend/src/pages/auth/Login.js - Updated with better error handling
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { TextInput, Button } from 'flowbite-react';
 import { HiUser, HiLockClosed } from 'react-icons/hi';
@@ -6,6 +8,7 @@ import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
 import WelcomePopup from '../../components/WelcomePopup';
 import { ClipLoader } from 'react-spinners';
+import { getApiUrl } from '../../config/api';
 
 function LoginPage() {
     const [username, setUsername] = useState('');
@@ -17,13 +20,19 @@ function LoginPage() {
     const navigate = useNavigate();
     const { login } = useAuth();
 
-    // Gunakan useCallback untuk stabilkan fungsi
+    // Debug API configuration
+    useEffect(() => {
+        if (process.env.NODE_ENV === 'development') {
+            console.log('🔧 Login - API URL:', getApiUrl('api/auth/login'));
+            console.log('🔧 Environment:', process.env.NODE_ENV);
+        }
+    }, []);
+
     const handlePopupClose = useCallback(() => {
         setIsPopupOpen(false);
         navigate('/');
     }, [navigate]);
 
-    // Effect untuk auto close popup
     useEffect(() => {
         let timer;
         if (isPopupOpen) {
@@ -35,38 +44,95 @@ function LoginPage() {
     }, [isPopupOpen, handlePopupClose]);
 
     const handleLogin = async (e) => {
-        e.preventDefault();
+        if (e) e.preventDefault();
         setError('');
         setIsLoading(true);
 
         try {
-            const res = await axios.post('https://zerowastemarket-production.up.railway.app/api/auth/login', {
+            console.log('🚀 Attempting login with:', {
                 username,
-                password
+                apiUrl: getApiUrl('api/auth/login')
             });
+
+            const requestData = {
+                username: username.trim(),
+                password: password
+            };
+
+            console.log('📤 Request data:', requestData);
+
+            const res = await axios.post(getApiUrl('api/auth/login'), requestData, {
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                timeout: 15000, // 15 second timeout
+                withCredentials: false // Try without credentials first
+            });
+
+            console.log('✅ Login response:', res.data);
 
             const { user, token } = res.data;
 
-            // Explicitly store token and user in localStorage
+            if (!user || !token) {
+                throw new Error('Invalid response format from server');
+            }
+
+            // Store token and user in localStorage
             const userInfo = { token, user };
             localStorage.setItem('userInfo', JSON.stringify(userInfo));
-            console.log('Stored userInfo in localStorage:', userInfo);
+            localStorage.setItem('token', token);
+            localStorage.setItem('user', JSON.stringify(user));
 
-            // Call the context's login function (if it does additional state management)
+            console.log('💾 Stored userInfo in localStorage:', userInfo);
+
+            // Update auth context
             login(user, token);
 
             setUserData(user);
             setIsPopupOpen(true);
         } catch (err) {
-            console.error('Login error:', err);
-            const errorMessage = err.response?.data?.message || 'Login failed. Please try again.';
-            if (errorMessage.includes('Email not verified')) {
-                setError('Email not verified. Please check your email for the verification link.');
-            } else if (errorMessage.includes('Invalid username or password')) {
-                setError('Invalid username or password. Please check your credentials.');
+            console.error('❌ Login error:', {
+                message: err.message,
+                response: err.response?.data,
+                status: err.response?.status,
+                url: err.config?.url
+            });
+
+            let errorMessage = 'Login failed. Please try again.';
+
+            if (err.code === 'ECONNABORTED') {
+                errorMessage = 'Request timeout. Please check your connection and try again.';
+            } else if (err.response) {
+                const status = err.response.status;
+                const serverMessage = err.response.data?.message;
+
+                switch (status) {
+                    case 400:
+                    case 401:
+                        if (serverMessage?.includes('Email not verified')) {
+                            errorMessage = 'Email not verified. Please check your email for the verification link.';
+                        } else if (serverMessage?.includes('Invalid username or password')) {
+                            errorMessage = 'Invalid username or password. Please check your credentials.';
+                        } else {
+                            errorMessage = serverMessage || 'Invalid credentials. Please try again.';
+                        }
+                        break;
+                    case 404:
+                        errorMessage = 'Login service not found. Please contact support.';
+                        break;
+                    case 500:
+                        errorMessage = 'Server error. Please try again later.';
+                        break;
+                    default:
+                        errorMessage = serverMessage || `Server error (${status}). Please try again.`;
+                }
+            } else if (err.request) {
+                errorMessage = 'Cannot connect to server. Please check your internet connection.';
             } else {
-                setError(errorMessage);
+                errorMessage = err.message || 'An unexpected error occurred.';
             }
+
+            setError(errorMessage);
         } finally {
             setIsLoading(false);
         }
@@ -80,6 +146,14 @@ function LoginPage() {
                         Welcome Back
                     </span>
                 </div>
+
+                {/* Debug info - only show in development */}
+                {process.env.NODE_ENV === 'development' && (
+                    <div className="mb-4 p-2 bg-gray-100 rounded text-xs">
+                        <div>API: {getApiUrl('api/auth/login')}</div>
+                        <div>Env: {process.env.NODE_ENV}</div>
+                    </div>
+                )}
 
                 <form onSubmit={handleLogin} className="space-y-6">
                     <TextInput

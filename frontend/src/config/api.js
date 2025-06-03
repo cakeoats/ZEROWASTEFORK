@@ -1,7 +1,7 @@
 // frontend/src/config/api.js
-// Centralized API configuration with environment variable support
+// GANTI SELURUH ISI FILE INI
 
-// Get API URL from environment variable with fallback
+// Get API URL from environment variable with fallback to your actual backend
 export const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://zerowaste-backend-theta.vercel.app';
 
 // Environment check
@@ -22,7 +22,14 @@ export const apiConfig = {
 export const getApiUrl = (endpoint = '') => {
     // Remove leading slash if present to avoid double slashes
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
-    return `${API_BASE_URL}/${cleanEndpoint}`;
+    const url = `${API_BASE_URL}/${cleanEndpoint}`;
+
+    // Log API calls in development
+    if (isDevelopment) {
+        console.log('🔗 API Call:', url);
+    }
+
+    return url;
 };
 
 // Helper function to get image URL
@@ -89,23 +96,15 @@ export const checkApiHealth = async () => {
     }
 };
 
-// Debug logging for development
-if (isDevelopment) {
-    console.log('🔧 API Configuration:', {
-        baseURL: API_BASE_URL,
-        environment: process.env.NODE_ENV,
-        customEnv: currentEnv,
-        isDevelopment,
-        isProduction,
-        envVariable: process.env.REACT_APP_API_URL,
-        midtransConfig: getMidtransConfig(),
-        availableEnvVars: {
-            REACT_APP_API_URL: process.env.REACT_APP_API_URL,
-            REACT_APP_ENV: process.env.REACT_APP_ENV,
-            NODE_ENV: process.env.NODE_ENV
-        }
-    });
-}
+// Debug logging
+console.log('🔧 API Configuration:', {
+    baseURL: API_BASE_URL,
+    environment: process.env.NODE_ENV,
+    customEnv: currentEnv,
+    isDevelopment,
+    isProduction,
+    envVariable: process.env.REACT_APP_API_URL
+});
 
 // Error handler for API requests
 export const handleApiError = (error, defaultMessage = 'An error occurred') => {
@@ -133,47 +132,6 @@ export const handleApiError = (error, defaultMessage = 'An error occurred') => {
     }
 };
 
-// Axios interceptor setup (optional)
-export const setupAxiosInterceptors = (axiosInstance) => {
-    // Request interceptor
-    axiosInstance.interceptors.request.use(
-        (config) => {
-            // Add auth headers automatically
-            const token = localStorage.getItem('token');
-            if (token) {
-                config.headers.Authorization = `Bearer ${token}`;
-            }
-
-            // Add base URL if not already present
-            if (!config.url.startsWith('http')) {
-                config.url = getApiUrl(config.url);
-            }
-
-            return config;
-        },
-        (error) => {
-            return Promise.reject(error);
-        }
-    );
-
-    // Response interceptor
-    axiosInstance.interceptors.response.use(
-        (response) => {
-            return response;
-        },
-        (error) => {
-            // Handle auth errors globally
-            if (error.response?.status === 401) {
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
-                window.location.href = '/login';
-            }
-
-            return Promise.reject(error);
-        }
-    );
-};
-
 export default {
     API_BASE_URL,
     getApiUrl,
@@ -182,6 +140,5 @@ export default {
     getFormHeaders,
     getMidtransConfig,
     checkApiHealth,
-    handleApiError,
-    setupAxiosInterceptors
+    handleApiError
 };
