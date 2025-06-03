@@ -18,7 +18,7 @@ const PORT = process.env.PORT || 5000;
 // Enhanced CORS configuration
 app.use(cors({
   origin: [
-    'http://localhost:3000',
+    'https://zerowaste-frontend-eosin.vercel.app/',
     'https://zerowastemarket.vercel.app',
     'https://frontend-a61sij8us-dafiibras-projects.vercel.app',
     'https://*.vercel.app' // Allow all vercel subdomains
