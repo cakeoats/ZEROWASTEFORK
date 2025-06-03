@@ -47,7 +47,7 @@ export const getAuthHeaders = () => {
 export const MIDTRANS_CONFIG = {
     development: {
         scriptUrl: 'https://app.sandbox.midtrans.com/snap/snap.js',
-        clientKey: process.env.REACT_APP_MIDTRANS_CLIENT_KEY_SANDBOX || 'SB-Mid-client-D5UY5aGYO_BSvIUk',
+        clientKey: process.env.REACT_APP_MIDTRANS_CLIENT_KEY_SANDBOX || 'SB-Mid-client-FHBq0wtUSyCEStlH',
         isProduction: false
     },
     production: {
