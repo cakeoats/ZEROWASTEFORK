@@ -8,7 +8,7 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { useTranslate } from '../../utils/languageUtils';
 import Footer from '../../components/Footer';
 import { Alert } from 'flowbite-react';
-import { getApiUrl, getImageUrl, getAuthHeaders } from '../../config/api';
+import { getApiUrl, getProductImageUrl, getAuthHeaders } from '../../config/api';
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -37,19 +37,6 @@ export default function ProductDetail() {
       });
     }
   }, [id]);
-
-  // Function to get product image URL
-  const getProductImageUrl = (product) => {
-    if (product.imageUrl) {
-      return product.imageUrl;
-    }
-
-    if (product.images && product.images.length > 0) {
-      return getImageUrl(product.images[0]);
-    }
-
-    return 'https://via.placeholder.com/300?text=No+Image';
-  };
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -186,10 +173,32 @@ export default function ProductDetail() {
     );
   }
 
-  // Process product images
-  const productImages = Array.isArray(product.images)
-    ? product.images.map(img => getImageUrl(img))
-    : (product.images ? [getImageUrl(product.images)] : ['/default-product.jpg']);
+  // Process product images using the improved getProductImageUrl function
+  const productImages = (() => {
+    // Get primary image URL
+    const primaryImageUrl = getProductImageUrl(product);
+
+    // If product has multiple images, process them all
+    if (product.images && Array.isArray(product.images) && product.images.length > 1) {
+      return product.images.map(img => {
+        // Use the same logic as getProductImageUrl for consistency
+        if (img.startsWith('http')) {
+          console.log('🌐 Using full URL for image:', img);
+          return img;
+        }
+
+        const cleanPath = img.startsWith('/') ? img.slice(1) : img;
+        const fullUrl = `${getApiUrl('')}${cleanPath}`;
+        console.log('🔗 Constructed image URL:', fullUrl);
+        return fullUrl;
+      });
+    }
+
+    // Return array with single image
+    return [primaryImageUrl];
+  })();
+
+  console.log('🖼️ Processed product images:', productImages);
 
   return (
     <div className="min-h-screen bg-white text-gray-800 relative">
@@ -233,9 +242,15 @@ export default function ProductDetail() {
                         className="object-cover w-full h-full transition-transform duration-500 hover:scale-105 cursor-pointer"
                         onClick={() => setShowFullscreenCarousel(true)}
                         onError={(e) => {
-                          console.error("Error loading image:", productImages[activeImage]);
-                          e.target.src = '/default-product.jpg';
+                          console.error("❌ Error loading image:", productImages[activeImage]);
+                          console.log('❌ Failed URL:', e.target.src);
+                          e.target.onerror = null; // Prevent infinite loop
+                          e.target.src = 'https://via.placeholder.com/600x600/f3f4f6/9ca3af?text=No+Image';
                         }}
+                        onLoad={() => {
+                          console.log('✅ Image loaded successfully:', productImages[activeImage]);
+                        }}
+                        loading="lazy"
                       />
 
                       {/* Navigation Arrows */}
@@ -305,9 +320,14 @@ export default function ProductDetail() {
                           alt={`${product.name} - view ${index + 1}`}
                           className="w-full h-full object-cover"
                           onError={(e) => {
-                            console.error("Error loading thumbnail:", img);
-                            e.target.src = '/default-product.jpg';
+                            console.error("❌ Error loading thumbnail:", img);
+                            e.target.onerror = null;
+                            e.target.src = 'https://via.placeholder.com/80x80/f3f4f6/9ca3af?text=No+Image';
                           }}
+                          onLoad={() => {
+                            console.log('✅ Thumbnail loaded successfully:', img);
+                          }}
+                          loading="lazy"
                         />
                       </div>
                     ))}
@@ -484,8 +504,12 @@ export default function ProductDetail() {
                 className="max-h-full max-w-full object-contain"
                 onClick={(e) => e.stopPropagation()}
                 onError={(e) => {
-                  console.error("Error loading fullscreen image:", productImages[activeImage]);
-                  e.target.src = '/default-product.jpg';
+                  console.error("❌ Error loading fullscreen image:", productImages[activeImage]);
+                  e.target.onerror = null;
+                  e.target.src = 'https://via.placeholder.com/800x800/f3f4f6/9ca3af?text=No+Image';
+                }}
+                onLoad={() => {
+                  console.log('✅ Fullscreen image loaded successfully:', productImages[activeImage]);
                 }}
               />
             </div>
@@ -536,8 +560,14 @@ export default function ProductDetail() {
                         alt={`${product.name} - view ${index + 1}`}
                         className="w-full h-full object-cover"
                         onError={(e) => {
-                          e.target.src = '/default-product.jpg';
+                          console.error("❌ Error loading fullscreen thumbnail:", img);
+                          e.target.onerror = null;
+                          e.target.src = 'https://via.placeholder.com/64x64/f3f4f6/9ca3af?text=No+Image';
                         }}
+                        onLoad={() => {
+                          console.log('✅ Fullscreen thumbnail loaded successfully:', img);
+                        }}
+                        loading="lazy"
                       />
                     </div>
                   ))}
