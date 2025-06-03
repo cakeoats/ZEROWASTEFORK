@@ -59,11 +59,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/zerowastemarket', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
+// Connect to MongoDB (hapus deprecated options)
+mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/zerowastemarket')
   .then(() => {
     console.log('✅ Connected to MongoDB');
   })
@@ -74,8 +71,8 @@ mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/zerowastema
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'OK', 
+  res.status(200).json({
+    status: 'OK',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development'
   });
@@ -95,7 +92,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // 404 handler for API routes
 app.use('/api/*', (req, res) => {
-  res.status(404).json({ 
+  res.status(404).json({
     message: 'API endpoint not found',
     path: req.path,
     method: req.method
@@ -111,18 +108,18 @@ app.use((err, req, res, next) => {
     method: req.method,
     timestamp: new Date().toISOString()
   });
-  
+
   // Don't expose stack trace in production
   const errorResponse = {
     message: err.message || 'Something went wrong!',
     path: req.path,
     timestamp: new Date().toISOString()
   };
-  
+
   if (process.env.NODE_ENV === 'development') {
     errorResponse.stack = err.stack;
   }
-  
+
   res.status(err.status || 500).json(errorResponse);
 });
 

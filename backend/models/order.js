@@ -50,7 +50,7 @@ const orderSchema = new mongoose.Schema({
   transactionId: {
     type: String,
     required: true,
-    unique: true
+    unique: true  // MongoDB akan otomatis membuat index untuk unique field
   },
   paymentMethod: {
     type: String,
@@ -71,19 +71,18 @@ const orderSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Index for better query performance
+// Index untuk performa query yang lebih baik (hapus index duplikat transactionId)
 orderSchema.index({ buyer: 1, createdAt: -1 });
 orderSchema.index({ seller: 1, createdAt: -1 });
-orderSchema.index({ transactionId: 1 });
 orderSchema.index({ status: 1, createdAt: -1 });
 
 // Virtual for order type
-orderSchema.virtual('orderType').get(function() {
+orderSchema.virtual('orderType').get(function () {
   return this.products && this.products.length > 0 ? 'cart' : 'single';
 });
 
 // Method to calculate total amount
-orderSchema.methods.calculateTotal = function() {
+orderSchema.methods.calculateTotal = function () {
   if (this.products && this.products.length > 0) {
     return this.products.reduce((total, item) => total + (item.price * item.quantity), 0);
   }
@@ -91,17 +90,17 @@ orderSchema.methods.calculateTotal = function() {
 };
 
 // Pre-save middleware to ensure data consistency
-orderSchema.pre('save', function(next) {
+orderSchema.pre('save', function (next) {
   // Ensure we have either product or products
   if (!this.product && (!this.products || this.products.length === 0)) {
     return next(new Error('Order must have either a product or products array'));
   }
-  
+
   // If it's a cart order, calculate total from products
   if (this.products && this.products.length > 0) {
     this.totalAmount = this.calculateTotal();
   }
-  
+
   next();
 });
 
