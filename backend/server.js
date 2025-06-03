@@ -21,9 +21,9 @@ const PORT = process.env.PORT || 5000;
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
-  'https://zerowaste-frontend-eosin.vercel.app', // Your actual frontend URL
-  'https://zerowaste-backend-theta.vercel.app',  // Your actual backend URL
-  process.env.FRONTEND_URL, // From environment variable
+  'https://zerowaste-frontend-eosin.vercel.app',
+  'https://zerowaste-backend-theta.vercel.app',
+  process.env.FRONTEND_URL,
 ].filter(Boolean);
 
 console.log('🌐 Allowed CORS Origins:', allowedOrigins);
@@ -31,10 +31,8 @@ console.log('🌐 Allowed CORS Origins:', allowedOrigins);
 // Enhanced CORS configuration
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
 
-    // Check if origin is in allowed list
     const isAllowed = allowedOrigins.includes(origin) ||
       origin.match(/^http:\/\/localhost:\d+$/);
 
@@ -58,7 +56,7 @@ app.use(cors({
     'Pragma'
   ],
   exposedHeaders: ['Content-Length'],
-  maxAge: 86400, // 24 hours
+  maxAge: 86400,
   optionsSuccessStatus: 200
 }));
 
@@ -90,23 +88,19 @@ if (!fs.existsSync(uploadsDir)) {
 
 // Enhanced static file serving with proper headers and error handling
 app.use('/uploads', (req, res, next) => {
-  // Set CORS headers for images
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-  res.setHeader('Cache-Control', 'public, max-age=31536000'); // 1 year cache
+  res.setHeader('Cache-Control', 'public, max-age=31536000');
 
-  // Log image requests
   console.log('📸 Image request:', req.path);
 
   const filePath = path.join(__dirname, 'uploads', req.path);
 
-  // Check if file exists
   if (fs.existsSync(filePath)) {
     console.log('✅ Image found:', filePath);
     next();
   } else {
     console.log('❌ Image not found:', filePath);
-    // Send 404 with JSON response
     res.status(404).json({
       error: 'Image not found',
       path: req.path,
@@ -134,7 +128,6 @@ app.use((req, res, next) => {
 
   console.log(`${timestamp} - ${req.method} ${req.path} from ${origin}`);
 
-  // Enhanced logging for auth requests
   if (req.path.includes('/auth/')) {
     console.log(`🔐 Auth request:`, {
       method: req.method,
@@ -148,36 +141,110 @@ app.use((req, res, next) => {
   next();
 });
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/zerowastemarket')
-  .then(() => {
-    console.log('✅ Connected to MongoDB');
-  })
-  .catch((err) => {
-    console.error('❌ MongoDB connection error:', err.message);
-  });
+// FIXED: Connect to MongoDB dengan konfigurasi yang benar
+const connectDB = async () => {
+  try {
+    console.log('🔄 Connecting to MongoDB Atlas...');
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'OK',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    mongodb: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected',
-    uploadsDir: fs.existsSync(uploadsDir) ? 'Exists' : 'Missing',
-    cors: {
-      allowedOrigins: allowedOrigins,
-      requestOrigin: req.headers.origin || 'none'
+    const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://zerowastemarket:zerowastemarket@zerowastemarket.usk9srj.mongodb.net/zerowastemarket?retryWrites=true&w=majority&appName=zerowastemarket';
+
+    await mongoose.connect(MONGO_URI, {
+      // HANYA gunakan opsi yang didukung
+      serverSelectionTimeoutMS: 30000,
+      socketTimeoutMS: 75000,
+      connectTimeoutMS: 30000,
+      maxPoolSize: 10,
+      minPoolSize: 2,
+      maxIdleTimeMS: 30000,
+      retryWrites: true,
+      w: 'majority',
+      family: 4,
+      // HAPUS opsi yang menyebabkan error:
+      // bufferCommands: false,    // <- INI YANG MENYEBABKAN ERROR
+      // bufferMaxEntries: 0,      // <- INI JUGA
+    });
+
+    console.log('✅ Connected to MongoDB Atlas');
+    console.log(`📍 Host: ${mongoose.connection.host}`);
+    console.log(`📊 Database: ${mongoose.connection.name}`);
+
+    // Test ping
+    await mongoose.connection.db.admin().ping();
+    console.log('🏓 Database ping successful');
+
+  } catch (err) {
+    console.error('❌ MongoDB connection error:', err.message);
+
+    if (err.message.includes('buffermaxentries')) {
+      console.error('🔧 Configuration error: Remove unsupported Mongoose options');
+    } else if (err.message.includes('Authentication failed')) {
+      console.error('🔐 Check MongoDB Atlas credentials');
+    } else if (err.message.includes('timeout')) {
+      console.error('⏰ Check network and Atlas IP whitelist');
     }
-  });
+
+    process.exit(1);
+  }
+};
+
+// Health check endpoint with enhanced database status
+app.get('/health', async (req, res) => {
+  try {
+    const dbStatus = mongoose.connection.readyState;
+    const dbStatusText = {
+      0: 'Disconnected',
+      1: 'Connected',
+      2: 'Connecting',
+      3: 'Disconnecting'
+    }[dbStatus] || 'Unknown';
+
+    let dbPing = false;
+    if (dbStatus === 1) {
+      try {
+        await mongoose.connection.db.admin().ping();
+        dbPing = true;
+      } catch (e) {
+        dbPing = false;
+      }
+    }
+
+    res.status(200).json({
+      status: 'OK',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development',
+      mongodb: {
+        status: dbStatusText,
+        readyState: dbStatus,
+        connected: dbStatus === 1,
+        ping: dbPing,
+        host: mongoose.connection.host || 'Not connected',
+        database: mongoose.connection.name || 'Not connected',
+      },
+      uploadsDir: fs.existsSync(uploadsDir) ? 'Exists' : 'Missing',
+      cors: {
+        allowedOrigins: allowedOrigins,
+        requestOrigin: req.headers.origin || 'none'
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'ERROR',
+      timestamp: new Date().toISOString(),
+      error: error.message,
+    });
+  }
 });
 
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({
-    message: 'ZeroWasteMarket API - Vercel Deployment',
+    message: 'ZeroWasteMarket API - Backend Server',
     version: '1.0.0',
     timestamp: new Date().toISOString(),
+    database: {
+      status: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected',
+      host: mongoose.connection.host || 'Not connected',
+    },
     frontend: 'https://zerowaste-frontend-eosin.vercel.app',
     backend: 'https://zerowaste-backend-theta.vercel.app',
     endpoints: {
@@ -221,7 +288,6 @@ app.use((err, req, res, next) => {
     timestamp: new Date().toISOString()
   });
 
-  // Don't expose stack trace in production
   const errorResponse = {
     success: false,
     message: err.message || 'Something went wrong!',
@@ -235,16 +301,42 @@ app.use((err, req, res, next) => {
   res.status(err.status || 500).json(errorResponse);
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log('\n🚀 ZeroWasteMarket API Server Started');
-  console.log(`📍 Server: https://zerowaste-backend-theta.vercel.app`);
-  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔗 MongoDB: ${process.env.MONGO_URI ? 'Configured' : 'Using default'}`);
-  console.log(`🌐 Frontend: https://zerowaste-frontend-eosin.vercel.app`);
-  console.log(`🔐 CORS Origins: ${allowedOrigins.length} configured`);
-  console.log(`📁 Uploads Dir: ${fs.existsSync(uploadsDir) ? 'Ready' : 'Missing'}`);
-  console.log('✅ Server ready to accept connections');
-});
+// Enhanced startup dengan database check
+const startServer = async () => {
+  try {
+    console.log('\n🚀 Starting ZeroWasteMarket API Server...');
+    console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🔗 Port: ${PORT}`);
+
+    // Connect database first
+    await connectDB();
+
+    // Start server setelah database connected
+    app.listen(PORT, () => {
+      console.log('\n✅ ZeroWasteMarket API Server Started Successfully!');
+      console.log(`📍 Server: http://localhost:${PORT}`);
+      console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`🔗 MongoDB: Connected to Atlas`);
+      console.log(`🌐 Frontend: https://zerowaste-frontend-eosin.vercel.app`);
+      console.log(`🔐 CORS Origins: ${allowedOrigins.length} configured`);
+      console.log(`📁 Uploads Dir: ${fs.existsSync(uploadsDir) ? 'Ready' : 'Missing'}`);
+      console.log('🎉 Ready to accept connections!');
+    });
+
+  } catch (error) {
+    console.error('\n💥 Failed to start server:', error.message);
+
+    if (error.message.includes('EADDRINUSE')) {
+      console.error(`🔧 Port ${PORT} is already in use`);
+    } else if (error.message.includes('buffermaxentries')) {
+      console.error('🔧 Mongoose configuration error - check database connection options');
+    }
+
+    process.exit(1);
+  }
+};
+
+// Start the server
+startServer();
 
 module.exports = app;
