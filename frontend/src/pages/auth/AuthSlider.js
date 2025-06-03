@@ -8,6 +8,7 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { useTranslate } from '../../utils/languageUtils';
 import WelcomePopup from '../../components/WelcomePopup';
 import { ClipLoader } from 'react-spinners';
+import { getApiUrl } from '../../config/api';
 import './AuthSlider.css';
 
 function AuthSlider() {
@@ -90,7 +91,7 @@ function AuthSlider() {
         setIsLoading(true);
 
         try {
-            const res = await axios.post('https://zerowastemarket-production.up.railway.app/api/auth/login', {
+            const res = await axios.post(getApiUrl('api/auth/login'), {
                 username: loginData.username,
                 password: loginData.password
             });
@@ -135,7 +136,7 @@ function AuthSlider() {
         setIsLoading(true);
 
         try {
-            const res = await axios.post('https://zerowastemarket-production.up.railway.app/api/auth/register', {
+            const res = await axios.post(getApiUrl('api/auth/register'), {
                 username: registerData.username,
                 email: registerData.email,
                 password: registerData.password,

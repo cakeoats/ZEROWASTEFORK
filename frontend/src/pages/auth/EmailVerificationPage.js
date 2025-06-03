@@ -3,6 +3,7 @@ import { Button, Alert } from 'flowbite-react';
 import { HiMail, HiArrowRight, HiCheckCircle, HiInformationCircle } from 'react-icons/hi';
 import { Link, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
+import { getApiUrl } from '../../config/api';
 
 function EmailVerificationPage() {
   const [searchParams] = useSearchParams();
@@ -20,7 +21,7 @@ function EmailVerificationPage() {
     setResendError('');
 
     try {
-      const res = await axios.post('https://zerowastemarket-production.up.railway.app/api/auth/resend-verification', {
+      const res = await axios.post(getApiUrl('api/auth/resend-verification'), {
         email,
       });
       setResendSuccess(res.data.message || 'Verification email resent successfully.');

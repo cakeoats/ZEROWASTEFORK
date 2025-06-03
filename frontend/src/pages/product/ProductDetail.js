@@ -3,14 +3,12 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import NavbarComponent from '../../components/NavbarComponent';
 import { useAuth } from '../../contexts/AuthContext';
-import { useCart } from '../../contexts/CartContext'; // Import the cart context
+import { useCart } from '../../contexts/CartContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useTranslate } from '../../utils/languageUtils';
 import Footer from '../../components/Footer';
 import { Alert } from 'flowbite-react';
-
-// Konstanta untuk API Base URL
-const API_BASE_URL = 'https://zerowastemarket-production.up.railway.app';
+import { API_BASE_URL, getApiUrl, getImageUrl, getAuthHeaders } from '../../config/api';
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -18,7 +16,7 @@ export default function ProductDetail() {
   const { token } = useAuth();
   const { language } = useLanguage();
   const translate = useTranslate(language);
-  const { addToCart } = useCart(); // Use the cart context
+  const { addToCart } = useCart();
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -26,26 +24,24 @@ export default function ProductDetail() {
   const [isLoved, setIsLoved] = useState(false);
   const [activeImage, setActiveImage] = useState(0);
   const [showFullscreenCarousel, setShowFullscreenCarousel] = useState(false);
-  const [addedToCart, setAddedToCart] = useState(false); // State to show cart notification
+  const [addedToCart, setAddedToCart] = useState(false);
 
   console.log("Current URL:", window.location.pathname);
   console.log("ID from useParams:", id);
+  console.log("API Base URL:", API_BASE_URL);
 
-  // Fungsi untuk mendapatkan URL gambar lengkap
-  const getImageUrl = (product) => {
-  if (product.imageUrl) {
-    return product.imageUrl;
-  }
-
-  if (product.images && product.images.length > 0) {
-    if (product.images[0].startsWith('http')) {
-      return product.images[0];
+  // Function to get product image URL
+  const getProductImageUrl = (product) => {
+    if (product.imageUrl) {
+      return product.imageUrl;
     }
-    return `https://zerowastemarket-production.up.railway.app/${product.images[0]}`;
-  }
 
-  return 'https://via.placeholder.com/300?text=No+Image';
-};
+    if (product.images && product.images.length > 0) {
+      return getImageUrl(product.images[0]);
+    }
+
+    return 'https://via.placeholder.com/300?text=No+Image';
+  };
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -58,7 +54,7 @@ export default function ProductDetail() {
 
       try {
         console.log(`Fetching product with ID: ${id}`);
-        const res = await axios.get(`${API_BASE_URL}/api/products/${id}`);
+        const res = await axios.get(getApiUrl(`api/products/${id}`));
         console.log("Product data:", res.data);
         setProduct(res.data);
         setLoading(false);
@@ -70,21 +66,21 @@ export default function ProductDetail() {
     };
 
     fetchProduct();
-    
+
     // Check wishlist status
     const checkWishlistStatus = async () => {
       if (!token || !id) return;
-      
+
       try {
-        const response = await axios.get(`${API_BASE_URL}/api/wishlist/check/${id}`, {
-          headers: { Authorization: `Bearer ${token}` }
+        const response = await axios.get(getApiUrl(`api/wishlist/check/${id}`), {
+          headers: getAuthHeaders()
         });
         setIsLoved(response.data.inWishlist);
       } catch (err) {
         console.error('Error checking wishlist status:', err);
       }
     };
-    
+
     checkWishlistStatus();
   }, [id, token]);
 
@@ -124,30 +120,25 @@ export default function ProductDetail() {
 
   const toggleWishlist = async () => {
     if (!token) {
-      // Redirect to login if not authenticated
       navigate('/login', { state: { from: `/products/${id}` } });
       return;
     }
 
     try {
       if (isLoved) {
-        // Remove from wishlist
-        await axios.delete(`${API_BASE_URL}/api/wishlist/${id}`, {
-          headers: { Authorization: `Bearer ${token}` }
+        await axios.delete(getApiUrl(`api/wishlist/${id}`), {
+          headers: getAuthHeaders()
         });
       } else {
-        // Add to wishlist
-        await axios.post(`${API_BASE_URL}/api/wishlist`, {
+        await axios.post(getApiUrl('api/wishlist'), {
           productId: id
         }, {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: getAuthHeaders()
         });
       }
-      // Toggle state after successful API call
       setIsLoved(!isLoved);
     } catch (err) {
       console.error('Error updating wishlist:', err);
-      // Show error notification if needed
     }
   };
 
@@ -162,24 +153,17 @@ export default function ProductDetail() {
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
-  // Function for handling payment via Midtrans
   const handlePayment = () => {
     if (!token) {
-      // Redirect to login if user is not authenticated
       navigate('/login', { state: { from: `/products/${id}` } });
       return;
     }
-
-    // Redirect to payment page with product ID
     navigate(`/payment/${id}`);
   };
 
-  // New function to handle adding product to cart with fixed quantity of 1
   const handleAddToCart = () => {
-    addToCart(product, 1); // Always use quantity of 1
+    addToCart(product, 1);
     setAddedToCart(true);
-
-    // Hide the notification after 3 seconds
     setTimeout(() => {
       setAddedToCart(false);
     }, 3000);
@@ -194,7 +178,7 @@ export default function ProductDetail() {
     );
   }
 
-  // Pastikan product.images adalah array dan konversi ke URL lengkap
+  // Process product images
   const productImages = Array.isArray(product.images)
     ? product.images.map(img => getImageUrl(img))
     : (product.images ? [getImageUrl(product.images)] : ['/default-product.jpg']);
@@ -234,7 +218,6 @@ export default function ProductDetail() {
               <div className="space-y-4">
                 <div className="relative overflow-hidden rounded-xl shadow-md bg-gray-100 aspect-square">
                   <div className="relative h-full">
-                    {/* Main Carousel */}
                     <div className="relative h-full overflow-hidden">
                       <img
                         src={productImages[activeImage]}
@@ -293,7 +276,6 @@ export default function ProductDetail() {
                     </div>
                   </div>
 
-                  {/* Discount Badge (if needed) */}
                   {product.discount && (
                     <div className="absolute top-4 left-4 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-bold z-10">
                       {product.discount}% OFF

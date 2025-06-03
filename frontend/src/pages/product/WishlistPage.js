@@ -7,8 +7,7 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { useTranslate } from '../../utils/languageUtils';
 import axios from 'axios';
 import Footer from '../../components/Footer';
-
-const API_URL = 'https://zerowastemarket-production.up.railway.app';
+import { getApiUrl, getImageUrl, getAuthHeaders } from '../../config/api';
 
 const WishlistPage = () => {
     const navigate = useNavigate();
@@ -33,8 +32,8 @@ const WishlistPage = () => {
 
             setLoading(true);
             try {
-                const response = await axios.get(`${API_URL}/api/wishlist`, {
-                    headers: { Authorization: `Bearer ${token}` }
+                const response = await axios.get(getApiUrl('api/wishlist'), {
+                    headers: getAuthHeaders()
                 });
                 setWishlistItems(response.data);
             } catch (err) {
@@ -51,14 +50,14 @@ const WishlistPage = () => {
     // Remove item from wishlist
     const removeFromWishlist = async (productId) => {
         try {
-            await axios.delete(`${API_URL}/api/wishlist/${productId}`, {
-                headers: { Authorization: `Bearer ${token}` }
+            await axios.delete(getApiUrl(`api/wishlist/${productId}`), {
+                headers: getAuthHeaders()
             });
 
             // Update local state - Fixed to safely check if product_id exists and has _id
-            setWishlistItems(wishlistItems.filter(item => 
-                item.product_id && item.product_id._id ? 
-                item.product_id._id !== productId : true
+            setWishlistItems(wishlistItems.filter(item =>
+                item.product_id && item.product_id._id ?
+                    item.product_id._id !== productId : true
             ));
         } catch (err) {
             console.error('Error removing from wishlist:', err);
@@ -72,20 +71,17 @@ const WishlistPage = () => {
     };
 
     // Function to get product image URL
-   const getImageUrl = (product) => {
-  if (product.imageUrl) {
-    return product.imageUrl;
-  }
+    const getProductImageUrl = (product) => {
+        if (product.imageUrl) {
+            return product.imageUrl;
+        }
 
-  if (product.images && product.images.length > 0) {
-    if (product.images[0].startsWith('http')) {
-      return product.images[0];
-    }
-    return `https://zerowastemarket-production.up.railway.app/${product.images[0]}`;
-  }
+        if (product.images && product.images.length > 0) {
+            return getImageUrl(product.images[0]);
+        }
 
-  return 'https://via.placeholder.com/300?text=No+Image';
-};
+        return 'https://via.placeholder.com/300?text=No+Image';
+    };
 
     if (!token) {
         return null; // Will redirect in useEffect
@@ -143,17 +139,17 @@ const WishlistPage = () => {
                             if (!item.product_id) {
                                 return null;
                             }
-                            
+
                             return (
                                 <div key={item._id} className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow relative">
                                     <div className="relative">
                                         <Link to={`/products/${item.product_id._id}`}>
                                             <img
-                                                src={getImageUrl(item.product_id)}
+                                                src={getProductImageUrl(item.product_id)}
                                                 alt={item.product_id.name || 'Product'}
                                                 className="w-full aspect-square object-cover"
                                                 onError={(e) => {
-                                                    e.target.src = 'https://zerowastemarket-production.up.railway.app/uploads/default-product.jpg?text=No+Image';
+                                                    e.target.src = 'https://via.placeholder.com/300?text=No+Image';
                                                 }}
                                             />
                                         </Link>

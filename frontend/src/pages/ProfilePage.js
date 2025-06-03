@@ -17,6 +17,7 @@ import axios from 'axios';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTranslate } from '../utils/languageUtils';
 import Footer from '../components/Footer';
+import { getApiUrl, getImageUrl, getAuthHeaders } from '../config/api';
 
 function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
@@ -50,8 +51,6 @@ function ProfilePage() {
   const [previewImage, setPreviewImage] = useState(null);
   const fileInputRef = useRef(null);
 
-  const API_URL = 'https://zerowastemarket-production.up.railway.app';
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setUserData((prev) => ({ ...prev, [name]: value }));
@@ -77,7 +76,7 @@ function ProfilePage() {
       });
 
       const res = await axios.put(
-        `${API_URL}/api/users/profile`,
+        getApiUrl('api/users/profile'),
         {
           full_name: userData.full_name,
           username: userData.username,
@@ -86,7 +85,7 @@ function ProfilePage() {
           bio: userData.bio
         },
         {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: getAuthHeaders(),
         }
       );
 
@@ -134,17 +133,14 @@ function ProfilePage() {
     }
 
     try {
-      const token = localStorage.getItem('token');
-      if (!token) throw new Error('No token found');
-
       await axios.post(
-        `${API_URL}/api/users/change-password`,
+        getApiUrl('api/users/change-password'),
         {
           currentPassword: passwordData.currentPassword,
           newPassword: passwordData.newPassword
         },
         {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: getAuthHeaders()
         }
       );
 
@@ -197,12 +193,12 @@ function ProfilePage() {
       formData.append('profilePicture', profileImage);
 
       const res = await axios.post(
-        `${API_URL}/api/users/profile-picture`,
+        getApiUrl('api/users/profile-picture'),
         formData,
         {
           headers: {
             'Content-Type': 'multipart/form-data',
-            Authorization: `Bearer ${token}`
+            ...getAuthHeaders()
           }
         }
       );
@@ -229,8 +225,8 @@ function ProfilePage() {
           alert('Silakan login terlebih dahulu.');
           return;
         }
-        const res = await axios.get(`${API_URL}/api/users/profile`, {
-          headers: { Authorization: `Bearer ${token}` },
+        const res = await axios.get(getApiUrl('api/users/profile'), {
+          headers: getAuthHeaders(),
         });
         console.log('Profile response:', res.data);
         setUserData(res.data);
@@ -244,7 +240,7 @@ function ProfilePage() {
 
   // Conditional render profile picture URL
   const profilePictureUrl = previewImage ||
-    (userData.profilePicture ? `${API_URL}/${userData.profilePicture}` :
+    (userData.profilePicture ? getImageUrl(userData.profilePicture) :
       'https://randomuser.me/api/portraits/men/32.jpg');
 
   return (

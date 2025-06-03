@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { getApiUrl } from '../../config/api';
 
 function AdminLogin() {
   const [username, setUsername] = useState('');
@@ -25,16 +26,16 @@ function AdminLogin() {
     setLoading(true);
 
     try {
-      const response = await axios.post('https://zerowastemarket-production.up.railway.app/api/admin/login', {
+      const response = await axios.post(getApiUrl('api/admin/login'), {
         username,
         password,
       });
 
       if (response.data.success) {
         // Store the admin session information
-        localStorage.setItem('adminToken', response.data.token); 
+        localStorage.setItem('adminToken', response.data.token);
         localStorage.setItem('adminId', response.data.adminId);
-        
+
         // Redirect to admin dashboard
         navigate('/admin/dashboard');
       } else {
@@ -57,7 +58,7 @@ function AdminLogin() {
             Please sign in to access the admin panel
           </p>
         </div>
-        
+
         {error && (
           <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
             <div className="flex">
@@ -72,7 +73,7 @@ function AdminLogin() {
             </div>
           </div>
         )}
-        
+
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="rounded-md shadow-sm -space-y-px">
             <div>

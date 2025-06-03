@@ -6,8 +6,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useTranslate } from '../utils/languageUtils';
 import { HiTrash, HiPencil, HiEye, HiOutlinePlusCircle, HiChevronLeft } from 'react-icons/hi';
 import Footer from '../components/Footer';
-
-const API_URL = 'https://zerowastemarket-production.up.railway.app';
+import { getApiUrl, getImageUrl, getAuthHeaders } from '../config/api';
 
 function MyProductsPage() {
     const navigate = useNavigate();
@@ -34,8 +33,8 @@ function MyProductsPage() {
                     return;
                 }
 
-                const response = await axios.get(`${API_URL}/api/users/products`, {
-                    headers: { Authorization: `Bearer ${token}` }
+                const response = await axios.get(getApiUrl('api/users/products'), {
+                    headers: getAuthHeaders()
                 });
 
                 setProducts(response.data);
@@ -61,20 +60,17 @@ function MyProductsPage() {
     };
 
     // Get product image URL
-  const getImageUrl = (product) => {
-  if (product.imageUrl) {
-    return product.imageUrl;
-  }
+    const getProductImageUrl = (product) => {
+        if (product.imageUrl) {
+            return product.imageUrl;
+        }
 
-  if (product.images && product.images.length > 0) {
-    if (product.images[0].startsWith('http')) {
-      return product.images[0];
-    }
-    return `https://zerowastemarket-production.up.railway.app/${product.images[0]}`;
-  }
+        if (product.images && product.images.length > 0) {
+            return getImageUrl(product.images[0]);
+        }
 
-  return 'https://via.placeholder.com/300?text=No+Image';
-};
+        return 'https://via.placeholder.com/300?text=No+Image';
+    };
 
     // Format price
     const formatPrice = (price) => {
@@ -86,9 +82,8 @@ function MyProductsPage() {
         if (!productToDelete) return;
 
         try {
-            const token = localStorage.getItem('token');
-            await axios.delete(`${API_URL}/api/products/${productToDelete._id}`, {
-                headers: { Authorization: `Bearer ${token}` }
+            await axios.delete(getApiUrl(`api/products/${productToDelete._id}`), {
+                headers: getAuthHeaders()
             });
 
             // Update local state
@@ -267,11 +262,11 @@ function MyProductsPage() {
                                 <div className="relative">
                                     <Link to={`/products/${product._id}`}>
                                         <img
-                                            src={getImageUrl(product)}
+                                            src={getProductImageUrl(product)}
                                             alt={product.name}
                                             className="w-full h-48 object-cover"
                                             onError={(e) => {
-                                                e.target.src = 'https://zerowastemarket-production.up.railway.app/uploads/default-product.jpg?text=No+Image';
+                                                e.target.src = 'https://via.placeholder.com/300?text=No+Image';
                                             }}
                                         />
                                     </Link>

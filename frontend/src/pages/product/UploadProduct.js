@@ -5,9 +5,7 @@ import NavbarComponent from '../../components/NavbarComponent';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useTranslate } from '../../utils/languageUtils';
 import Footer from '../../components/Footer';
-
-// Konstanta untuk API
-const API_URL = 'https://zerowastemarket-production.up.railway.app';
+import { getApiUrl, getAuthHeaders } from '../../config/api';
 
 export default function ProductUpload() {
   // Hooks
@@ -60,8 +58,8 @@ export default function ProductUpload() {
 
     files.forEach(file => {
       if (!file.type.match('image.*')) {
-        setError(language === 'id' ? 
-          'Harap upload file gambar saja (JPG, PNG, atau GIF)' : 
+        setError(language === 'id' ?
+          'Harap upload file gambar saja (JPG, PNG, atau GIF)' :
           'Please upload image files only (JPG, PNG, or GIF)');
         setTimeout(() => setError(null), 3000);
         return;
@@ -150,8 +148,8 @@ export default function ProductUpload() {
       const token = localStorage.getItem('token');
 
       if (!token) {
-        setError(language === 'id' ? 
-          'Anda harus login untuk mengunggah produk. Silakan login dan coba lagi.' : 
+        setError(language === 'id' ?
+          'Anda harus login untuk mengunggah produk. Silakan login dan coba lagi.' :
           'You must be logged in to upload a product. Please login and try again.');
         setLoading(false);
         navigate('/login', { state: { from: '/upload-product' } });
@@ -159,31 +157,31 @@ export default function ProductUpload() {
       }
 
       const response = await axios.post(
-        `${API_URL}/api/products/upload`,
+        getApiUrl('api/products/upload'),
         uploadData,
         {
           headers: {
             'Content-Type': 'multipart/form-data',
-            'Authorization': `Bearer ${token}`
+            ...getAuthHeaders()
           },
         }
       );
 
       console.log("Upload successful:", response.data);
       setSuccess(true);
-      
+
       // Navigasi ke halaman product-list setelah 2 detik
       setTimeout(() => navigate(`/products/${response.data.product._id}`), 2000);
     } catch (err) {
       console.error('Error uploading product:', err);
       if (err.response?.status === 401) {
-        setError(language === 'id' ? 
-          'Otentikasi gagal. Silakan login kembali dan coba lagi.' : 
+        setError(language === 'id' ?
+          'Otentikasi gagal. Silakan login kembali dan coba lagi.' :
           'Authentication failed. Please log in again and try again.');
       } else {
-        setError(err.response?.data?.message || 
-          (language === 'id' ? 
-            'Gagal mengunggah produk. Silakan coba lagi.' : 
+        setError(err.response?.data?.message ||
+          (language === 'id' ?
+            'Gagal mengunggah produk. Silakan coba lagi.' :
             'Failed to upload product. Please try again.'));
       }
       setTimeout(() => setError(null), 5000);
@@ -214,16 +212,16 @@ export default function ProductUpload() {
                   {translate('product.thanksContribute')}
                 </p>
                 <div className="flex space-x-4">
-                  <button 
-                    onClick={() => navigate('/product-list')} 
-                    className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg" 
+                  <button
+                    onClick={() => navigate('/product-list')}
+                    className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg"
                     type="button"
                   >
                     {language === 'id' ? 'Lihat Produk' : 'View Products'}
                   </button>
-                  <button 
-                    onClick={() => window.location.reload()} 
-                    className="px-4 py-2 border border-amber-500 text-amber-500 hover:bg-amber-50 rounded-lg" 
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="px-4 py-2 border border-amber-500 text-amber-500 hover:bg-amber-50 rounded-lg"
                     type="button"
                   >
                     {language === 'id' ? 'Upload Lagi' : 'Upload Again'}
@@ -451,8 +449,8 @@ export default function ProductUpload() {
                       onChange={handleChange}
                       rows={3}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500"
-                      placeholder={language === 'id' ? 
-                        "Deskripsikan produk Anda secara detail, termasuk bahan, ukuran, dan cara penggunaan." : 
+                      placeholder={language === 'id' ?
+                        "Deskripsikan produk Anda secara detail, termasuk bahan, ukuran, dan cara penggunaan." :
                         "Describe your product in detail, including materials, size, and usage instructions."}
                     />
                     <p className="mt-1 text-xs text-gray-500">
@@ -485,8 +483,8 @@ export default function ProductUpload() {
             {/* Footer Note */}
             {!success && (
               <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 text-center text-xs text-gray-500">
-                {language === 'id' ? 
-                  'Dengan mengupload produk, Anda menyetujui persyaratan layanan kami.' : 
+                {language === 'id' ?
+                  'Dengan mengupload produk, Anda menyetujui persyaratan layanan kami.' :
                   'By uploading a product, you agree to our terms of service.'}
               </div>
             )}

@@ -6,12 +6,13 @@ import {
     HiOutlineViewGrid, HiOutlineCube, HiOutlineUserGroup,
     HiOutlineCog, HiOutlineLogout, HiMenu, HiX
 } from 'react-icons/hi';
+import { getApiUrl, getImageUrl, getAuthHeaders } from '../../config/api';
 
 function AdminDashboard() {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [currentView, setCurrentView] = useState('dashboard');
     const navigate = useNavigate();
-    
+
     // State for data
     const [dashboardData, setDashboardData] = useState({
         productCount: 0,
@@ -39,19 +40,19 @@ function AdminDashboard() {
     const fetchDashboardData = async (token) => {
         try {
             // Fetch product count and recent products
-            const productsResponse = await axios.get('https://zerowastemarket-production.up.railway.app/api/admin/products', {
-                headers: { 
+            const productsResponse = await axios.get(getApiUrl('api/admin/products'), {
+                headers: {
                     Authorization: `Bearer ${token}`
                 }
             });
-            
+
             // Fetch user count
-            const usersResponse = await axios.get('https://zerowastemarket-production.up.railway.app/api/admin/users/count', {
-                headers: { 
+            const usersResponse = await axios.get(getApiUrl('api/admin/users/count'), {
+                headers: {
                     Authorization: `Bearer ${token}`
                 }
             });
-            
+
             setDashboardData({
                 productCount: productsResponse.data.totalProducts || 0,
                 userCount: usersResponse.data.totalUsers || 0,
@@ -59,7 +60,7 @@ function AdminDashboard() {
                 loading: false,
                 error: null
             });
-            
+
         } catch (error) {
             console.error('Error fetching dashboard data:', error);
             setDashboardData(prev => ({
@@ -75,40 +76,40 @@ function AdminDashboard() {
         // Remove admin data from localStorage
         localStorage.removeItem('adminToken');
         localStorage.removeItem('adminId');
-        
+
         // Redirect to login page
         navigate('/admin/login');
     };
 
     // Data dummy untuk statistik (akan diganti dengan data real)
     const stats = [
-        { 
-            title: "Total Produk", 
-            value: dashboardData.loading ? "Loading..." : dashboardData.productCount.toString(), 
-            change: "+3%", 
-            icon: <HiOutlineCube className="h-6 w-6" />, 
-            color: "bg-amber-100 text-amber-600" 
+        {
+            title: "Total Produk",
+            value: dashboardData.loading ? "Loading..." : dashboardData.productCount.toString(),
+            change: "+3%",
+            icon: <HiOutlineCube className="h-6 w-6" />,
+            color: "bg-amber-100 text-amber-600"
         },
-        { 
-            title: "Total Pengguna", 
-            value: dashboardData.loading ? "Loading..." : dashboardData.userCount.toString(), 
-            change: "+5%", 
-            icon: <HiUsers className="h-6 w-6" />, 
-            color: "bg-purple-100 text-purple-600" 
+        {
+            title: "Total Pengguna",
+            value: dashboardData.loading ? "Loading..." : dashboardData.userCount.toString(),
+            change: "+5%",
+            icon: <HiUsers className="h-6 w-6" />,
+            color: "bg-purple-100 text-purple-600"
         },
-        { 
-            title: "Total Pendapatan", 
-            value: "Rp 25.450.000", 
-            change: "+12%", 
-            icon: <HiCash className="h-6 w-6" />, 
-            color: "bg-green-100 text-green-600" 
+        {
+            title: "Total Pendapatan",
+            value: "Rp 25.450.000",
+            change: "+12%",
+            icon: <HiCash className="h-6 w-6" />,
+            color: "bg-green-100 text-green-600"
         },
-        { 
-            title: "Total Pesanan", 
-            value: "1.245", 
-            change: "+8%", 
-            icon: <HiShoppingBag className="h-6 w-6" />, 
-            color: "bg-blue-100 text-blue-600" 
+        {
+            title: "Total Pesanan",
+            value: "1.245",
+            change: "+8%",
+            icon: <HiShoppingBag className="h-6 w-6" />,
+            color: "bg-blue-100 text-blue-600"
         }
     ];
 
@@ -159,7 +160,7 @@ function AdminDashboard() {
                         />
                     </nav>
                     <div className="px-4 py-4 border-t">
-                        <button 
+                        <button
                             onClick={handleLogout}
                             className="flex items-center space-x-3 text-red-500 hover:text-red-600 transition-colors"
                         >
@@ -203,7 +204,7 @@ function AdminDashboard() {
                         />
                     </nav>
                     <div className="px-4 py-4 border-t">
-                        <button 
+                        <button
                             onClick={handleLogout}
                             className="flex items-center space-x-3 text-red-500 hover:text-red-600 transition-colors"
                         >
@@ -309,10 +310,10 @@ function AdminDashboard() {
                                                         <td className="px-6 py-4 whitespace-nowrap">
                                                             <div className="flex items-center">
                                                                 <div className="flex-shrink-0 h-10 w-10">
-                                                                    <img 
-                                                                        className="h-10 w-10 rounded-full object-cover" 
-                                                                        src={product.imageUrl || "https://via.placeholder.com/100"} 
-                                                                        alt={product.name} 
+                                                                    <img
+                                                                        className="h-10 w-10 rounded-full object-cover"
+                                                                        src={getImageUrl(product.imageUrl || product.images?.[0]) || "https://via.placeholder.com/100"}
+                                                                        alt={product.name}
                                                                     />
                                                                 </div>
                                                                 <div className="ml-4">
@@ -447,13 +448,13 @@ function ProductManagement() {
         try {
             setLoading(true);
             const token = localStorage.getItem('adminToken');
-            
-            const response = await axios.get('https://zerowastemarket-production.up.railway.app/api/admin/products', {
-                headers: { 
+
+            const response = await axios.get(getApiUrl('api/admin/products'), {
+                headers: {
                     Authorization: `Bearer ${token}`
                 }
             });
-            
+
             setProducts(response.data.products || []);
             setLoading(false);
         } catch (error) {
@@ -472,34 +473,34 @@ function ProductManagement() {
 
         try {
             const token = localStorage.getItem('adminToken');
-            
-            await axios.delete(`https://zerowastemarket-production.up.railway.app/api/admin/products/${productToDelete._id}`, {
-                headers: { 
+
+            await axios.delete(getApiUrl(`api/admin/products/${productToDelete._id}`), {
+                headers: {
                     Authorization: `Bearer ${token}`
                 },
                 data: {
                     reason: deleteReason
                 }
             });
-            
+
             // Update local state to remove the deleted product
             setProducts(products.filter(p => p._id !== productToDelete._id));
-            
+
             // Show success message and close modal
             setActionSuccess(`Produk "${productToDelete.name}" berhasil dihapus`);
             setShowDeleteModal(false);
             setProductToDelete(null);
             setDeleteReason('');
-            
+
             // Clear success message after 3 seconds
             setTimeout(() => {
                 setActionSuccess('');
             }, 3000);
-            
+
         } catch (error) {
             console.error('Error deleting product:', error);
             setActionError(error.response?.data?.message || 'Gagal menghapus produk');
-            
+
             // Clear error message after 3 seconds
             setTimeout(() => {
                 setActionError('');
@@ -510,10 +511,10 @@ function ProductManagement() {
     // Filter products based on search and category
     const filteredProducts = products.filter(product => {
         const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                              (product.description && product.description.toLowerCase().includes(searchQuery.toLowerCase()));
-        
+            (product.description && product.description.toLowerCase().includes(searchQuery.toLowerCase()));
+
         const matchesCategory = categoryFilter === '' || product.category === categoryFilter;
-        
+
         return matchesSearch && matchesCategory;
     });
 
@@ -603,7 +604,7 @@ function ProductManagement() {
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
+                            <thead className="bg-gray-50">
                                 <tr>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produk</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Penjual</th>
@@ -620,19 +621,13 @@ function ProductManagement() {
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex items-center">
                                                 <div className="flex-shrink-0 h-10 w-10">
-                                                    <img 
-                                                        className="h-10 w-10 rounded-full object-cover" 
-                                                        src={
-                                                            product.imageUrl ||
-                                                            (product.images && product.images.length > 0
-                                                                ? `https://zerowastemarket-production.up.railway.app/${product.images[0]}`
-                                                                : "https://via.placeholder.com/100"
-                                                            )
-                                                        } 
-                                                        alt={product.name} 
+                                                    <img
+                                                        className="h-10 w-10 rounded-full object-cover"
+                                                        src={getImageUrl(product.imageUrl || product.images?.[0]) || "https://via.placeholder.com/100"}
+                                                        alt={product.name}
                                                         onError={(e) => {
-                                                            e.target.onerror = null; 
-                                                            e.target.src="https://via.placeholder.com/100?text=No+Image"
+                                                            e.target.onerror = null;
+                                                            e.target.src = "https://via.placeholder.com/100?text=No+Image"
                                                         }}
                                                     />
                                                 </div>
@@ -655,31 +650,31 @@ function ProductManagement() {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                                ${product.tipe === 'Sell' ? 'bg-green-100 text-green-800' : 
-                                                  product.tipe === 'Donation' ? 'bg-purple-100 text-purple-800' : 
-                                                  'bg-amber-100 text-amber-800'}`}>
-                                                {product.tipe === 'Sell' ? 'Jual' : 
-                                                 product.tipe === 'Donation' ? 'Donasi' : 
-                                                 product.tipe === 'Swap' ? 'Tukar' : product.tipe}
+                                                ${product.tipe === 'Sell' ? 'bg-green-100 text-green-800' :
+                                                    product.tipe === 'Donation' ? 'bg-purple-100 text-purple-800' :
+                                                        'bg-amber-100 text-amber-800'}`}>
+                                                {product.tipe === 'Sell' ? 'Jual' :
+                                                    product.tipe === 'Donation' ? 'Donasi' :
+                                                        product.tipe === 'Swap' ? 'Tukar' : product.tipe}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                             {new Date(product.createdAt).toLocaleDateString('id-ID', {
-                                                year: 'numeric', 
-                                                month: 'short', 
+                                                year: 'numeric',
+                                                month: 'short',
                                                 day: 'numeric'
                                             })}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                            <a 
-                                                href={`/products/${product._id}`} 
-                                                target="_blank" 
+                                            <a
+                                                href={`/products/${product._id}`}
+                                                target="_blank"
                                                 rel="noreferrer"
                                                 className="text-blue-600 hover:text-blue-900 mr-3"
                                             >
                                                 Lihat
                                             </a>
-                                            <button 
+                                            <button
                                                 onClick={() => {
                                                     setProductToDelete(product);
                                                     setShowDeleteModal(true);
@@ -729,18 +724,18 @@ function ProductManagement() {
                                     </p>
                                 </div>
                                 <div className="flex justify-end space-x-3">
-                                    <button 
+                                    <button
                                         onClick={() => {
                                             setShowDeleteModal(false);
                                             setProductToDelete(null);
                                             setDeleteReason('');
-                                        }} 
+                                        }}
                                         className="px-4 py-2 bg-gray-200 text-gray-800 text-base font-medium rounded-md shadow-sm hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-300"
                                     >
                                         Batal
                                     </button>
-                                    <button 
-                                        onClick={handleDeleteProduct} 
+                                    <button
+                                        onClick={handleDeleteProduct}
                                         className="px-4 py-2 bg-red-500 text-white text-base font-medium rounded-md shadow-sm hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-300"
                                     >
                                         Hapus

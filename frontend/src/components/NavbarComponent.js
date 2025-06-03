@@ -8,20 +8,28 @@ import {
     HiOutlineExclamationCircle
 } from 'react-icons/hi';
 import { useAuth } from '../contexts/AuthContext';
-import { useCart } from '../contexts/CartContext'; // Import useCart
+import { useCart } from '../contexts/CartContext';
 import { useNavigate, Link } from 'react-router-dom';
 import LanguageSwitcher from './LanguageSwitcher';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTranslate } from '../utils/languageUtils';
+import { API_BASE_URL } from '../config/api';
 
 function NavbarComponent() {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [showLogoutModal, setShowLogoutModal] = useState(false);
     const { user, logout } = useAuth();
-    const { cartCount } = useCart(); // Get the cart count from CartContext
+    const { cartCount } = useCart();
     const navigate = useNavigate();
     const { language } = useLanguage();
     const translate = useTranslate(language);
+
+    // Log API URL for debugging in development
+    React.useEffect(() => {
+        if (process.env.NODE_ENV === 'development') {
+            console.log('🔧 Navbar - API Base URL:', API_BASE_URL);
+        }
+    }, []);
 
     const handleLogout = () => {
         logout();
@@ -65,36 +73,18 @@ function NavbarComponent() {
                     <div className="flex items-center">
                         <Link to="/" className="text-xl font-bold text-white">
                             ZeroWasteMarket
+                            {process.env.NODE_ENV === 'development' && (
+                                <span className="text-xs text-amber-300 ml-2">DEV</span>
+                            )}
                         </Link>
                     </div>
-
-                    {/* BAGIAN INI DIHAPUS - Nav Links with Font Custom */}
-                    {/* 
-                    <div className="hidden md:flex space-x-6">
-                        <a href="#" className="text-gray-300 hover:text-white transition-colors font-bold tracking-wide text-sm uppercase">
-                            {translate('nav.luxury')}
-                        </a>
-                        <a href="#" className="text-gray-300 hover:text-white transition-colors font-bold tracking-wide text-sm uppercase">
-                            {translate('nav.fashion')}
-                        </a>
-                        <a href="#" className="text-gray-300 hover:text-white transition-colors font-bold tracking-wide text-sm uppercase">
-                            {translate('nav.electronics')}
-                        </a>
-                        <a href="#" className="text-gray-300 hover:text-white transition-colors font-bold tracking-wide text-sm uppercase">
-                            {translate('nav.property')}
-                        </a>
-                        <a href="#" className="text-gray-300 hover:text-white transition-colors font-bold tracking-wide text-sm uppercase">
-                            {translate('nav.cars')}
-                        </a>
-                    </div>
-                    */}
 
                     {/* Action Buttons */}
                     <div className="flex items-center space-x-2">
                         {/* Language Switcher */}
                         <LanguageSwitcher />
 
-                        {/* Cart Button - new */}
+                        {/* Cart Button */}
                         <Link to="/cart" className="p-2 rounded-full hover:bg-gray-700 transition-colors relative">
                             <HiOutlineShoppingCart className="h-5 w-5 text-white" />
                             {cartCount > 0 && (

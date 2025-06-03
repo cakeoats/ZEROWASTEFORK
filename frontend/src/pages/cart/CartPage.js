@@ -8,9 +8,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useTranslate } from '../../utils/languageUtils';
 import Footer from '../../components/Footer';
+import { getApiUrl, getImageUrl, getAuthHeaders, getMidtransConfig } from '../../config/api';
 import axios from 'axios';
-
-const API_URL = 'https://zerowastemarket-production.up.railway.app';
 
 const CartPage = () => {
     const { cartItems, cartTotal, updateQuantity, removeFromCart, clearCart } = useCart();
@@ -21,6 +20,9 @@ const CartPage = () => {
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+
+    // Get Midtrans configuration
+    const midtransConfig = getMidtransConfig();
 
     // Handle checkout process
     const handleCheckout = async () => {
@@ -51,10 +53,10 @@ const CartPage = () => {
 
             // Create order with all cart items
             const response = await axios.post(
-                `${API_URL}/api/payment/create-cart-transaction`,
+                getApiUrl('api/payment/create-cart-transaction'),
                 requestData,
                 {
-                    headers: { Authorization: `Bearer ${token}` }
+                    headers: getAuthHeaders()
                 }
             );
 
@@ -107,20 +109,17 @@ const CartPage = () => {
     };
 
     // Get product image URL
-    const getImageUrl = (product) => {
-  if (product.imageUrl) {
-    return product.imageUrl;
-  }
+    const getProductImageUrl = (product) => {
+        if (product.imageUrl) {
+            return product.imageUrl;
+        }
 
-  if (product.images && product.images.length > 0) {
-    if (product.images[0].startsWith('http')) {
-      return product.images[0];
-    }
-    return `https://zerowastemarket-production.up.railway.app/${product.images[0]}`;
-  }
+        if (product.images && product.images.length > 0) {
+            return getImageUrl(product.images[0]);
+        }
 
-  return 'https://via.placeholder.com/300?text=No+Image';
-};
+        return 'https://via.placeholder.com/300?text=No+Image';
+    };
 
     // Format price
     const formatPrice = (price) => {
@@ -136,8 +135,8 @@ const CartPage = () => {
 
         const script = document.createElement('script');
         script.id = 'midtrans-snap';
-        script.src = 'https://app.sandbox.midtrans.com/snap/snap.js';
-        script.setAttribute('data-client-key', 'SB-Mid-client-D5UY5aGYO_BSvIUk'); // Replace with your actual client key if needed
+        script.src = midtransConfig.scriptUrl;
+        script.setAttribute('data-client-key', midtransConfig.clientKey);
 
         document.body.appendChild(script);
     };
@@ -147,7 +146,7 @@ const CartPage = () => {
         if (cartItems.length > 0) {
             loadMidtransScript();
         }
-    }, [cartItems]);
+    }, [cartItems, midtransConfig]);
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -216,7 +215,7 @@ const CartPage = () => {
                                         <div key={item._id} className="p-4 flex items-center">
                                             <div className="w-20 h-20 rounded-md overflow-hidden bg-gray-100 flex-shrink-0">
                                                 <img
-                                                    src={getImageUrl(item)}
+                                                    src={getProductImageUrl(item)}
                                                     alt={item.name}
                                                     className="w-full h-full object-cover"
                                                     onError={(e) => {
