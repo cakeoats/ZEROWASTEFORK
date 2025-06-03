@@ -10,6 +10,7 @@ const { protect, isAdmin } = require('../middleware/adminMiddleware');
 // Auth route - tidak memerlukan middleware auth
 router.post('/login', adminController.login);
 
+
 // Protected admin routes
 router.get('/products', protect, isAdmin, adminController.getProducts);
 router.delete('/products/:id', protect, isAdmin, adminController.deleteProduct);
