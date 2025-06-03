@@ -8,7 +8,7 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { useTranslate } from '../../utils/languageUtils';
 import Footer from '../../components/Footer';
 import { Alert } from 'flowbite-react';
-import { API_BASE_URL, getApiUrl, getImageUrl, getAuthHeaders } from '../../config/api';
+import { getApiUrl, getImageUrl, getAuthHeaders } from '../../config/api';
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -26,9 +26,17 @@ export default function ProductDetail() {
   const [showFullscreenCarousel, setShowFullscreenCarousel] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
 
-  console.log("Current URL:", window.location.pathname);
-  console.log("ID from useParams:", id);
-  console.log("API Base URL:", API_BASE_URL);
+  // Debug logging for development only
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log("Current URL:", window.location.pathname);
+      console.log("ID from useParams:", id);
+      console.log("API Config:", {
+        apiUrl: process.env.REACT_APP_API_URL,
+        environment: process.env.NODE_ENV
+      });
+    }
+  }, [id]);
 
   // Function to get product image URL
   const getProductImageUrl = (product) => {
@@ -397,8 +405,7 @@ export default function ProductDetail() {
                         <span className="font-medium capitalize">
                           {product.tipe === 'Sell' ? 'Jual' :
                             product.tipe === 'Donation' ? 'Donasi' :
-                              product.tipe === 'Swap' ? 'Tukar' :
-                                product.tipe}
+                              product.tipe === 'Swap' ? 'Tukar' : product.tipe}
                         </span>
                       </div>
                     </div>

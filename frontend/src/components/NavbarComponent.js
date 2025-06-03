@@ -13,7 +13,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import LanguageSwitcher from './LanguageSwitcher';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTranslate } from '../utils/languageUtils';
-import { API_BASE_URL } from '../config/api';
+import { API_BASE_URL, isDevelopment } from '../config/api';
 
 function NavbarComponent() {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -24,10 +24,15 @@ function NavbarComponent() {
     const { language } = useLanguage();
     const translate = useTranslate(language);
 
-    // Log API URL for debugging in development
+    // Log API configuration for debugging in development
     React.useEffect(() => {
-        if (process.env.NODE_ENV === 'development') {
-            console.log('🔧 Navbar - API Base URL:', API_BASE_URL);
+        if (isDevelopment) {
+            console.log('🔧 Navbar - API Configuration:', {
+                baseURL: API_BASE_URL,
+                environment: process.env.NODE_ENV,
+                customEnv: process.env.REACT_APP_ENV,
+                envVariable: process.env.REACT_APP_API_URL
+            });
         }
     }, []);
 
@@ -73,8 +78,10 @@ function NavbarComponent() {
                     <div className="flex items-center">
                         <Link to="/" className="text-xl font-bold text-white">
                             ZeroWasteMarket
-                            {process.env.NODE_ENV === 'development' && (
-                                <span className="text-xs text-amber-300 ml-2">DEV</span>
+                            {isDevelopment && (
+                                <span className="text-xs text-amber-300 ml-2">
+                                    DEV ({process.env.REACT_APP_ENV || 'local'})
+                                </span>
                             )}
                         </Link>
                     </div>

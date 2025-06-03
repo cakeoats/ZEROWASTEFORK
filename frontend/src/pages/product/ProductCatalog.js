@@ -7,8 +7,7 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { useTranslate } from '../../utils/languageUtils';
 import axios from 'axios';
 import Footer from '../../components/Footer';
-
-const API_URL = 'https://zerowastemarket-production.up.railway.app';
+import { getApiUrl, getImageUrl, getAuthHeaders } from '../../config/api';
 
 const ProductCatalog = () => {
     // Hook to get location (URL info)
@@ -62,8 +61,8 @@ const ProductCatalog = () => {
             }
 
             try {
-                const response = await axios.get(`${API_URL}/api/wishlist`, {
-                    headers: { Authorization: `Bearer ${token}` }
+                const response = await axios.get(getApiUrl('api/wishlist'), {
+                    headers: getAuthHeaders()
                 });
                 // Extract product IDs from wishlist items
                 const wishlistIds = response.data.map(item => item.product_id);
@@ -99,7 +98,7 @@ const ProductCatalog = () => {
                     params.append('sort', sortBy);
                 }
 
-                const response = await axios.get(`${API_URL}/api/products?${params.toString()}`);
+                const response = await axios.get(getApiUrl(`api/products?${params.toString()}`));
                 setProducts(response.data);
             } catch (err) {
                 console.error('Error fetching products:', err);
@@ -135,7 +134,7 @@ const ProductCatalog = () => {
                     params.append('sort', sortBy);
                 }
 
-                const response = await axios.get(`${API_URL}/api/products?${params.toString()}`);
+                const response = await axios.get(getApiUrl(`api/products?${params.toString()}`));
                 setProducts(response.data);
             } catch (err) {
                 console.error('Error searching products:', err);
@@ -180,16 +179,16 @@ const ProductCatalog = () => {
 
             if (isInWishlist) {
                 // Remove from wishlist
-                await axios.delete(`${API_URL}/api/wishlist/${productId}`, {
-                    headers: { Authorization: `Bearer ${token}` }
+                await axios.delete(getApiUrl(`api/wishlist/${productId}`), {
+                    headers: getAuthHeaders()
                 });
                 setWishlist(wishlist.filter(id => id !== productId));
             } else {
                 // Add to wishlist
-                await axios.post(`${API_URL}/api/wishlist`, {
+                await axios.post(getApiUrl('api/wishlist'), {
                     productId: productId
                 }, {
-                    headers: { Authorization: `Bearer ${token}` }
+                    headers: getAuthHeaders()
                 });
                 setWishlist([...wishlist, productId]);
             }
@@ -200,20 +199,20 @@ const ProductCatalog = () => {
     };
 
     // Function to get image URL
-    const getImageUrl = (product) => {
-  if (product.imageUrl) {
-    return product.imageUrl;
-  }
+    const getProductImageUrl = (product) => {
+        if (product.imageUrl) {
+            return product.imageUrl;
+        }
 
-  if (product.images && product.images.length > 0) {
-    if (product.images[0].startsWith('http')) {
-      return product.images[0];
-    }
-    return `https://zerowastemarket-production.up.railway.app/${product.images[0]}`;
-  }
+        if (product.images && product.images.length > 0) {
+            if (product.images[0].startsWith('http')) {
+                return product.images[0];
+            }
+            return getImageUrl(product.images[0]);
+        }
 
-  return 'https://via.placeholder.com/300?text=No+Image';
-};
+        return 'https://via.placeholder.com/300?text=No+Image';
+    };
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -256,8 +255,8 @@ const ProductCatalog = () => {
                                     <div
                                         key={category.name}
                                         className={`flex items-center cursor-pointer p-2 rounded-md ${selectedCategory === category.name
-                                                ? 'bg-amber-50 text-amber-600'
-                                                : 'hover:bg-gray-50'
+                                            ? 'bg-amber-50 text-amber-600'
+                                            : 'hover:bg-gray-50'
                                             }`}
                                         onClick={() => setSelectedCategory(category.name)}
                                     >
@@ -343,11 +342,11 @@ const ProductCatalog = () => {
                                         <div className="relative">
                                             <Link to={`/products/${product._id}`}>
                                                 <img
-                                                    src={getImageUrl(product)}
+                                                    src={getProductImageUrl(product)}
                                                     alt={product.name}
                                                     className="w-full aspect-square object-cover"
                                                     onError={(e) => {
-                                                        e.target.src = 'https://zerowastemarket-production.up.railway.app/uploads/default-product.jpg?text=No+Image';
+                                                        e.target.src = 'https://via.placeholder.com/300?text=No+Image';
                                                     }}
                                                 />
                                             </Link>
@@ -420,4 +419,4 @@ const ProductCatalog = () => {
     );
 };
 
-export default ProductCatalog;  
+export default ProductCatalog;
