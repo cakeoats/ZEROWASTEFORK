@@ -7,7 +7,7 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { useTranslate } from '../../utils/languageUtils';
 import axios from 'axios';
 import Footer from '../../components/Footer';
-import { getApiUrl, getImageUrl, getAuthHeaders } from '../../config/api';
+import { getApiUrl, getProductImageUrl, getAuthHeaders } from '../../config/api';
 
 const ProductCatalog = () => {
     // Hook to get location (URL info)
@@ -65,10 +65,13 @@ const ProductCatalog = () => {
                     headers: getAuthHeaders()
                 });
                 // Extract product IDs from wishlist items
-                const wishlistIds = response.data.map(item => item.product_id);
+                const wishlistIds = response.data.map(item =>
+                    item.product_id?._id || item.product_id
+                ).filter(Boolean);
                 setWishlist(wishlistIds);
+                console.log('✅ Wishlist loaded:', wishlistIds.length, 'items');
             } catch (err) {
-                console.error('Error fetching wishlist:', err);
+                console.error('❌ Error fetching wishlist:', err);
                 setWishlist([]);
             }
         };
@@ -98,10 +101,13 @@ const ProductCatalog = () => {
                     params.append('sort', sortBy);
                 }
 
+                console.log('🔍 Fetching products with params:', params.toString());
                 const response = await axios.get(getApiUrl(`api/products?${params.toString()}`));
+
+                console.log('✅ Products fetched:', response.data.length, 'items');
                 setProducts(response.data);
             } catch (err) {
-                console.error('Error fetching products:', err);
+                console.error('❌ Error fetching products:', err);
                 setError('Failed to load products. Please try again later.');
             } finally {
                 setLoading(false);
@@ -113,8 +119,6 @@ const ProductCatalog = () => {
 
     // Function to perform search
     const handleSearch = () => {
-        // Function will be run when component is re-mounted
-        // with searchQuery already updated
         const fetchProducts = async () => {
             setLoading(true);
             setError(null);
@@ -134,10 +138,11 @@ const ProductCatalog = () => {
                     params.append('sort', sortBy);
                 }
 
+                console.log('🔍 Searching products with params:', params.toString());
                 const response = await axios.get(getApiUrl(`api/products?${params.toString()}`));
                 setProducts(response.data);
             } catch (err) {
-                console.error('Error searching products:', err);
+                console.error('❌ Error searching products:', err);
                 setError('Failed to search products. Please try again later.');
             } finally {
                 setLoading(false);
@@ -147,7 +152,7 @@ const ProductCatalog = () => {
         fetchProducts();
     };
 
-    // Simplified price display without "Rp" prefix
+    // Simplified price display
     const simplifyPrice = (price) => {
         return `Rp${price.toLocaleString(language === 'id' ? 'id-ID' : 'en-US')}`;
     };
@@ -176,6 +181,7 @@ const ProductCatalog = () => {
 
         try {
             const isInWishlist = wishlist.includes(productId);
+            console.log('🔄 Toggling wishlist for product:', productId, 'Currently in wishlist:', isInWishlist);
 
             if (isInWishlist) {
                 // Remove from wishlist
@@ -183,6 +189,7 @@ const ProductCatalog = () => {
                     headers: getAuthHeaders()
                 });
                 setWishlist(wishlist.filter(id => id !== productId));
+                console.log('❌ Removed from wishlist:', productId);
             } else {
                 // Add to wishlist
                 await axios.post(getApiUrl('api/wishlist'), {
@@ -191,27 +198,11 @@ const ProductCatalog = () => {
                     headers: getAuthHeaders()
                 });
                 setWishlist([...wishlist, productId]);
+                console.log('✅ Added to wishlist:', productId);
             }
         } catch (err) {
-            console.error('Error updating wishlist:', err);
-            // You can show an error message here if needed
+            console.error('❌ Error updating wishlist:', err);
         }
-    };
-
-    // Function to get image URL
-    const getProductImageUrl = (product) => {
-        if (product.imageUrl) {
-            return product.imageUrl;
-        }
-
-        if (product.images && product.images.length > 0) {
-            if (product.images[0].startsWith('http')) {
-                return product.images[0];
-            }
-            return getImageUrl(product.images[0]);
-        }
-
-        return 'https://via.placeholder.com/300?text=No+Image';
     };
 
     return (
@@ -331,6 +322,7 @@ const ProductCatalog = () => {
                         {loading && (
                             <div className="flex justify-center items-center py-12">
                                 <div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+                                <p className="ml-3 text-gray-600">Loading products...</p>
                             </div>
                         )}
 
@@ -346,15 +338,22 @@ const ProductCatalog = () => {
                                                     alt={product.name}
                                                     className="w-full aspect-square object-cover"
                                                     onError={(e) => {
-                                                        e.target.src = 'https://via.placeholder.com/300?text=No+Image';
+                                                        console.log('❌ Image error for product:', product.name);
+                                                        console.log('❌ Failed URL:', e.target.src);
+                                                        e.target.onerror = null; // Prevent infinite loop
+                                                        e.target.src = 'https://via.placeholder.com/300x300/f3f4f6/9ca3af?text=No+Image';
                                                     }}
+                                                    onLoad={() => {
+                                                        console.log('✅ Image loaded for product:', product.name);
+                                                    }}
+                                                    loading="lazy"
                                                 />
                                             </Link>
 
                                             {/* Wishlist Heart Icon */}
                                             <button
                                                 onClick={(e) => toggleWishlist(product._id, e)}
-                                                className="absolute top-2 right-2 p-1.5 bg-white rounded-full text-gray-400 hover:text-red-500 transition-colors"
+                                                className="absolute top-2 right-2 p-1.5 bg-white rounded-full text-gray-400 hover:text-red-500 transition-colors shadow-sm"
                                             >
                                                 <HiOutlineHeart
                                                     className={`w-5 h-5 ${wishlist.includes(product._id) ? 'text-red-500 fill-red-500' : ''}`}
@@ -367,24 +366,54 @@ const ProductCatalog = () => {
                                                     SALE
                                                 </div>
                                             )}
+
+                                            {/* Product Type Badge */}
+                                            <div className="absolute bottom-2 left-2">
+                                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${product.tipe === 'Donation' ? 'bg-purple-100 text-purple-800' :
+                                                        product.tipe === 'Swap' ? 'bg-blue-100 text-blue-800' :
+                                                            'bg-green-100 text-green-800'
+                                                    }`}>
+                                                    {product.tipe === 'Sell' ? (language === 'id' ? 'Jual' : 'Sell') :
+                                                        product.tipe === 'Donation' ? (language === 'id' ? 'Donasi' : 'Donation') :
+                                                            product.tipe === 'Swap' ? (language === 'id' ? 'Tukar' : 'Swap') : product.tipe}
+                                                </span>
+                                            </div>
                                         </div>
 
                                         <div className="p-3">
                                             <Link to={`/products/${product._id}`}>
-                                                <h3 className="font-medium text-gray-800 mb-1 truncate">{product.name}</h3>
+                                                <h3 className="font-medium text-gray-800 mb-1 truncate" title={product.name}>
+                                                    {product.name}
+                                                </h3>
                                             </Link>
                                             <p className="text-sm text-gray-500 mb-2 capitalize">{product.category}</p>
 
                                             <div className="flex items-center justify-between">
                                                 <div className="font-semibold text-gray-800">
-                                                    {simplifyPrice(product.price)}
+                                                    {product.tipe === 'Donation' ? (
+                                                        <span className="text-purple-600">Free</span>
+                                                    ) : product.tipe === 'Swap' ? (
+                                                        <span className="text-blue-600">Swap</span>
+                                                    ) : (
+                                                        simplifyPrice(product.price)
+                                                    )}
                                                 </div>
                                                 <Link
                                                     to={`/products/${product._id}`}
-                                                    className="text-amber-500 hover:text-amber-600"
+                                                    className="text-amber-500 hover:text-amber-600 p-1"
                                                 >
                                                     <HiOutlineEye className="w-5 h-5" />
                                                 </Link>
+                                            </div>
+
+                                            {/* Product condition */}
+                                            <div className="mt-2">
+                                                <span className="text-xs text-gray-500">
+                                                    {product.condition === 'new' ?
+                                                        (language === 'id' ? 'Baru' : 'New') :
+                                                        (language === 'id' ? 'Bekas' : 'Used')
+                                                    }
+                                                </span>
                                             </div>
                                         </div>
                                     </div>

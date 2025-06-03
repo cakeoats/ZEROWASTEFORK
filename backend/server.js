@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
 
 // Import routes
@@ -42,7 +43,7 @@ app.use(cors({
       callback(null, true);
     } else {
       console.warn('🚫 CORS blocked origin:', origin);
-      callback(null, false); // Don't throw error, just deny
+      callback(null, false);
     }
   },
   credentials: true,
@@ -79,6 +80,52 @@ app.options('*', (req, res) => {
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Create uploads directory if it doesn't exist
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  console.log('📁 Created uploads directory');
+}
+
+// Enhanced static file serving with proper headers and error handling
+app.use('/uploads', (req, res, next) => {
+  // Set CORS headers for images
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.setHeader('Cache-Control', 'public, max-age=31536000'); // 1 year cache
+
+  // Log image requests
+  console.log('📸 Image request:', req.path);
+
+  const filePath = path.join(__dirname, 'uploads', req.path);
+
+  // Check if file exists
+  if (fs.existsSync(filePath)) {
+    console.log('✅ Image found:', filePath);
+    next();
+  } else {
+    console.log('❌ Image not found:', filePath);
+    // Send 404 with JSON response
+    res.status(404).json({
+      error: 'Image not found',
+      path: req.path,
+      fullPath: filePath,
+      timestamp: new Date().toISOString()
+    });
+  }
+}, express.static(path.join(__dirname, 'uploads')));
+
+// Fallback route for missing images
+app.get('/uploads/*', (req, res) => {
+  console.log('🔍 Fallback image request:', req.path);
+  res.status(404).json({
+    error: 'Image not found',
+    path: req.path,
+    message: 'This image does not exist on the server',
+    timestamp: new Date().toISOString()
+  });
+});
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -117,6 +164,7 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
     mongodb: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected',
+    uploadsDir: fs.existsSync(uploadsDir) ? 'Exists' : 'Missing',
     cors: {
       allowedOrigins: allowedOrigins,
       requestOrigin: req.headers.origin || 'none'
@@ -136,7 +184,8 @@ app.get('/', (req, res) => {
       health: '/health',
       auth: '/api/auth',
       users: '/api/users',
-      products: '/api/products'
+      products: '/api/products',
+      uploads: '/uploads'
     }
   });
 });
@@ -149,9 +198,6 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/wishlist', wishlistRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/payment', paymentRoutes);
-
-// Serve static files
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // 404 handler for API routes
 app.use('/api/*', (req, res) => {
@@ -197,6 +243,7 @@ app.listen(PORT, () => {
   console.log(`🔗 MongoDB: ${process.env.MONGO_URI ? 'Configured' : 'Using default'}`);
   console.log(`🌐 Frontend: https://zerowaste-frontend-eosin.vercel.app`);
   console.log(`🔐 CORS Origins: ${allowedOrigins.length} configured`);
+  console.log(`📁 Uploads Dir: ${fs.existsSync(uploadsDir) ? 'Ready' : 'Missing'}`);
   console.log('✅ Server ready to accept connections');
 });
 

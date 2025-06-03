@@ -1,5 +1,5 @@
 // frontend/src/config/api.js
-// GANTI SELURUH ISI FILE INI
+// Centralized API configuration with environment variable support
 
 // Get API URL from environment variable with fallback to your actual backend
 export const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://zerowaste-backend-theta.vercel.app';
@@ -32,17 +32,53 @@ export const getApiUrl = (endpoint = '') => {
     return url;
 };
 
-// Helper function to get image URL
+// Helper function to get image URL with comprehensive error handling
 export const getImageUrl = (imagePath) => {
-    if (!imagePath) return 'https://via.placeholder.com/300?text=No+Image';
+    // Return placeholder if no image path
+    if (!imagePath) {
+        console.log('🖼️ No image path provided, using placeholder');
+        return 'https://via.placeholder.com/300x300/f3f4f6/9ca3af?text=No+Image';
+    }
 
     // If it's already a full URL, return as is
     if (imagePath.startsWith('http')) {
+        console.log('🌐 Using full URL:', imagePath);
         return imagePath;
     }
 
-    // Otherwise, construct full URL
-    return `${API_BASE_URL}/${imagePath}`;
+    // Remove leading slash if present
+    const cleanPath = imagePath.startsWith('/') ? imagePath.slice(1) : imagePath;
+
+    // Construct full URL
+    const fullUrl = `${API_BASE_URL}/${cleanPath}`;
+    console.log('🔗 Constructed image URL:', fullUrl);
+
+    return fullUrl;
+};
+
+// Enhanced function for product images with multiple fallbacks
+export const getProductImageUrl = (product) => {
+    console.log('🖼️ Getting product image for:', product?.name);
+
+    // Check multiple possible image sources
+    if (product?.imageUrl) {
+        console.log('📸 Using product.imageUrl:', product.imageUrl);
+        return getImageUrl(product.imageUrl);
+    }
+
+    if (product?.images && Array.isArray(product.images) && product.images.length > 0) {
+        console.log('📸 Using product.images[0]:', product.images[0]);
+        return getImageUrl(product.images[0]);
+    }
+
+    if (product?.image) {
+        console.log('📸 Using product.image:', product.image);
+        return getImageUrl(product.image);
+    }
+
+    // Return placeholder if no image found
+    console.log('🖼️ No image found for product, using placeholder');
+    return 'https://via.placeholder.com/300x300/f3f4f6/9ca3af?text=No+Image';
 };
 
 // Auth headers helper
@@ -96,6 +132,16 @@ export const checkApiHealth = async () => {
     }
 };
 
+// Image validation helper
+export const validateImageUrl = async (url) => {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
+        img.src = url;
+    });
+};
+
 // Debug logging
 console.log('🔧 API Configuration:', {
     baseURL: API_BASE_URL,
@@ -136,9 +182,11 @@ export default {
     API_BASE_URL,
     getApiUrl,
     getImageUrl,
+    getProductImageUrl,
     getAuthHeaders,
     getFormHeaders,
     getMidtransConfig,
     checkApiHealth,
+    validateImageUrl,
     handleApiError
 };
