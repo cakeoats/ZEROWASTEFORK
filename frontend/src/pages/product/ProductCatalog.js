@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { HiSearch, HiOutlineHeart, HiOutlineEye } from 'react-icons/hi';
 import NavbarComponent from '../../components/NavbarComponent';
+import ProductImage from '../../components/ProductImage';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useTranslate } from '../../utils/languageUtils';
 import axios from 'axios';
 import Footer from '../../components/Footer';
-import { getApiUrl, getProductImageUrl, getAuthHeaders } from '../../config/api';
+import { getApiUrl, getAuthHeaders } from '../../config/api';
 
 const ProductCatalog = () => {
     // Hook to get location (URL info)
@@ -333,20 +334,12 @@ const ProductCatalog = () => {
                                     <div key={product._id} className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                                         <div className="relative">
                                             <Link to={`/products/${product._id}`}>
-                                                <img
-                                                    src={getProductImageUrl(product)}
-                                                    alt={product.name}
+                                                <ProductImage
+                                                    product={product}
                                                     className="w-full aspect-square object-cover"
-                                                    onError={(e) => {
-                                                        console.log('❌ Image error for product:', product.name);
-                                                        console.log('❌ Failed URL:', e.target.src);
-                                                        e.target.onerror = null; // Prevent infinite loop
-                                                        e.target.src = 'https://via.placeholder.com/300x300/f3f4f6/9ca3af?text=No+Image';
-                                                    }}
-                                                    onLoad={() => {
-                                                        console.log('✅ Image loaded for product:', product.name);
-                                                    }}
-                                                    loading="lazy"
+                                                    alt={product.name}
+                                                    onImageLoad={(url) => console.log('✅ Image loaded in catalog:', url)}
+                                                    onImageError={() => console.log('❌ Image error in catalog for:', product.name)}
                                                 />
                                             </Link>
 
@@ -370,8 +363,8 @@ const ProductCatalog = () => {
                                             {/* Product Type Badge */}
                                             <div className="absolute bottom-2 left-2">
                                                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${product.tipe === 'Donation' ? 'bg-purple-100 text-purple-800' :
-                                                        product.tipe === 'Swap' ? 'bg-blue-100 text-blue-800' :
-                                                            'bg-green-100 text-green-800'
+                                                    product.tipe === 'Swap' ? 'bg-blue-100 text-blue-800' :
+                                                        'bg-green-100 text-green-800'
                                                     }`}>
                                                     {product.tipe === 'Sell' ? (language === 'id' ? 'Jual' : 'Sell') :
                                                         product.tipe === 'Donation' ? (language === 'id' ? 'Donasi' : 'Donation') :

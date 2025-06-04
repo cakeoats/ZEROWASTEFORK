@@ -86,9 +86,12 @@ if (!fs.existsSync(uploadsDir)) {
   console.log('📁 Created uploads directory');
 }
 
-// Enhanced static file serving with proper headers and error handling
+// IMPROVED: Enhanced static file serving with better CORS and error handling
 app.use('/uploads', (req, res, next) => {
+  // Set comprehensive CORS headers for images
   res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
   res.setHeader('Cache-Control', 'public, max-age=31536000');
 
@@ -98,6 +101,22 @@ app.use('/uploads', (req, res, next) => {
 
   if (fs.existsSync(filePath)) {
     console.log('✅ Image found:', filePath);
+
+    // Set proper content type based on file extension
+    const ext = path.extname(filePath).toLowerCase();
+    const mimeTypes = {
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.png': 'image/png',
+      '.gif': 'image/gif',
+      '.webp': 'image/webp',
+      '.bmp': 'image/bmp',
+      '.svg': 'image/svg+xml'
+    };
+
+    const mimeType = mimeTypes[ext] || 'application/octet-stream';
+    res.setHeader('Content-Type', mimeType);
+
     next();
   } else {
     console.log('❌ Image not found:', filePath);
@@ -108,16 +127,23 @@ app.use('/uploads', (req, res, next) => {
       timestamp: new Date().toISOString()
     });
   }
-}, express.static(path.join(__dirname, 'uploads')));
+}, express.static(path.join(__dirname, 'uploads'), {
+  setHeaders: (res, path) => {
+    // Additional headers for static files
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  }
+}));
 
-// Fallback route for missing images
+// Fallback route for missing images with better error response
 app.get('/uploads/*', (req, res) => {
   console.log('🔍 Fallback image request:', req.path);
   res.status(404).json({
     error: 'Image not found',
     path: req.path,
     message: 'This image does not exist on the server',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    suggestion: 'Please check if the image was uploaded correctly'
   });
 });
 
@@ -149,7 +175,6 @@ const connectDB = async () => {
     const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://zerowastemarket:zerowastemarket@zerowastemarket.usk9srj.mongodb.net/zerowastemarket?retryWrites=true&w=majority&appName=zerowastemarket';
 
     await mongoose.connect(MONGO_URI, {
-      // HANYA gunakan opsi yang didukung
       serverSelectionTimeoutMS: 30000,
       socketTimeoutMS: 75000,
       connectTimeoutMS: 30000,
@@ -159,9 +184,6 @@ const connectDB = async () => {
       retryWrites: true,
       w: 'majority',
       family: 4,
-      // HAPUS opsi yang menyebabkan error:
-      // bufferCommands: false,    // <- INI YANG MENYEBABKAN ERROR
-      // bufferMaxEntries: 0,      // <- INI JUGA
     });
 
     console.log('✅ Connected to MongoDB Atlas');
