@@ -1,5 +1,5 @@
 // frontend/src/config/api.js
-// Centralized API configuration with enhanced image handling
+// Centralized API configuration with enhanced image handling and Midtrans production support
 
 // Get API URL from environment variable with fallback to your actual backend
 export const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://zerowaste-backend-theta.vercel.app';
@@ -112,6 +112,139 @@ export const getFormHeaders = () => {
     } : {};
 };
 
+// UPDATED: Midtrans Configuration dengan production keys
+export const MIDTRANS_CONFIG = {
+    development: {
+        scriptUrl: 'https://app.sandbox.midtrans.com/snap/snap.js',
+        clientKey: process.env.REACT_APP_MIDTRANS_CLIENT_KEY_SANDBOX || 'SB-Mid-client-FHBq0wtUSyCEStlH',
+        isProduction: false,
+        environment: 'SANDBOX'
+    },
+    production: {
+        scriptUrl: 'https://app.midtrans.com/snap/snap.js',
+        clientKey: process.env.REACT_APP_MIDTRANS_CLIENT_KEY_PRODUCTION || 'Mid-client-axaDAjpfCGFhcFrJ',
+        isProduction: true,
+        environment: 'PRODUCTION'
+    }
+};
+
+// ENHANCED: Environment detection dengan multiple checks
+export const getMidtransConfig = () => {
+    // Collect all environment indicators
+    const envChecks = {
+        nodeEnv: process.env.NODE_ENV,
+        reactAppEnv: process.env.REACT_APP_ENV,
+        midtransFlag: process.env.REACT_APP_MIDTRANS_IS_PRODUCTION,
+        hostname: window.location.hostname,
+        isVercel: window.location.hostname.includes('vercel.app'),
+        isLocalhost: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    };
+
+    console.log('🔍 Frontend Environment Detection:', envChecks);
+
+    // Determine production status dengan prioritas:
+    // 1. Explicit flag (REACT_APP_MIDTRANS_IS_PRODUCTION)
+    // 2. Environment variables
+    // 3. Hostname detection
+    const isProductionEnv =
+        process.env.REACT_APP_MIDTRANS_IS_PRODUCTION === 'true' ||
+        (process.env.NODE_ENV === 'production' && !envChecks.isLocalhost) ||
+        (process.env.REACT_APP_ENV === 'production') ||
+        (window.location.hostname.includes('vercel.app') && !window.location.hostname.includes('preview'));
+
+    const selectedConfig = MIDTRANS_CONFIG[isProductionEnv ? 'production' : 'development'];
+
+    console.log('🔧 Selected Midtrans Config:', {
+        environment: selectedConfig.environment,
+        scriptUrl: selectedConfig.scriptUrl,
+        clientKeyPrefix: selectedConfig.clientKey ? selectedConfig.clientKey.substring(0, 15) + '...' : 'NOT_SET',
+        isProduction: selectedConfig.isProduction,
+        hostname: window.location.hostname,
+        決定理由: isProductionEnv ? 'Production detected' : 'Development detected'
+    });
+
+    // Validation
+    if (!selectedConfig.clientKey || selectedConfig.clientKey.includes('XXXXXXX')) {
+        console.error('❌ Midtrans client key not properly configured!');
+        console.error('💡 Check environment variables in Vercel');
+    }
+
+    return selectedConfig;
+};
+
+// NEW: Function to verify backend configuration
+export const verifyBackendConfig = async () => {
+    try {
+        const response = await fetch(getApiUrl('api/payment/config/verify'));
+        const data = await response.json();
+
+        console.log('🔍 Backend Midtrans Configuration:', data);
+
+        // Check if frontend and backend environments match
+        const frontendConfig = getMidtransConfig();
+        const environmentMatch = frontendConfig.isProduction === (data.configuration?.environment === 'PRODUCTION');
+
+        if (!environmentMatch) {
+            console.warn('⚠️ ENVIRONMENT MISMATCH!');
+            console.warn('Frontend:', frontendConfig.environment);
+            console.warn('Backend:', data.configuration?.environment);
+        }
+
+        return {
+            ...data,
+            environmentMatch,
+            frontendEnvironment: frontendConfig.environment,
+            backendEnvironment: data.configuration?.environment
+        };
+    } catch (error) {
+        console.error('❌ Failed to verify backend configuration:', error);
+        return null;
+    }
+};
+
+// ENHANCED: Test Midtrans configuration
+export const testMidtransSetup = async () => {
+    console.log('🧪 Testing Midtrans Setup...');
+
+    const frontendConfig = getMidtransConfig();
+    const backendConfig = await verifyBackendConfig();
+
+    const testResults = {
+        frontend: {
+            environment: frontendConfig.environment,
+            hasClientKey: !!frontendConfig.clientKey && !frontendConfig.clientKey.includes('XXXXXXX'),
+            scriptUrl: frontendConfig.scriptUrl,
+            status: 'unknown'
+        },
+        backend: {
+            environment: backendConfig?.configuration?.environment || 'unknown',
+            hasServerKey: backendConfig?.configuration?.hasServerKey || false,
+            hasClientKey: backendConfig?.configuration?.hasClientKey || false,
+            status: backendConfig?.success ? 'ok' : 'error'
+        },
+        environmentMatch: backendConfig?.environmentMatch || false
+    };
+
+    // Test script loading
+    try {
+        const script = document.createElement('script');
+        script.src = frontendConfig.scriptUrl;
+        script.onload = () => {
+            testResults.frontend.status = 'ok';
+            console.log('✅ Midtrans script loads successfully');
+        };
+        script.onerror = () => {
+            testResults.frontend.status = 'error';
+            console.error('❌ Midtrans script failed to load');
+        };
+    } catch (error) {
+        testResults.frontend.status = 'error';
+    }
+
+    console.log('🧪 Midtrans Setup Test Results:', testResults);
+    return testResults;
+};
+
 // IMPROVED: Image validation helper with timeout and retry logic
 export const validateImageUrl = async (url, timeout = 10000, retries = 3) => {
     for (let attempt = 1; attempt <= retries; attempt++) {
@@ -171,26 +304,6 @@ export const preloadImage = (src) => {
     });
 };
 
-// Midtrans Configuration
-export const MIDTRANS_CONFIG = {
-    development: {
-        scriptUrl: 'https://app.sandbox.midtrans.com/snap/snap.js',
-        clientKey: process.env.REACT_APP_MIDTRANS_CLIENT_KEY_SANDBOX || 'SB-Mid-client-FHBq0wtUSyCEStlH',
-        isProduction: false
-    },
-    production: {
-        scriptUrl: 'https://app.midtrans.com/snap/snap.js',
-        clientKey: process.env.REACT_APP_MIDTRANS_CLIENT_KEY_PRODUCTION || 'Mid-client-axaDAjpfCGFhcFrJ',
-        isProduction: true
-    }
-};
-
-// Get current Midtrans config based on environment
-export const getMidtransConfig = () => {
-    const env = currentEnv;
-    return MIDTRANS_CONFIG[env === 'production' ? 'production' : 'development'];
-};
-
 // API health check
 export const checkApiHealth = async () => {
     try {
@@ -242,6 +355,52 @@ export const handleApiError = (error, defaultMessage = 'An error occurred') => {
     }
 };
 
+// Production monitoring helpers
+export const logProductionPayment = (result, environment) => {
+    if (environment === 'PRODUCTION' || process.env.REACT_APP_MIDTRANS_IS_PRODUCTION === 'true') {
+        console.log('🎉 PRODUCTION PAYMENT SUCCESS:', {
+            orderId: result.order_id,
+            status: result.transaction_status,
+            amount: result.gross_amount,
+            timestamp: new Date().toISOString(),
+            userAgent: navigator.userAgent,
+            environment: environment
+        });
+
+        // Optional: Send to analytics service
+        if (window.gtag) {
+            window.gtag('event', 'production_payment_success', {
+                order_id: result.order_id,
+                transaction_status: result.transaction_status,
+                value: result.gross_amount
+            });
+        }
+    }
+};
+
+export const logProductionError = (error, context) => {
+    if (process.env.REACT_APP_MIDTRANS_IS_PRODUCTION === 'true') {
+        console.error('🚨 PRODUCTION PAYMENT ERROR:', {
+            error: error.message,
+            context,
+            timestamp: new Date().toISOString(),
+            url: window.location.href,
+            userAgent: navigator.userAgent
+        });
+
+        // Optional: Send to error tracking service
+        // if (window.Sentry) {
+        //     window.Sentry.captureException(error, {
+        //         tags: { 
+        //             environment: 'production',
+        //             component: 'midtrans-payment'
+        //         },
+        //         extra: context
+        //     });
+        // }
+    }
+};
+
 // Debug logging
 if (isDevelopment) {
     console.log('🔧 API Configuration:', {
@@ -250,10 +409,12 @@ if (isDevelopment) {
         customEnv: currentEnv,
         isDevelopment,
         isProduction,
-        envVariable: process.env.REACT_APP_API_URL
+        envVariable: process.env.REACT_APP_API_URL,
+        midtransEnv: process.env.REACT_APP_MIDTRANS_IS_PRODUCTION
     });
 }
 
+// Default export for backward compatibility
 export default {
     API_BASE_URL,
     getApiUrl,
@@ -265,5 +426,9 @@ export default {
     checkApiHealth,
     validateImageUrl,
     preloadImage,
-    handleApiError
+    handleApiError,
+    verifyBackendConfig,
+    testMidtransSetup,
+    logProductionPayment,
+    logProductionError
 };
