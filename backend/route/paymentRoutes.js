@@ -300,32 +300,90 @@ router.get('/health', (req, res) => {
 // GET /api/payment/config - Get client configuration for frontend
 router.get('/config', (req, res) => {
   try {
+    console.log('🔧 Payment config request received');
+    console.log('📋 Environment variables check:', {
+      MIDTRANS_IS_PRODUCTION: process.env.MIDTRANS_IS_PRODUCTION,
+      NODE_ENV: process.env.NODE_ENV,
+      hasProductionServerKey: !!process.env.MIDTRANS_SERVER_KEY_PRODUCTION,
+      hasProductionClientKey: !!process.env.MIDTRANS_CLIENT_KEY_PRODUCTION,
+      hasSandboxServerKey: !!process.env.MIDTRANS_SERVER_KEY_SANDBOX,
+      hasSandboxClientKey: !!process.env.MIDTRANS_CLIENT_KEY_SANDBOX
+    });
+
     const isProduction = process.env.MIDTRANS_IS_PRODUCTION === 'true';
 
-    const config = {
-      clientKey: isProduction
-        ? process.env.MIDTRANS_CLIENT_KEY_PRODUCTION
-        : process.env.MIDTRANS_CLIENT_KEY_SANDBOX,
-      isProduction: isProduction,
-      environment: isProduction ? 'PRODUCTION' : 'SANDBOX'
-    };
+    let config;
 
+    if (isProduction) {
+      // Production configuration
+      config = {
+        clientKey: process.env.MIDTRANS_CLIENT_KEY_PRODUCTION,
+        isProduction: true,
+        environment: 'PRODUCTION'
+      };
+
+      console.log('🎯 Using PRODUCTION configuration');
+    } else {
+      // Sandbox configuration  
+      config = {
+        clientKey: process.env.MIDTRANS_CLIENT_KEY_SANDBOX,
+        isProduction: false,
+        environment: 'SANDBOX'
+      };
+
+      console.log('🧪 Using SANDBOX configuration');
+    }
+
+    console.log('🔧 Final config:', {
+      environment: config.environment,
+      isProduction: config.isProduction,
+      clientKeyPrefix: config.clientKey ? config.clientKey.substring(0, 15) + '...' : 'NOT_SET'
+    });
+
+    // Validation
     if (!config.clientKey) {
+      console.error('❌ Client key not found for environment:', config.environment);
+
       return res.status(500).json({
         success: false,
-        message: 'Payment configuration not available'
+        message: `Payment configuration not available for ${config.environment} environment`,
+        error: 'CLIENT_KEY_MISSING',
+        debug: {
+          environment: config.environment,
+          isProduction: config.isProduction,
+          availableKeys: {
+            production: !!process.env.MIDTRANS_CLIENT_KEY_PRODUCTION,
+            sandbox: !!process.env.MIDTRANS_CLIENT_KEY_SANDBOX
+          }
+        }
       });
     }
 
+    // Success response
     res.json({
       success: true,
-      config
+      config: {
+        clientKey: config.clientKey,
+        isProduction: config.isProduction,
+        environment: config.environment
+      },
+      timestamp: new Date().toISOString(),
+      server: {
+        nodeEnv: process.env.NODE_ENV,
+        platform: 'vercel'
+      }
     });
+
+    console.log('✅ Payment config sent successfully');
+
   } catch (error) {
     console.error('💥 Error getting payment config:', error);
+
     res.status(500).json({
       success: false,
-      message: 'Failed to get payment configuration'
+      message: 'Failed to get payment configuration',
+      error: error.message,
+      timestamp: new Date().toISOString()
     });
   }
 });
