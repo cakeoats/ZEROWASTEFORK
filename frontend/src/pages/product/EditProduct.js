@@ -7,9 +7,7 @@ import { useTranslate } from '../../utils/languageUtils';
 import { Link } from 'react-router-dom';
 import { HiChevronLeft, HiOutlineCamera } from 'react-icons/hi';
 import Footer from '../../components/Footer';
-
-// API Base URL constant
-const API_URL = 'https://zerowastemarket-production.up.railway.app';
+import { getApiUrl, getImageUrl, getAuthHeaders } from '../../config/api';
 
 export default function EditProduct() {
     // Get product ID from URL params
@@ -44,9 +42,15 @@ export default function EditProduct() {
         'Decoration', 'Sports', 'Health and Beauty'
     ];
 
-    // Fetch product data
+    // FIXED: Enhanced product fetching with better error handling
     useEffect(() => {
         const fetchProduct = async () => {
+            if (!id) {
+                setError(language === 'id' ? 'ID produk tidak valid' : 'Invalid product ID');
+                setLoading(false);
+                return;
+            }
+
             try {
                 const token = localStorage.getItem('token');
                 if (!token) {
@@ -54,47 +58,84 @@ export default function EditProduct() {
                     return;
                 }
 
-                console.log(`Fetching product details for ID: ${id}`);
-                const res = await axios.get(`${API_URL}/api/products/${id}`, {
-                    headers: { Authorization: `Bearer ${token}` }
+                console.log(`🔍 Fetching product details for ID: ${id}`);
+                console.log(`🔗 API URL: ${getApiUrl(`api/products/${id}`)}`);
+                console.log(`🔐 Auth headers:`, getAuthHeaders());
+
+                // FIXED: Enhanced API call with timeout and better config
+                const response = await axios({
+                    method: 'GET',
+                    url: getApiUrl(`api/products/${id}`),
+                    headers: getAuthHeaders(),
+                    timeout: 15000, // 15 second timeout
+                    validateStatus: function (status) {
+                        return status < 500; // Resolve only if status is less than 500
+                    }
                 });
 
-                console.log("Product data received:", res.data);
-                const product = res.data;
+                console.log("✅ Product data received:", response.data);
 
-                // Check if the current user is the owner of the product
-                // Get user info from token payload 
-                try {
-                    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
-                    console.log("User info:", userInfo);
-                    console.log("Product seller:", product.seller_id);
-                    
-                    const isOwner = userInfo.user && 
-                        product.seller_id && 
-                        (product.seller_id._id === userInfo.user.id || 
-                         product.seller_id === userInfo.user.id);
-                    
-                    console.log("Is owner check:", {
-                        userId: userInfo.user?.id,
-                        sellerId: product.seller_id?._id || product.seller_id,
-                        isOwner
-                    });
-                    
-                    if (!isOwner) {
-                        setError(language === 'id' ?
-                            'Anda tidak memiliki izin untuk mengedit produk ini.' :
-                            'You do not have permission to edit this product.');
-                        setLoading(false);
-                        return;
-                    }
-                } catch (err) {
-                    console.error("Error checking ownership:", err);
+                if (response.status === 404) {
+                    setError(language === 'id' ?
+                        'Produk tidak ditemukan.' :
+                        'Product not found.');
+                    setLoading(false);
+                    return;
                 }
 
-                // Set form data from product
+                if (response.status === 401) {
+                    setError(language === 'id' ?
+                        'Akses ditolak. Silakan login kembali.' :
+                        'Access denied. Please login again.');
+                    navigate('/login', { state: { from: `/edit-product/${id}` } });
+                    return;
+                }
+
+                if (response.status !== 200) {
+                    throw new Error(`HTTP ${response.status}: ${response.data?.message || 'Request failed'}`);
+                }
+
+                const product = response.data;
+
+                // FIXED: Enhanced ownership validation
+                const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+                const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+                console.log("🔍 Ownership check:", {
+                    productSellerId: product.seller_id,
+                    userInfoUserId: userInfo.user?.id,
+                    userUserId: user.id || user._id,
+                    productSellerType: typeof product.seller_id
+                });
+
+                // Enhanced ownership check
+                let isOwner = false;
+                const currentUserId = userInfo.user?.id || user.id || user._id;
+
+                if (currentUserId && product.seller_id) {
+                    if (typeof product.seller_id === 'object') {
+                        // If seller_id is populated object
+                        isOwner = product.seller_id._id === currentUserId || product.seller_id.id === currentUserId;
+                    } else {
+                        // If seller_id is just string
+                        isOwner = product.seller_id === currentUserId;
+                    }
+                }
+
+                console.log("✅ Ownership result:", isOwner);
+
+                if (!isOwner) {
+                    setError(language === 'id' ?
+                        'Anda tidak memiliki izin untuk mengedit produk ini.' :
+                        'You do not have permission to edit this product.');
+                    setLoading(false);
+                    return;
+                }
+
+                // FIXED: Enhanced form data mapping
                 setFormData({
                     name: product.name || '',
-                    price: product.price || '',
+                    price: product.price?.toString() || '',
                     category: product.category || '',
                     condition: product.condition || 'new',
                     tipe: product.tipe || 'Sell',
@@ -102,19 +143,57 @@ export default function EditProduct() {
                     images: product.images || []
                 });
 
-                // Set image previews
+                // FIXED: Enhanced image preview handling
                 if (product.images && product.images.length > 0) {
+                    console.log("🖼️ Processing product images:", product.images);
+
                     const previews = product.images.map(img => {
-                        if (img.startsWith('http')) return img;
-                        return `${API_URL}/${img}`;
+                        // Handle both direct URLs and relative paths
+                        if (img.startsWith('http')) {
+                            console.log("🌐 Using direct URL:", img);
+                            return img;
+                        } else {
+                            const imageUrl = getImageUrl(img);
+                            console.log("🔗 Constructed URL:", imageUrl);
+                            return imageUrl;
+                        }
                     });
+
                     setImagePreviews(previews);
+                    console.log("✅ Image previews set:", previews);
                 }
 
                 setLoading(false);
+
             } catch (error) {
-                console.error('Error fetching product:', error);
-                setError(error.response?.data?.message || 'Failed to load product');
+                console.error('❌ Error fetching product:', error);
+
+                // FIXED: Enhanced error handling
+                let errorMessage = 'Failed to load product';
+
+                if (error.code === 'ECONNABORTED') {
+                    errorMessage = language === 'id' ?
+                        'Koneksi timeout. Periksa koneksi internet Anda.' :
+                        'Connection timeout. Check your internet connection.';
+                } else if (error.code === 'ERR_NETWORK') {
+                    errorMessage = language === 'id' ?
+                        'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.' :
+                        'Cannot connect to server. Check your internet connection.';
+                } else if (error.response) {
+                    // Server responded with error
+                    errorMessage = error.response.data?.message ||
+                        `Server error: ${error.response.status}`;
+                } else if (error.request) {
+                    // Request was made but no response
+                    errorMessage = language === 'id' ?
+                        'Server tidak merespons. Coba lagi nanti.' :
+                        'Server not responding. Try again later.';
+                } else {
+                    // Something else happened
+                    errorMessage = error.message || errorMessage;
+                }
+
+                setError(errorMessage);
                 setLoading(false);
             }
         };
@@ -216,7 +295,7 @@ export default function EditProduct() {
         return true;
     };
 
-    // Submit form handler
+    // FIXED: Enhanced submit handler with better error handling
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError(null);
@@ -255,46 +334,86 @@ export default function EditProduct() {
             // Add new images
             newImages.forEach(image => updateData.append('images', image));
 
-            console.log('Sending product update request with data:', {
+            console.log('🚀 Sending product update request:', {
                 id,
-                name: formData.name,
-                price: formData.price,
-                category: formData.category,
-                tipe: formData.tipe,
-                condition: formData.condition,
-                description: formData.description,
-                imagesToDelete: imagesToDelete.length,
-                newImages: newImages.length
+                url: getApiUrl(`api/products/${id}`),
+                formDataKeys: Array.from(updateData.keys()),
+                imagesToDeleteCount: imagesToDelete.length,
+                newImagesCount: newImages.length
             });
 
-            const response = await axios.put(
-                `${API_URL}/api/products/${id}`,
-                updateData,
-                {
-                    headers: {
-                        'Content-Type': 'multipart/form-data',
-                        'Authorization': `Bearer ${token}`
-                    },
+            // FIXED: Enhanced API call with better config
+            const response = await axios({
+                method: 'PUT',
+                url: getApiUrl(`api/products/${id}`),
+                data: updateData,
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                    Authorization: `Bearer ${token}`
+                },
+                timeout: 60000, // 60 second timeout for file upload
+                onUploadProgress: (progressEvent) => {
+                    const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                    console.log(`📊 Upload progress: ${percentCompleted}%`);
+                },
+                validateStatus: function (status) {
+                    return status < 500; // Resolve only if status is less than 500
                 }
-            );
+            });
 
-            console.log("Update successful:", response.data);
+            console.log("✅ Update response:", response.data);
+
+            if (response.status === 401) {
+                setError(language === 'id' ?
+                    'Otentikasi gagal. Silakan login kembali dan coba lagi.' :
+                    'Authentication failed. Please log in again and try again.');
+                setLoading(false);
+                return;
+            }
+
+            if (response.status === 403) {
+                setError(language === 'id' ?
+                    'Anda tidak memiliki izin untuk mengedit produk ini.' :
+                    'You do not have permission to edit this product.');
+                setLoading(false);
+                return;
+            }
+
+            if (response.status !== 200) {
+                throw new Error(response.data?.message || `HTTP ${response.status}: Update failed`);
+            }
+
             setSuccess(true);
 
             // Navigate to product detail page after 2 seconds
             setTimeout(() => navigate(`/products/${id}`), 2000);
+
         } catch (err) {
-            console.error('Error updating product:', err);
-            if (err.response?.status === 401) {
-                setError(language === 'id' ?
-                    'Otentikasi gagal. Silakan login kembali dan coba lagi.' :
-                    'Authentication failed. Please log in again and try again.');
+            console.error('❌ Error updating product:', err);
+
+            // FIXED: Enhanced error handling
+            let errorMessage = 'Failed to update product. Please try again.';
+
+            if (err.code === 'ECONNABORTED') {
+                errorMessage = language === 'id' ?
+                    'Upload timeout. File mungkin terlalu besar.' :
+                    'Upload timeout. File might be too large.';
+            } else if (err.code === 'ERR_NETWORK') {
+                errorMessage = language === 'id' ?
+                    'Tidak dapat terhubung ke server. Periksa koneksi internet.' :
+                    'Cannot connect to server. Check your internet connection.';
+            } else if (err.response) {
+                errorMessage = err.response.data?.message ||
+                    `Server error: ${err.response.status}`;
+            } else if (err.request) {
+                errorMessage = language === 'id' ?
+                    'Server tidak merespons. Coba lagi nanti.' :
+                    'Server not responding. Try again later.';
             } else {
-                setError(err.response?.data?.message ||
-                    (language === 'id' ?
-                        'Gagal memperbarui produk. Silakan coba lagi.' :
-                        'Failed to update product. Please try again.'));
+                errorMessage = err.message || errorMessage;
             }
+
+            setError(errorMessage);
             setTimeout(() => setError(null), 5000);
         } finally {
             setLoading(false);
@@ -302,7 +421,7 @@ export default function EditProduct() {
     };
 
     // Render error state
-    if (error && !loading) {
+    if (error && !loading && !formData.name) {
         return (
             <div className="min-h-screen bg-white text-gray-800">
                 <NavbarComponent />

@@ -1,58 +1,66 @@
-// backend/controller/payment/paymentController.js - FIXED FOR PRODUCTION
+// backend/controller/payment/paymentController.js - FIXED EXPIRY TIME ISSUE
 const midtransClient = require('midtrans-client');
 const Product = require('../../models/product');
 const User = require('../../models/User');
 const Cart = require('../../models/cart');
 const Order = require('../../models/order');
 
-// FIXED: Improved Midtrans configuration with better validation
+// FIXED: Improved Midtrans configuration
 const getMidtransConfig = () => {
   const isProduction = process.env.MIDTRANS_IS_PRODUCTION === 'true';
 
   console.log('🔧 Environment Variables Check:', {
     MIDTRANS_IS_PRODUCTION: process.env.MIDTRANS_IS_PRODUCTION,
-    NODE_ENV: process.env.NODE_ENV,
-    SERVER_KEY_SANDBOX: process.env.MIDTRANS_SERVER_KEY ? 'SET' : 'MISSING',
-    CLIENT_KEY_SANDBOX: process.env.MIDTRANS_CLIENT_KEY ? 'SET' : 'MISSING'
+    NODE_ENV: process.env.NODE_ENV
   });
 
   // Use SANDBOX keys consistently (since production keys are not properly set)
   const config = {
     isProduction: false, // FORCE SANDBOX for now
-    serverKey: process.env.MIDTRANS_SERVER_KEY || process.env.MIDTRANS_SERVER_KEY_SANDBOX,
-    clientKey: process.env.MIDTRANS_CLIENT_KEY || process.env.MIDTRANS_CLIENT_KEY_SANDBOX
+    serverKey: process.env.MIDTRANS_SERVER_KEY_SANDBOX,
+    clientKey: process.env.MIDTRANS_CLIENT_KEY_SANDBOX
   };
 
   console.log('🔧 Final Midtrans Configuration:', {
     environment: config.isProduction ? '🎯 PRODUCTION' : '🧪 SANDBOX',
     serverKeyPrefix: config.serverKey ? config.serverKey.substring(0, 20) + '...' : '❌ NOT_SET',
-    clientKeyPrefix: config.clientKey ? config.clientKey.substring(0, 20) + '...' : '❌ NOT_SET',
-    serverKeyValid: config.serverKey && (config.serverKey.startsWith('SB-Mid-server-') || config.serverKey.startsWith('Mid-server-')),
-    clientKeyValid: config.clientKey && (config.clientKey.startsWith('SB-Mid-client-') || config.clientKey.startsWith('Mid-client-'))
+    clientKeyPrefix: config.clientKey ? config.clientKey.substring(0, 20) + '...' : '❌ NOT_SET'
   });
 
   // Enhanced validation
   if (!config.serverKey || !config.clientKey) {
     const missing = [];
-    if (!config.serverKey) missing.push('MIDTRANS_SERVER_KEY');
-    if (!config.clientKey) missing.push('MIDTRANS_CLIENT_KEY');
-
+    if (!config.serverKey) missing.push('MIDTRANS_SERVER_KEY_SANDBOX');
+    if (!config.clientKey) missing.push('MIDTRANS_CLIENT_KEY_SANDBOX');
     throw new Error(`Missing Midtrans credentials: ${missing.join(', ')}`);
-  }
-
-  // Validate key format
-  if (!config.serverKey.startsWith('SB-Mid-server-') && !config.serverKey.startsWith('Mid-server-')) {
-    throw new Error('Invalid server key format. Should start with SB-Mid-server- (sandbox) or Mid-server- (production)');
-  }
-
-  if (!config.clientKey.startsWith('SB-Mid-client-') && !config.clientKey.startsWith('Mid-client-')) {
-    throw new Error('Invalid client key format. Should start with SB-Mid-client- (sandbox) or Mid-client- (production)');
   }
 
   return config;
 };
 
-// FIXED: Create transaction with proper error handling
+// FIXED: Helper function to get proper timezone time
+const getIndonesianTime = () => {
+  // Get current time in Indonesian timezone (UTC+7)
+  const now = new Date();
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  const indonesianTime = new Date(utc + (7 * 3600000)); // UTC+7
+  return indonesianTime;
+};
+
+// FIXED: Helper function to format time for Midtrans
+const formatMidtransTime = (date) => {
+  // Format: YYYY-MM-DD HH:mm:ss +0700
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds} +0700`;
+};
+
+// FIXED: Create transaction with proper expiry time handling
 exports.createTransaction = async (req, res) => {
   try {
     console.log('🚀 Starting payment transaction creation...');
@@ -111,7 +119,7 @@ exports.createTransaction = async (req, res) => {
       });
     }
 
-    // FIXED: Create Midtrans Snap instance with better error handling
+    // Create Midtrans Snap instance
     console.log('🔧 Creating Midtrans Snap instance...');
     let snap;
     try {
@@ -130,7 +138,7 @@ exports.createTransaction = async (req, res) => {
       });
     }
 
-    // FIXED: Generate unique transaction ID
+    // Generate unique transaction ID
     const timestamp = Date.now();
     const randomId = Math.floor(Math.random() * 1000);
     const transactionId = `ZWM-${timestamp}-${randomId}`;
@@ -139,7 +147,18 @@ exports.createTransaction = async (req, res) => {
     // Calculate amount - ensure it's an integer
     const grossAmount = Math.round(totalAmount || (product.price * quantity));
 
-    // FIXED: Enhanced transaction parameters with proper validation
+    // FIXED: Proper time handling for Indonesian timezone
+    const currentTime = getIndonesianTime();
+    const expiryTime = new Date(currentTime.getTime() + (60 * 60 * 1000)); // Add 1 hour
+
+    console.log('⏰ Time Details:', {
+      currentTimeUTC: new Date().toISOString(),
+      currentTimeIndonesia: formatMidtransTime(currentTime),
+      expiryTimeIndonesia: formatMidtransTime(expiryTime),
+      timeDifferenceMinutes: (expiryTime.getTime() - currentTime.getTime()) / (1000 * 60)
+    });
+
+    // FIXED: Enhanced transaction parameters with proper expiry handling
     const parameter = {
       transaction_details: {
         order_id: transactionId,
@@ -156,7 +175,7 @@ exports.createTransaction = async (req, res) => {
         first_name: (user.full_name || user.username || 'Customer').substring(0, 20),
         last_name: '',
         email: user.email,
-        phone: user.phone || '+628123456789', // Default phone if not provided
+        phone: user.phone || '+628123456789',
         billing_address: {
           address: user.address || 'Jakarta',
           city: 'Jakarta',
@@ -172,9 +191,10 @@ exports.createTransaction = async (req, res) => {
       credit_card: {
         secure: true
       },
+      // FIXED: Proper expiry time format
       expiry: {
-        start_time: new Date().toISOString().replace(/T/, ' ').replace(/\..+/, '') + ' +0700',
-        duration: 60,
+        start_time: formatMidtransTime(currentTime),
+        duration: 60, // 60 minutes
         unit: 'minutes'
       }
     };
@@ -183,10 +203,12 @@ exports.createTransaction = async (req, res) => {
       order_id: parameter.transaction_details.order_id,
       gross_amount: parameter.transaction_details.gross_amount,
       customer_email: parameter.customer_details.email,
+      start_time: parameter.expiry.start_time,
+      expiry_duration: `${parameter.expiry.duration} ${parameter.expiry.unit}`,
       environment: midtransConfig.isProduction ? 'PRODUCTION' : 'SANDBOX'
     });
 
-    // FIXED: Create transaction with better error handling
+    // Create transaction with better error handling
     console.log('🚀 Creating Midtrans transaction...');
     let transaction;
     try {
@@ -197,7 +219,7 @@ exports.createTransaction = async (req, res) => {
     } catch (midtransTransactionError) {
       console.error('❌ Midtrans transaction creation failed:');
       console.error('Error message:', midtransTransactionError.message);
-      console.error('Error details:', midtransTransactionError);
+      console.error('Full error:', midtransTransactionError);
 
       // Enhanced error messages based on Midtrans API response
       let userErrorMessage = 'Failed to create payment transaction';
@@ -205,7 +227,10 @@ exports.createTransaction = async (req, res) => {
       if (midtransTransactionError.message) {
         const errorMsg = midtransTransactionError.message.toLowerCase();
 
-        if (errorMsg.includes('401') || errorMsg.includes('unauthorized')) {
+        if (errorMsg.includes('expiry')) {
+          userErrorMessage = 'Payment expiry time error. Please try again.';
+          console.error('⏰ Expiry time issue detected. Current parameter:', parameter.expiry);
+        } else if (errorMsg.includes('401') || errorMsg.includes('unauthorized')) {
           userErrorMessage = 'Payment gateway authentication failed. Please contact support.';
         } else if (errorMsg.includes('400') || errorMsg.includes('bad request')) {
           userErrorMessage = 'Invalid payment request. Please check your order details.';
@@ -220,7 +245,11 @@ exports.createTransaction = async (req, res) => {
         details: process.env.NODE_ENV === 'development' ? {
           originalError: midtransTransactionError.message,
           environment: midtransConfig.isProduction ? 'PRODUCTION' : 'SANDBOX',
-          serverKeyPrefix: midtransConfig.serverKey.substring(0, 20) + '...'
+          serverKeyPrefix: midtransConfig.serverKey.substring(0, 20) + '...',
+          timeDetails: {
+            currentTime: formatMidtransTime(currentTime),
+            expiryTime: formatMidtransTime(expiryTime)
+          }
         } : undefined
       });
     }
@@ -391,7 +420,8 @@ exports.verifyConfiguration = async (req, res) => {
         serverKeyPrefix: midtransConfig.serverKey ? midtransConfig.serverKey.substring(0, 20) + '...' : 'NOT_SET',
         clientKeyPrefix: midtransConfig.clientKey ? midtransConfig.clientKey.substring(0, 20) + '...' : 'NOT_SET',
         nodeEnv: process.env.NODE_ENV,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        timeZone: 'Asia/Jakarta (UTC+7)'
       }
     });
   } catch (error) {

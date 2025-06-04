@@ -1,4 +1,4 @@
-// backend/route/productRoutes.js - SUPABASE INTEGRATED VERSION
+// backend/route/productRoutes.js - FIXED FOR EDIT PRODUCT
 const express = require('express');
 const router = express.Router();
 
@@ -10,7 +10,6 @@ try {
     console.log('✅ Product controller imported successfully');
 } catch (err) {
     console.error('❌ Failed to import product controller:', err.message);
-    // Create fallback to prevent crash
     productController = {
         uploadProduct: (req, res) => res.status(500).json({ message: 'Product controller not available' }),
         getProductDetail: (req, res) => res.status(500).json({ message: 'Product controller not available' }),
@@ -41,7 +40,6 @@ try {
     };
 }
 
-// Destructure with fallbacks
 const {
     uploadProduct = (req, res) => res.status(500).json({ message: 'Upload function not available' }),
     getProductDetail = (req, res) => res.status(500).json({ message: 'Get detail function not available' }),
@@ -54,7 +52,7 @@ const { protect = (req, res, next) => res.status(500).json({ message: 'Auth not 
 
 // Enhanced upload middleware with Supabase integration
 const handleProductUpload = (req, res, next) => {
-    console.log('🔄 Processing product upload request...');
+    console.log('🔄 Processing product upload/update request...');
     console.log('📊 Request details:', {
         method: req.method,
         url: req.url,
@@ -63,17 +61,14 @@ const handleProductUpload = (req, res, next) => {
         userAgent: req.get('User-Agent')
     });
 
-    // Use the enhanced upload middleware
     let uploadHandler;
 
     try {
-        // Try to use the new createUploadMiddleware function if available
         if (uploadMiddleware.createUploadMiddleware) {
             uploadHandler = uploadMiddleware.createUploadMiddleware('images', 5);
         } else if (uploadMiddleware.uploadImages) {
             uploadHandler = uploadMiddleware.uploadImages;
         } else {
-            // Fallback to direct multer usage
             uploadHandler = uploadMiddleware.array ? uploadMiddleware.array('images', 5) : uploadMiddleware;
         }
 
@@ -85,14 +80,12 @@ const handleProductUpload = (req, res, next) => {
             if (err) {
                 console.error('❌ Upload processing error:', err);
 
-                // Enhanced error handling for Supabase workflow
                 const errorResponse = {
                     success: false,
                     message: 'File upload error',
                     timestamp: new Date().toISOString()
                 };
 
-                // Handle specific multer errors
                 switch (err.code) {
                     case 'LIMIT_FILE_SIZE':
                         errorResponse.message = 'File too large. Maximum size is 10MB per file.';
@@ -127,7 +120,6 @@ const handleProductUpload = (req, res, next) => {
             if (req.files && req.files.length > 0) {
                 console.log(`✅ Successfully processed ${req.files.length} files`);
 
-                // Log file details for debugging
                 req.files.forEach((file, index) => {
                     console.log(`   📄 File ${index + 1}:`, {
                         name: file.originalname,
@@ -136,7 +128,6 @@ const handleProductUpload = (req, res, next) => {
                     });
                 });
 
-                // Add metadata for the controller
                 req.uploadMetadata = {
                     fileCount: req.files.length,
                     totalSize: req.files.reduce((sum, file) => sum + file.size, 0),
@@ -147,7 +138,7 @@ const handleProductUpload = (req, res, next) => {
 
                 console.log('📈 Upload metadata:', req.uploadMetadata);
             } else {
-                console.log('ℹ️ No files uploaded in this request');
+                console.log('ℹ️ No files uploaded in this request (might be form data only)');
             }
 
             console.log('✅ Upload middleware completed, proceeding to controller...');
@@ -177,10 +168,18 @@ const logRequest = (req, res, next) => {
         console.log('🔍 Query params:', req.query);
     }
 
+    // Log request body for debugging (but don't log files)
+    if (req.body && Object.keys(req.body).length > 0) {
+        const bodyToLog = { ...req.body };
+        // Remove sensitive or large data
+        delete bodyToLog.password;
+        console.log('📦 Request body:', bodyToLog);
+    }
+
     next();
 };
 
-// Validation middleware for product creation
+// Validation middleware for product creation/update
 const validateProductData = (req, res, next) => {
     console.log('🔍 Validating product data...');
 
@@ -220,12 +219,85 @@ const validateProductData = (req, res, next) => {
     next();
 };
 
+// FIXED: Validation middleware for product updates (more lenient)
+const validateProductUpdateData = (req, res, next) => {
+    console.log('🔍 Validating product update data...');
+
+    const { name, price, category, condition, tipe } = req.body;
+    const errors = [];
+
+    // For updates, we only validate if fields are provided
+    if (name !== undefined && (!name || !name.trim())) {
+        errors.push('Product name cannot be empty');
+    }
+
+    if (price !== undefined && (isNaN(parseFloat(price)) || parseFloat(price) <= 0)) {
+        errors.push('Valid price is required');
+    }
+
+    if (category !== undefined && (!category || !category.trim())) {
+        errors.push('Category cannot be empty');
+    }
+
+    if (condition !== undefined && !['new', 'used'].includes(condition)) {
+        errors.push('Condition must be "new" or "used"');
+    }
+
+    if (tipe !== undefined && !['Sell', 'Donation', 'Swap'].includes(tipe)) {
+        errors.push('Product type must be "Sell", "Donation", or "Swap"');
+    }
+
+    if (errors.length > 0) {
+        console.log('❌ Update validation errors:', errors);
+        return res.status(400).json({
+            success: false,
+            message: 'Validation failed',
+            errors: errors
+        });
+    }
+
+    console.log('✅ Product update data validation passed');
+    next();
+};
+
 // Error handler wrapper for async routes
 const asyncHandler = (fn) => (req, res, next) => {
     Promise.resolve(fn(req, res, next)).catch((error) => {
         console.error('💥 Async route error:', error);
         next(error);
     });
+};
+
+// FIXED: Enhanced product detail route with better error handling
+const handleGetProductDetail = async (req, res) => {
+    try {
+        const productId = req.params.id;
+        console.log(`🔍 Fetching product detail for ID: ${productId}`);
+
+        if (!productId || productId === 'undefined' || productId === 'null') {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid product ID'
+            });
+        }
+
+        // Check if it's a valid MongoDB ObjectId
+        if (!productId.match(/^[0-9a-fA-F]{24}$/)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid product ID format'
+            });
+        }
+
+        await getProductDetail(req, res);
+    } catch (error) {
+        console.error('💥 Error in product detail route:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch product details',
+            error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+        });
+    }
 };
 
 // Routes definition with comprehensive middleware stack
@@ -239,10 +311,10 @@ router.post('/upload',
     asyncHandler(uploadProduct)
 );
 
-// GET /api/products/:id - Get single product
+// GET /api/products/:id - Get single product (FIXED with better error handling)
 router.get('/:id',
     logRequest,
-    asyncHandler(getProductDetail)
+    asyncHandler(handleGetProductDetail)
 );
 
 // GET /api/products - Get all products with filtering
@@ -251,12 +323,12 @@ router.get('/',
     asyncHandler(getAllProducts)
 );
 
-// PUT /api/products/:id - Update product
+// PUT /api/products/:id - Update product (FIXED with proper validation)
 router.put('/:id',
     logRequest,
     protect,
     handleProductUpload,
-    validateProductData,
+    validateProductUpdateData, // Use update-specific validation
     asyncHandler(updateProduct)
 );
 
@@ -277,7 +349,8 @@ router.get('/health/check', (req, res) => {
         features: {
             upload: !!uploadMiddleware,
             auth: !!authMiddleware,
-            controller: !!productController
+            controller: !!productController,
+            editSupport: true
         }
     });
 });
@@ -288,7 +361,14 @@ router.use('*', (req, res) => {
         success: false,
         message: 'Product endpoint not found',
         path: req.originalUrl,
-        method: req.method
+        method: req.method,
+        availableEndpoints: [
+            'POST /api/products/upload',
+            'GET /api/products/:id',
+            'GET /api/products',
+            'PUT /api/products/:id',
+            'DELETE /api/products/:id'
+        ]
     });
 });
 
@@ -302,6 +382,14 @@ router.use((error, req, res, next) => {
             success: false,
             message: 'Validation error',
             errors: Object.values(error.errors).map(err => err.message)
+        });
+    }
+
+    // Handle MongoDB cast errors (invalid ObjectId)
+    if (error.name === 'CastError' && error.kind === 'ObjectId') {
+        return res.status(400).json({
+            success: false,
+            message: 'Invalid product ID format'
         });
     }
 
@@ -323,6 +411,15 @@ router.use((error, req, res, next) => {
         });
     }
 
+    // Handle network/timeout errors
+    if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
+        return res.status(408).json({
+            success: false,
+            message: 'Request timeout',
+            error: 'Operation took too long to complete'
+        });
+    }
+
     // Default error response
     res.status(500).json({
         success: false,
@@ -331,6 +428,6 @@ router.use((error, req, res, next) => {
     });
 });
 
-console.log('📋 Product routes (Supabase-ready) configured successfully');
+console.log('📋 Product routes (with Edit Product support) configured successfully');
 
 module.exports = router;
