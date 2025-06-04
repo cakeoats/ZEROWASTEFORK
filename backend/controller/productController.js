@@ -1,16 +1,10 @@
+// backend/controller/productController.js - SUPABASE VERSION
 const Product = require('../models/product');
 const User = require('../models/User');
-const path = require('path');
-const fs = require('fs');
+const supabase = require('../config/supabase');
+const { v4: uuidv4 } = require('uuid');
 
-// IMPROVED: Base URL untuk akses gambar dengan fallback yang lebih baik
-const BASE_URL = process.env.BASE_URL || process.env.VERCEL_URL
-  ? `https://${process.env.VERCEL_URL}`
-  : 'https://zerowaste-backend-theta.vercel.app';
-
-console.log('🔗 Using BASE_URL for images:', BASE_URL);
-
-// IMPROVED: Upload product dengan image handling yang lebih baik
+// Upload product dengan Supabase Storage
 const uploadProduct = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -30,25 +24,12 @@ const uploadProduct = async (req, res) => {
     console.log('📋 Product data:', { name, price, category, condition, tipe });
     console.log('📁 Uploaded files:', req.files?.length || 0, 'files');
 
-    // IMPROVED: Process uploaded images dengan path yang konsisten
-    const images = req.files ? req.files.map(file => {
-      // Simpan path relatif tanpa leading slash untuk konsistensi
-      const relativePath = `uploads/${file.filename}`;
-      console.log('💾 Saving image path:', relativePath);
-      console.log('📂 File details:', {
-        originalName: file.originalname,
-        filename: file.filename,
-        size: file.size,
-        mimetype: file.mimetype
-      });
-      return relativePath;
-    }) : [];
-
     // Validasi minimal field yang wajib
     if (!name || !price || !category || !condition || !tipe) {
       console.log('❌ Validation failed: missing required fields');
       return res.status(400).json({
-        message: 'Missing required fields',
+        success: false,
+        message: 'Field wajib harus diisi',
         missing: {
           name: !name,
           price: !price,
@@ -59,21 +40,86 @@ const uploadProduct = async (req, res) => {
       });
     }
 
-    if (images.length === 0) {
+    // Validasi gambar
+    if (!req.files || req.files.length === 0) {
       console.log('❌ Validation failed: no images uploaded');
       return res.status(400).json({
-        message: 'At least one image is required'
+        success: false,
+        message: 'Minimal 1 gambar harus diupload'
       });
     }
 
-    // Create new product
+    console.log('🔄 Starting image upload to Supabase...');
+
+    // Upload images to Supabase Storage
+    const imageUrls = [];
+
+    for (let i = 0; i < req.files.length; i++) {
+      const file = req.files[i];
+
+      try {
+        // Generate unique filename
+        const fileExt = file.originalname.split('.').pop();
+        const fileName = `${userId}/${Date.now()}-${uuidv4()}.${fileExt}`;
+
+        console.log(`📤 Uploading image ${i + 1}/${req.files.length} to Supabase:`, fileName);
+
+        // Upload to Supabase Storage
+        const { data, error } = await supabase.storage
+          .from('product-images') // Bucket name
+          .upload(fileName, file.buffer, {
+            contentType: file.mimetype,
+            cacheControl: '3600',
+            upsert: false
+          });
+
+        if (error) {
+          console.error('❌ Supabase upload error:', error);
+          throw new Error(`Supabase upload failed: ${error.message}`);
+        }
+
+        console.log('✅ File uploaded to Supabase:', data);
+
+        // Get public URL
+        const { data: urlData } = supabase.storage
+          .from('product-images')
+          .getPublicUrl(fileName);
+
+        const publicUrl = urlData.publicUrl;
+        console.log('🔗 Public URL generated:', publicUrl);
+
+        imageUrls.push(publicUrl);
+
+      } catch (uploadError) {
+        console.error('❌ Error uploading image:', uploadError);
+
+        // Clean up any successfully uploaded images
+        for (const url of imageUrls) {
+          try {
+            const path = url.split('/product-images/')[1];
+            await supabase.storage.from('product-images').remove([path]);
+          } catch (cleanupError) {
+            console.error('❌ Cleanup error:', cleanupError);
+          }
+        }
+
+        return res.status(500).json({
+          success: false,
+          message: 'Gagal upload gambar: ' + uploadError.message
+        });
+      }
+    }
+
+    console.log('✅ All images uploaded successfully:', imageUrls);
+
+    // Create new product with Supabase URLs
     const newProduct = new Product({
       seller_id: userId,
       name,
       description,
       price: parseFloat(price),
       category,
-      images,
+      images: imageUrls, // Array of Supabase URLs
       stock: parseInt(stock) || 1,
       condition,
       tipe,
@@ -83,36 +129,28 @@ const uploadProduct = async (req, res) => {
     await newProduct.save();
     console.log('✅ Product saved with ID:', newProduct._id);
 
-    // IMPROVED: Return product dengan imageUrls yang sudah di-construct
+    // Return product with image URLs
     const productObj = newProduct.toObject();
+    productObj.imageUrls = imageUrls;
+    productObj.imageUrl = imageUrls[0]; // First image as main
 
-    // Construct full image URLs untuk response
-    productObj.imageUrls = productObj.images.map(img => {
-      const fullUrl = `${BASE_URL}/${img}`;
-      console.log('🔗 Generated image URL:', fullUrl);
-      return fullUrl;
-    });
-
-    // Add first image as imageUrl for backward compatibility
-    if (productObj.imageUrls.length > 0) {
-      productObj.imageUrl = productObj.imageUrls[0];
-    }
-
-    console.log('✅ Product upload successful');
     res.status(201).json({
+      success: true,
       message: 'Product uploaded successfully',
       product: productObj
     });
+
   } catch (error) {
     console.error('💥 Upload product error:', error);
     res.status(500).json({
+      success: false,
       message: 'Failed to upload product',
       error: error.message
     });
   }
 };
 
-// IMPROVED: Get product detail dengan image URLs yang konsisten
+// Get product detail - tetap sama tapi return image URLs as is
 const getProductDetail = async (req, res) => {
   try {
     const productId = req.params.id;
@@ -127,10 +165,10 @@ const getProductDetail = async (req, res) => {
       return res.status(404).json({ message: 'Product not found' });
     }
 
-    // IMPROVED: Add full image URLs to response
+    // Dengan Supabase, images sudah berupa full URLs
     if (product.images && product.images.length > 0) {
-      product.imageUrls = product.images.map(img => `${BASE_URL}/${img}`);
-      product.imageUrl = product.imageUrls[0]; // First image as main
+      product.imageUrls = product.images; // Images are already full URLs
+      product.imageUrl = product.images[0]; // First image as main
     } else {
       product.imageUrls = [];
       product.imageUrl = null;
@@ -144,7 +182,7 @@ const getProductDetail = async (req, res) => {
   }
 };
 
-// IMPROVED: Get all products dengan image URLs yang konsisten
+// Get all products - tetap sama tapi return image URLs as is
 const getAllProducts = async (req, res) => {
   try {
     const { category, search, sort } = req.query;
@@ -153,12 +191,10 @@ const getAllProducts = async (req, res) => {
     // Buat filter berdasarkan query parameters
     let filter = {};
 
-    // Filter berdasarkan kategori jika ada
     if (category && category !== 'All') {
       filter.category = { $regex: new RegExp(category, 'i') };
     }
 
-    // Filter berdasarkan pencarian jika ada
     if (search) {
       filter.name = { $regex: new RegExp(search, 'i') };
     }
@@ -173,7 +209,6 @@ const getAllProducts = async (req, res) => {
       sortOption = { createdAt: -1 };
     }
 
-    // Ambil produk dari database
     const products = await Product.find(filter)
       .sort(sortOption)
       .populate('seller_id', 'username full_name')
@@ -181,18 +216,15 @@ const getAllProducts = async (req, res) => {
 
     console.log('📦 Found', products.length, 'products');
 
-    // IMPROVED: Process each product to add image URLs
+    // Process each product - dengan Supabase, images sudah berupa URLs
     const productsWithImageUrls = products.map(product => {
       if (product.images && product.images.length > 0) {
-        // Add full URLs for all images
-        product.imageUrls = product.images.map(img => `${BASE_URL}/${img}`);
-        // Set first image as main imageUrl for backward compatibility
-        product.imageUrl = product.imageUrls[0];
+        product.imageUrls = product.images; // Already full URLs
+        product.imageUrl = product.images[0]; // First image as main
       } else {
         product.imageUrls = [];
         product.imageUrl = null;
       }
-
       return product;
     });
 
@@ -204,7 +236,7 @@ const getAllProducts = async (req, res) => {
   }
 };
 
-// IMPROVED: Update product dengan image handling yang lebih baik
+// Update product function (untuk edit product)
 const updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
@@ -235,14 +267,6 @@ const updateProduct = async (req, res) => {
       name, description, price, category, stock, condition, tipe, imagesToDelete
     } = req.body;
 
-    console.log('📝 Update data received:', {
-      name, price, category, condition, tipe,
-      imagesToDeleteCount: imagesToDelete ?
-        (typeof imagesToDelete === 'string' ? JSON.parse(imagesToDelete).length : imagesToDelete.length)
-        : 0,
-      newImagesCount: req.files?.length || 0,
-    });
-
     // Update basic fields
     const updateData = {
       name: name || product.name,
@@ -257,7 +281,7 @@ const updateProduct = async (req, res) => {
     // Handle image updates
     let updatedImages = [...product.images];
 
-    // Delete specified images
+    // Delete specified images from Supabase
     if (imagesToDelete) {
       let imagesToDeleteArray;
       try {
@@ -267,25 +291,21 @@ const updateProduct = async (req, res) => {
 
         console.log('🗑️ Images to delete:', imagesToDeleteArray);
 
-        // Remove from array
-        updatedImages = updatedImages.filter(img => !imagesToDeleteArray.includes(img));
-
-        // Delete actual files
-        imagesToDeleteArray.forEach(imgPath => {
+        // Remove from Supabase Storage
+        for (const imageUrl of imagesToDeleteArray) {
           try {
-            const fullPath = path.join(__dirname, '..', imgPath);
-            console.log('🗑️ Deleting file:', fullPath);
-
-            if (fs.existsSync(fullPath)) {
-              fs.unlinkSync(fullPath);
-              console.log('✅ File deleted successfully');
-            } else {
-              console.log('⚠️ File does not exist, skipping');
+            const path = imageUrl.split('/product-images/')[1];
+            if (path) {
+              await supabase.storage.from('product-images').remove([path]);
+              console.log('✅ Deleted from Supabase:', path);
             }
           } catch (err) {
-            console.error('❌ Error deleting file:', err);
+            console.error('❌ Error deleting from Supabase:', err);
           }
-        });
+        }
+
+        // Remove from array
+        updatedImages = updatedImages.filter(img => !imagesToDeleteArray.includes(img));
       } catch (err) {
         console.error('❌ Error parsing imagesToDelete:', err);
       }
@@ -293,9 +313,33 @@ const updateProduct = async (req, res) => {
 
     // Add new images
     if (req.files && req.files.length > 0) {
-      const newImages = req.files.map(file => `uploads/${file.filename}`);
-      console.log('➕ New images to add:', newImages);
-      updatedImages = [...updatedImages, ...newImages];
+      console.log('➕ Adding new images:', req.files.length);
+
+      for (const file of req.files) {
+        try {
+          const fileExt = file.originalname.split('.').pop();
+          const fileName = `${userId}/${Date.now()}-${uuidv4()}.${fileExt}`;
+
+          const { data, error } = await supabase.storage
+            .from('product-images')
+            .upload(fileName, file.buffer, {
+              contentType: file.mimetype,
+              cacheControl: '3600',
+              upsert: false
+            });
+
+          if (error) throw error;
+
+          const { data: urlData } = supabase.storage
+            .from('product-images')
+            .getPublicUrl(fileName);
+
+          updatedImages.push(urlData.publicUrl);
+          console.log('✅ New image added:', urlData.publicUrl);
+        } catch (uploadError) {
+          console.error('❌ Error uploading new image:', uploadError);
+        }
+      }
     }
 
     updateData.images = updatedImages;
@@ -312,12 +356,13 @@ const updateProduct = async (req, res) => {
 
     // Add image URLs to response
     if (updatedProduct.images && updatedProduct.images.length > 0) {
-      updatedProduct.imageUrls = updatedProduct.images.map(img => `${BASE_URL}/${img}`);
-      updatedProduct.imageUrl = updatedProduct.imageUrls[0];
+      updatedProduct.imageUrls = updatedProduct.images;
+      updatedProduct.imageUrl = updatedProduct.images[0];
     }
 
     console.log('✅ Product updated successfully');
     res.json({
+      success: true,
       message: 'Product updated successfully',
       product: updatedProduct
     });
@@ -325,13 +370,14 @@ const updateProduct = async (req, res) => {
   } catch (error) {
     console.error('💥 Update product error:', error);
     res.status(500).json({
+      success: false,
       message: 'Failed to update product',
       error: error.message
     });
   }
 };
 
-// IMPROVED: Delete product dengan cleanup file yang lebih baik
+// Delete product function
 const deleteProduct = async (req, res) => {
   try {
     const { id } = req.params;
@@ -354,21 +400,21 @@ const deleteProduct = async (req, res) => {
       });
     }
 
-    // Delete associated image files
+    // Delete associated images from Supabase
     if (product.images && product.images.length > 0) {
-      console.log('🗑️ Deleting', product.images.length, 'image files');
+      console.log('🗑️ Deleting', product.images.length, 'images from Supabase');
 
-      product.images.forEach(imgPath => {
+      for (const imageUrl of product.images) {
         try {
-          const fullPath = path.join(__dirname, '..', imgPath);
-          if (fs.existsSync(fullPath)) {
-            fs.unlinkSync(fullPath);
-            console.log(`✅ Deleted image: ${imgPath}`);
+          const path = imageUrl.split('/product-images/')[1];
+          if (path) {
+            await supabase.storage.from('product-images').remove([path]);
+            console.log(`✅ Deleted image: ${path}`);
           }
         } catch (err) {
-          console.error('❌ Error deleting image file:', err);
+          console.error('❌ Error deleting image from Supabase:', err);
         }
-      });
+      }
     }
 
     // Delete the product from database
@@ -376,12 +422,14 @@ const deleteProduct = async (req, res) => {
 
     console.log('✅ Product deleted successfully');
     res.json({
+      success: true,
       message: 'Product deleted successfully'
     });
 
   } catch (error) {
     console.error('💥 Delete product error:', error);
     res.status(500).json({
+      success: false,
       message: 'Failed to delete product',
       error: error.message
     });
