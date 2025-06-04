@@ -6,7 +6,8 @@ import {
     HiOutlineViewGrid, HiOutlineCube, HiOutlineUserGroup,
     HiOutlineCog, HiOutlineLogout, HiMenu, HiX
 } from 'react-icons/hi';
-import { getApiUrl, getImageUrl, getAuthHeaders } from '../../config/api';
+import ProductImage from '../../components/ProductImage';
+import { getApiUrl, getAuthHeaders } from '../../config/api';
 
 function AdminDashboard() {
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -309,11 +310,13 @@ function AdminDashboard() {
                                                     <tr key={product._id}>
                                                         <td className="px-6 py-4 whitespace-nowrap">
                                                             <div className="flex items-center">
-                                                                <div className="flex-shrink-0 h-10 w-10">
-                                                                    <img
-                                                                        className="h-10 w-10 rounded-full object-cover"
-                                                                        src={getImageUrl(product.imageUrl || product.images?.[0]) || "https://via.placeholder.com/100"}
+                                                                <div className="flex-shrink-0 h-10 w-10 rounded-full overflow-hidden">
+                                                                    <ProductImage
+                                                                        product={product}
+                                                                        className="h-10 w-10 object-cover"
                                                                         alt={product.name}
+                                                                        showPlaceholder={true}
+                                                                        onImageError={() => console.log('❌ Dashboard image error for:', product.name)}
                                                                     />
                                                                 </div>
                                                                 <div className="ml-4">
@@ -425,7 +428,7 @@ function AdminDashboard() {
     );
 }
 
-// Komponen Product Management
+// Komponen Product Management dengan ProductImage
 function ProductManagement() {
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -620,15 +623,13 @@ function ProductManagement() {
                                     <tr key={product._id}>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex items-center">
-                                                <div className="flex-shrink-0 h-10 w-10">
-                                                    <img
-                                                        className="h-10 w-10 rounded-full object-cover"
-                                                        src={getImageUrl(product.imageUrl || product.images?.[0]) || "https://via.placeholder.com/100"}
+                                                <div className="flex-shrink-0 h-10 w-10 rounded-full overflow-hidden">
+                                                    <ProductImage
+                                                        product={product}
+                                                        className="h-10 w-10 object-cover"
                                                         alt={product.name}
-                                                        onError={(e) => {
-                                                            e.target.onerror = null;
-                                                            e.target.src = "https://via.placeholder.com/100?text=No+Image"
-                                                        }}
+                                                        showPlaceholder={true}
+                                                        onImageError={() => console.log('❌ Admin product image error for:', product.name)}
                                                     />
                                                 </div>
                                                 <div className="ml-4">

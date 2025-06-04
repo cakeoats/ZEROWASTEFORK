@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import NavbarComponent from '../../components/NavbarComponent';
+import ProductImage from '../../components/ProductImage';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCart } from '../../contexts/CartContext';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -173,15 +174,11 @@ export default function ProductDetail() {
     );
   }
 
-  // Process product images using the improved getProductImageUrl function
+  // Process product images using the improved logic
   const productImages = (() => {
-    // Get primary image URL
-    const primaryImageUrl = getProductImageUrl(product);
-
     // If product has multiple images, process them all
     if (product.images && Array.isArray(product.images) && product.images.length > 1) {
       return product.images.map(img => {
-        // Use the same logic as getProductImageUrl for consistency
         if (img.startsWith('http')) {
           console.log('🌐 Using full URL for image:', img);
           return img;
@@ -194,11 +191,19 @@ export default function ProductDetail() {
       });
     }
 
-    // Return array with single image
+    // Return array with single image from getProductImageUrl
+    const primaryImageUrl = getProductImageUrl(product);
     return [primaryImageUrl];
   })();
 
   console.log('🖼️ Processed product images:', productImages);
+
+  // Create product objects for each image to work with ProductImage component
+  const imageProducts = productImages.map((imageUrl, index) => ({
+    ...product,
+    imageUrl: imageUrl,
+    images: [imageUrl] // Ensure ProductImage gets the specific image
+  }));
 
   return (
     <div className="min-h-screen bg-white text-gray-800 relative">
@@ -236,21 +241,19 @@ export default function ProductDetail() {
                 <div className="relative overflow-hidden rounded-xl shadow-md bg-gray-100 aspect-square">
                   <div className="relative h-full">
                     <div className="relative h-full overflow-hidden">
-                      <img
-                        src={productImages[activeImage]}
-                        alt={product.name}
+                      <ProductImage
+                        product={imageProducts[activeImage]}
                         className="object-cover w-full h-full transition-transform duration-500 hover:scale-105 cursor-pointer"
+                        alt={`${product.name} - view ${activeImage + 1}`}
+                        showPlaceholder={true}
+                        onImageLoad={(url) => console.log('✅ Main image loaded:', url)}
+                        onImageError={() => console.log('❌ Main image error for:', product.name)}
+                      />
+
+                      {/* Click overlay for fullscreen */}
+                      <div 
+                        className="absolute inset-0 cursor-pointer z-10"
                         onClick={() => setShowFullscreenCarousel(true)}
-                        onError={(e) => {
-                          console.error("❌ Error loading image:", productImages[activeImage]);
-                          console.log('❌ Failed URL:', e.target.src);
-                          e.target.onerror = null; // Prevent infinite loop
-                          e.target.src = 'https://via.placeholder.com/600x600/f3f4f6/9ca3af?text=No+Image';
-                        }}
-                        onLoad={() => {
-                          console.log('✅ Image loaded successfully:', productImages[activeImage]);
-                        }}
-                        loading="lazy"
                       />
 
                       {/* Navigation Arrows */}
@@ -261,7 +264,7 @@ export default function ProductDetail() {
                               e.stopPropagation();
                               setActiveImage((prev) => (prev === 0 ? productImages.length - 1 : prev - 1));
                             }}
-                            className="absolute left-2 top-1/2 -translate-y-1/2 bg-white bg-opacity-70 hover:bg-opacity-100 rounded-full p-2 transition-all duration-300 text-gray-800"
+                            className="absolute left-2 top-1/2 -translate-y-1/2 bg-white bg-opacity-70 hover:bg-opacity-100 rounded-full p-2 transition-all duration-300 text-gray-800 z-20"
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -272,7 +275,7 @@ export default function ProductDetail() {
                               e.stopPropagation();
                               setActiveImage((prev) => (prev === productImages.length - 1 ? 0 : prev + 1));
                             }}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 bg-white bg-opacity-70 hover:bg-opacity-100 rounded-full p-2 transition-all duration-300 text-gray-800"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 bg-white bg-opacity-70 hover:bg-opacity-100 rounded-full p-2 transition-all duration-300 text-gray-800 z-20"
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -283,7 +286,7 @@ export default function ProductDetail() {
 
                       {/* Carousel Indicators */}
                       {productImages.length > 1 && (
-                        <div className="absolute bottom-3 left-0 right-0 flex justify-center space-x-2">
+                        <div className="absolute bottom-3 left-0 right-0 flex justify-center space-x-2 z-20">
                           {productImages.map((_, index) => (
                             <button
                               key={index}
@@ -300,7 +303,7 @@ export default function ProductDetail() {
                   </div>
 
                   {product.discount && (
-                    <div className="absolute top-4 left-4 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-bold z-10">
+                    <div className="absolute top-4 left-4 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-bold z-30">
                       {product.discount}% OFF
                     </div>
                   )}
@@ -309,25 +312,19 @@ export default function ProductDetail() {
                 {/* Thumbnail Gallery */}
                 {productImages.length > 1 && (
                   <div className="flex space-x-2 overflow-x-auto pb-2">
-                    {productImages.map((img, index) => (
+                    {imageProducts.map((imgProduct, index) => (
                       <div
                         key={index}
                         onClick={() => setActiveImage(index)}
                         className={`cursor-pointer rounded-lg overflow-hidden w-20 h-20 flex-shrink-0 border-2 transition-all ${activeImage === index ? 'border-amber-500 scale-105' : 'border-gray-200'}`}
                       >
-                        <img
-                          src={img}
-                          alt={`${product.name} - view ${index + 1}`}
+                        <ProductImage
+                          product={imgProduct}
                           className="w-full h-full object-cover"
-                          onError={(e) => {
-                            console.error("❌ Error loading thumbnail:", img);
-                            e.target.onerror = null;
-                            e.target.src = 'https://via.placeholder.com/80x80/f3f4f6/9ca3af?text=No+Image';
-                          }}
-                          onLoad={() => {
-                            console.log('✅ Thumbnail loaded successfully:', img);
-                          }}
-                          loading="lazy"
+                          alt={`${product.name} - thumbnail ${index + 1}`}
+                          showPlaceholder={true}
+                          onImageLoad={(url) => console.log('✅ Thumbnail loaded:', url)}
+                          onImageError={() => console.log('❌ Thumbnail error for index:', index)}
                         />
                       </div>
                     ))}
@@ -498,19 +495,13 @@ export default function ProductDetail() {
 
             {/* Fullscreen Image */}
             <div className="h-full flex items-center justify-center">
-              <img
-                src={productImages[activeImage]}
-                alt={product.name}
+              <ProductImage
+                product={imageProducts[activeImage]}
                 className="max-h-full max-w-full object-contain"
-                onClick={(e) => e.stopPropagation()}
-                onError={(e) => {
-                  console.error("❌ Error loading fullscreen image:", productImages[activeImage]);
-                  e.target.onerror = null;
-                  e.target.src = 'https://via.placeholder.com/800x800/f3f4f6/9ca3af?text=No+Image';
-                }}
-                onLoad={() => {
-                  console.log('✅ Fullscreen image loaded successfully:', productImages[activeImage]);
-                }}
+                alt={`${product.name} - fullscreen view ${activeImage + 1}`}
+                showPlaceholder={true}
+                onImageLoad={(url) => console.log('✅ Fullscreen image loaded:', url)}
+                onImageError={() => console.log('❌ Fullscreen image error for:', product.name)}
               />
             </div>
 
@@ -546,7 +537,7 @@ export default function ProductDetail() {
             {productImages.length > 1 && (
               <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-2 px-4">
                 <div className="bg-black bg-opacity-50 rounded-lg p-2 flex space-x-2 overflow-x-auto">
-                  {productImages.map((img, index) => (
+                  {imageProducts.map((imgProduct, index) => (
                     <div
                       key={index}
                       onClick={(e) => {
@@ -555,19 +546,13 @@ export default function ProductDetail() {
                       }}
                       className={`cursor-pointer rounded-lg overflow-hidden w-16 h-16 flex-shrink-0 border-2 transition-all ${activeImage === index ? 'border-amber-500' : 'border-transparent'}`}
                     >
-                      <img
-                        src={img}
-                        alt={`${product.name} - view ${index + 1}`}
+                      <ProductImage
+                        product={imgProduct}
                         className="w-full h-full object-cover"
-                        onError={(e) => {
-                          console.error("❌ Error loading fullscreen thumbnail:", img);
-                          e.target.onerror = null;
-                          e.target.src = 'https://via.placeholder.com/64x64/f3f4f6/9ca3af?text=No+Image';
-                        }}
-                        onLoad={() => {
-                          console.log('✅ Fullscreen thumbnail loaded successfully:', img);
-                        }}
-                        loading="lazy"
+                        alt={`${product.name} - fullscreen thumbnail ${index + 1}`}
+                        showPlaceholder={true}
+                        onImageLoad={(url) => console.log('✅ Fullscreen thumbnail loaded:', url)}
+                        onImageError={() => console.log('❌ Fullscreen thumbnail error for index:', index)}
                       />
                     </div>
                   ))}
