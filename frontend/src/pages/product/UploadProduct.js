@@ -1,3 +1,4 @@
+// frontend/src/pages/product/UploadProduct.js - FIXED FILE UPLOAD
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -19,14 +20,14 @@ export default function ProductUpload() {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   const [imagePreviews, setImagePreviews] = useState([]);
+  const [imageFiles, setImageFiles] = useState([]); // Store actual File objects
   const [formData, setFormData] = useState({
     name: '',
     price: '',
     category: '',
     condition: 'new',
-    tipe: 'Sell', // Default to "Sell" to match enum
-    description: '',
-    images: []
+    tipe: 'Sell',
+    description: ''
   });
 
   // Categories untuk dropdown
@@ -47,14 +48,16 @@ export default function ProductUpload() {
 
     const files = Array.from(e.target.files);
 
-    if (formData.images.length + files.length > 5) {
+    if (imageFiles.length + files.length > 5) {
       setError(language === 'id' ? 'Maksimum 5 gambar yang diperbolehkan' : 'Maximum 5 images allowed');
       setTimeout(() => setError(null), 3000);
       return;
     }
 
     const newImagePreviews = [...imagePreviews];
-    const newImages = [...formData.images];
+    const newImageFiles = [...imageFiles];
+
+    let processedFiles = 0;
 
     files.forEach(file => {
       if (!file.type.match('image.*')) {
@@ -65,18 +68,27 @@ export default function ProductUpload() {
         return;
       }
 
+      // Store the actual File object
+      newImageFiles.push(file);
+
+      // Create preview URL
       const reader = new FileReader();
       reader.onload = (e) => {
         if (e.target && e.target.result) {
           newImagePreviews.push(e.target.result.toString());
-          setImagePreviews([...newImagePreviews]);
+          processedFiles++;
+
+          // Update state when all files are processed
+          if (processedFiles === files.length) {
+            setImagePreviews([...newImagePreviews]);
+            setImageFiles([...newImageFiles]);
+          }
         }
       };
       reader.readAsDataURL(file);
-      newImages.push(file);
     });
 
-    setFormData(prev => ({ ...prev, images: newImages }));
+    // Reset file input
     if (e.target) e.target.value = '';
   };
 
@@ -84,11 +96,11 @@ export default function ProductUpload() {
     const newImagePreviews = [...imagePreviews];
     newImagePreviews.splice(index, 1);
 
-    const newImages = [...formData.images];
-    newImages.splice(index, 1);
+    const newImageFiles = [...imageFiles];
+    newImageFiles.splice(index, 1);
 
     setImagePreviews(newImagePreviews);
-    setFormData(prev => ({ ...prev, images: newImages }));
+    setImageFiles(newImageFiles);
   };
 
   // Form validation
@@ -113,7 +125,7 @@ export default function ProductUpload() {
       setError(language === 'id' ? 'Deskripsi produk harus diisi' : 'Description is required');
       return false;
     }
-    if (formData.images.length === 0) {
+    if (imageFiles.length === 0) {
       setError(language === 'id' ? 'Upload minimal 1 gambar produk' : 'Upload at least 1 product image');
       return false;
     }
@@ -151,11 +163,17 @@ export default function ProductUpload() {
         condition: formData.condition,
         tipe: formData.tipe,
         description: formData.description,
-        imagesCount: formData.images.length, // Ini yang penting!
-        imagesArray: formData.images // Debug images array
+        imageFilesCount: imageFiles.length,
+        imageFiles: imageFiles.map(file => ({
+          name: file.name,
+          size: file.size,
+          type: file.type
+        }))
       });
 
       const uploadData = new FormData();
+
+      // Add form fields
       uploadData.append('name', formData.name);
       uploadData.append('price', formData.price);
       uploadData.append('category', formData.category);
@@ -163,16 +181,16 @@ export default function ProductUpload() {
       uploadData.append('tipe', formData.tipe);
       uploadData.append('description', formData.description);
 
-      // DEBUG: Check images sebelum append
-      console.log('📁 DEBUG - Images to upload:');
-      formData.images.forEach((image, index) => {
+      // Add images with correct field name 'images'
+      console.log('📁 DEBUG - Adding images to FormData:');
+      imageFiles.forEach((file, index) => {
         console.log(`Image ${index + 1}:`, {
-          name: image.name,
-          size: image.size,
-          type: image.type,
-          lastModified: image.lastModified
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          lastModified: file.lastModified
         });
-        uploadData.append('images', image);
+        uploadData.append('images', file); // Field name MUST be 'images'
       });
 
       // DEBUG: Check FormData contents
@@ -197,9 +215,13 @@ export default function ProductUpload() {
         {
           headers: {
             'Content-Type': 'multipart/form-data',
-            ...getAuthHeaders()
+            Authorization: `Bearer ${token}` // Simplified auth header
           },
           timeout: 60000, // Increase timeout untuk upload besar
+          onUploadProgress: (progressEvent) => {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            console.log(`📊 Upload progress: ${percentCompleted}%`);
+          }
         }
       );
 
@@ -208,6 +230,7 @@ export default function ProductUpload() {
 
       // Navigate setelah 2 detik
       setTimeout(() => navigate(`/products/${response.data.product._id}`), 2000);
+
     } catch (err) {
       console.error('❌ Error uploading product:', err);
       console.error('❌ Error response:', err.response?.data);
@@ -217,6 +240,9 @@ export default function ProductUpload() {
         setError(language === 'id' ?
           'Otentikasi gagal. Silakan login kembali dan coba lagi.' :
           'Authentication failed. Please log in again and try again.');
+      } else if (err.response?.status === 400) {
+        const errorMessage = err.response.data?.message || 'Bad request';
+        setError(`Upload error: ${errorMessage}`);
       } else {
         setError(err.response?.data?.message ||
           (language === 'id' ?
@@ -329,6 +355,13 @@ export default function ProductUpload() {
                         <p className="text-xs text-gray-500">
                           {translate('product.mainPhoto')}. {translate('product.maxPhotos')}.
                         </p>
+
+                        {/* Debug info */}
+                        {process.env.NODE_ENV === 'development' && (
+                          <div className="mt-2 text-xs text-gray-400">
+                            DEBUG: {imageFiles.length} files ready to upload
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div
@@ -358,7 +391,7 @@ export default function ProductUpload() {
                   </div>
                 </div>
 
-                {/* Basic Info */}
+                {/* Rest of the form - sama seperti sebelumnya */}
                 <div className="space-y-4">
                   {/* Nama & Harga dalam 1 baris */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -502,8 +535,8 @@ export default function ProductUpload() {
                 <div className="mt-6">
                   <button
                     type="submit"
-                    disabled={loading}
-                    className="w-full py-2 bg-amber-500 hover:bg-amber-600 rounded-lg text-white font-medium transition-all shadow"
+                    disabled={loading || imageFiles.length === 0}
+                    className="w-full py-2 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-lg text-white font-medium transition-all shadow"
                   >
                     {loading ? (
                       <span className="flex items-center justify-center">
@@ -516,6 +549,14 @@ export default function ProductUpload() {
                     ) : translate('product.upload')}
                   </button>
                 </div>
+
+                {/* Debug info */}
+                {process.env.NODE_ENV === 'development' && (
+                  <div className="mt-4 p-3 bg-gray-100 rounded text-xs">
+                    <div>Files ready: {imageFiles.length}</div>
+                    <div>Previews: {imagePreviews.length}</div>
+                  </div>
+                )}
               </form>
             )}
 
