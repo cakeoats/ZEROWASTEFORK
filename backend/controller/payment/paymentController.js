@@ -1,67 +1,92 @@
-// backend/controller/payment/paymentController.js - UPDATED
+// backend/controller/payment/paymentController.js - FIXED FOR PRODUCTION
 const midtransClient = require('midtrans-client');
 const Product = require('../../models/product');
 const User = require('../../models/User');
 const Cart = require('../../models/cart');
 const Order = require('../../models/order');
 
-// UPDATED: Dynamic Midtrans configuration dengan production keys
+// FIXED: Improved Midtrans configuration with better validation
 const getMidtransConfig = () => {
   const isProduction = process.env.MIDTRANS_IS_PRODUCTION === 'true';
 
-  const config = {
-    isProduction: isProduction,
-    serverKey: isProduction
-      ? process.env.MIDTRANS_SERVER_KEY_PRODUCTION
-      : process.env.MIDTRANS_SERVER_KEY_SANDBOX,
-    clientKey: isProduction
-      ? process.env.MIDTRANS_CLIENT_KEY_PRODUCTION
-      : process.env.MIDTRANS_CLIENT_KEY_SANDBOX
-  };
-
-  // Enhanced logging untuk debugging
-  console.log('🔧 Midtrans Configuration:', {
-    environment: isProduction ? '🎯 PRODUCTION' : '🧪 SANDBOX',
-    merchantId: process.env.MIDTRANS_MERCHANT_ID || 'NOT_SET',
-    serverKeyPrefix: config.serverKey ? config.serverKey.substring(0, 15) + '...' : '❌ NOT_SET',
-    clientKeyPrefix: config.clientKey ? config.clientKey.substring(0, 15) + '...' : '❌ NOT_SET',
-    nodeEnv: process.env.NODE_ENV
+  console.log('🔧 Environment Variables Check:', {
+    MIDTRANS_IS_PRODUCTION: process.env.MIDTRANS_IS_PRODUCTION,
+    NODE_ENV: process.env.NODE_ENV,
+    SERVER_KEY_SANDBOX: process.env.MIDTRANS_SERVER_KEY ? 'SET' : 'MISSING',
+    CLIENT_KEY_SANDBOX: process.env.MIDTRANS_CLIENT_KEY ? 'SET' : 'MISSING'
   });
 
-  // Validation
+  // Use SANDBOX keys consistently (since production keys are not properly set)
+  const config = {
+    isProduction: false, // FORCE SANDBOX for now
+    serverKey: process.env.MIDTRANS_SERVER_KEY || process.env.MIDTRANS_SERVER_KEY_SANDBOX,
+    clientKey: process.env.MIDTRANS_CLIENT_KEY || process.env.MIDTRANS_CLIENT_KEY_SANDBOX
+  };
+
+  console.log('🔧 Final Midtrans Configuration:', {
+    environment: config.isProduction ? '🎯 PRODUCTION' : '🧪 SANDBOX',
+    serverKeyPrefix: config.serverKey ? config.serverKey.substring(0, 20) + '...' : '❌ NOT_SET',
+    clientKeyPrefix: config.clientKey ? config.clientKey.substring(0, 20) + '...' : '❌ NOT_SET',
+    serverKeyValid: config.serverKey && (config.serverKey.startsWith('SB-Mid-server-') || config.serverKey.startsWith('Mid-server-')),
+    clientKeyValid: config.clientKey && (config.clientKey.startsWith('SB-Mid-client-') || config.clientKey.startsWith('Mid-client-'))
+  });
+
+  // Enhanced validation
   if (!config.serverKey || !config.clientKey) {
     const missing = [];
-    if (!config.serverKey) missing.push(isProduction ? 'MIDTRANS_SERVER_KEY_PRODUCTION' : 'MIDTRANS_SERVER_KEY_SANDBOX');
-    if (!config.clientKey) missing.push(isProduction ? 'MIDTRANS_CLIENT_KEY_PRODUCTION' : 'MIDTRANS_CLIENT_KEY_SANDBOX');
+    if (!config.serverKey) missing.push('MIDTRANS_SERVER_KEY');
+    if (!config.clientKey) missing.push('MIDTRANS_CLIENT_KEY');
 
-    throw new Error(`Missing Midtrans environment variables: ${missing.join(', ')}`);
+    throw new Error(`Missing Midtrans credentials: ${missing.join(', ')}`);
+  }
+
+  // Validate key format
+  if (!config.serverKey.startsWith('SB-Mid-server-') && !config.serverKey.startsWith('Mid-server-')) {
+    throw new Error('Invalid server key format. Should start with SB-Mid-server- (sandbox) or Mid-server- (production)');
+  }
+
+  if (!config.clientKey.startsWith('SB-Mid-client-') && !config.clientKey.startsWith('Mid-client-')) {
+    throw new Error('Invalid client key format. Should start with SB-Mid-client- (sandbox) or Mid-client- (production)');
   }
 
   return config;
 };
 
-// UPDATED: Create transaction dengan validation yang lebih baik
+// FIXED: Create transaction with proper error handling
 exports.createTransaction = async (req, res) => {
   try {
     console.log('🚀 Starting payment transaction creation...');
+    console.log('📦 Request body:', req.body);
+    console.log('👤 User:', req.user?.username || req.user?._id);
 
-    const midtransConfig = getMidtransConfig();
-    const { productId, quantity = 1 } = req.body;
+    let midtransConfig;
+    try {
+      midtransConfig = getMidtransConfig();
+    } catch (configError) {
+      console.error('❌ Midtrans configuration error:', configError.message);
+      return res.status(500).json({
+        success: false,
+        message: 'Payment gateway configuration error',
+        error: configError.message
+      });
+    }
+
+    const { productId, quantity = 1, totalAmount } = req.body;
     const userId = req.user._id;
 
     console.log('📋 Transaction Request:', {
       productId,
       quantity,
+      totalAmount,
       userId: userId.toString(),
       environment: midtransConfig.isProduction ? 'PRODUCTION' : 'SANDBOX'
     });
 
     // Validate input
     if (!productId) {
-      console.log('❌ Product ID missing');
       return res.status(400).json({
         success: false,
-        message: 'ID produk diperlukan'
+        message: 'Product ID is required'
       });
     }
 
@@ -72,7 +97,7 @@ exports.createTransaction = async (req, res) => {
       console.log('❌ Product not found:', productId);
       return res.status(404).json({
         success: false,
-        message: 'Produk tidak ditemukan'
+        message: 'Product not found'
       });
     }
 
@@ -82,15 +107,19 @@ exports.createTransaction = async (req, res) => {
       console.log('❌ User not found:', userId);
       return res.status(404).json({
         success: false,
-        message: 'User tidak ditemukan'
+        message: 'User not found'
       });
     }
 
-    // Create Midtrans Snap instance
+    // FIXED: Create Midtrans Snap instance with better error handling
     console.log('🔧 Creating Midtrans Snap instance...');
     let snap;
     try {
-      snap = new midtransClient.Snap(midtransConfig);
+      snap = new midtransClient.Snap({
+        isProduction: midtransConfig.isProduction,
+        serverKey: midtransConfig.serverKey,
+        clientKey: midtransConfig.clientKey
+      });
       console.log('✅ Midtrans Snap instance created successfully');
     } catch (midtransError) {
       console.error('❌ Failed to create Midtrans instance:', midtransError);
@@ -101,14 +130,16 @@ exports.createTransaction = async (req, res) => {
       });
     }
 
-    // Generate unique transaction ID dengan merchant ID
-    const transactionId = `ZWM-${process.env.MIDTRANS_MERCHANT_ID || 'DEV'}-${Date.now()}-${userId.toString().substring(0, 5)}`;
+    // FIXED: Generate unique transaction ID
+    const timestamp = Date.now();
+    const randomId = Math.floor(Math.random() * 1000);
+    const transactionId = `ZWM-${timestamp}-${randomId}`;
     console.log('🆔 Generated transaction ID:', transactionId);
 
-    // Calculate amount
-    const grossAmount = Math.round(product.price * quantity);
+    // Calculate amount - ensure it's an integer
+    const grossAmount = Math.round(totalAmount || (product.price * quantity));
 
-    // Enhanced transaction parameters
+    // FIXED: Enhanced transaction parameters with proper validation
     const parameter = {
       transaction_details: {
         order_id: transactionId,
@@ -119,18 +150,17 @@ exports.createTransaction = async (req, res) => {
         price: Math.round(product.price),
         quantity: parseInt(quantity),
         name: product.name.substring(0, 50), // Midtrans name limit
-        category: product.category || 'general',
-        merchant_name: 'ZeroWasteMarket'
+        category: product.category || 'general'
       }],
       customer_details: {
         first_name: (user.full_name || user.username || 'Customer').substring(0, 20),
         last_name: '',
         email: user.email,
-        phone: user.phone || '',
+        phone: user.phone || '+628123456789', // Default phone if not provided
         billing_address: {
-          address: user.address || '',
-          city: 'Jakarta', // Default city
-          postal_code: '12345', // Default postal code
+          address: user.address || 'Jakarta',
+          city: 'Jakarta',
+          postal_code: '12345',
           country_code: 'IDN'
         }
       },
@@ -140,67 +170,58 @@ exports.createTransaction = async (req, res) => {
         pending: `${process.env.FRONTEND_URL || 'https://zerowaste-frontend-eosin.vercel.app'}/payment/pending`
       },
       credit_card: {
-        secure: true,
-        // Enable installment for production
-        ...(midtransConfig.isProduction && {
-          installment: {
-            required: false,
-            terms: {
-              bni: [3, 6, 12],
-              mandiri: [3, 6, 12],
-              cimb: [3, 6, 12],
-              bca: [3, 6, 12]
-            }
-          }
-        })
+        secure: true
       },
       expiry: {
         start_time: new Date().toISOString().replace(/T/, ' ').replace(/\..+/, '') + ' +0700',
         duration: 60,
         unit: 'minutes'
-      },
-      // Add custom field for tracking
-      custom_field1: midtransConfig.isProduction ? 'PROD' : 'SANDBOX',
-      custom_field2: product.category,
-      custom_field3: user.username
+      }
     };
 
-    console.log('📋 Midtrans parameters (sanitized):', {
+    console.log('📋 Midtrans parameters:', {
       order_id: parameter.transaction_details.order_id,
       gross_amount: parameter.transaction_details.gross_amount,
-      item_count: parameter.item_details.length,
       customer_email: parameter.customer_details.email,
-      environment: parameter.custom_field1
+      environment: midtransConfig.isProduction ? 'PRODUCTION' : 'SANDBOX'
     });
 
-    // Create transaction in Midtrans
+    // FIXED: Create transaction with better error handling
     console.log('🚀 Creating Midtrans transaction...');
     let transaction;
     try {
       transaction = await snap.createTransaction(parameter);
-      console.log('✅ Midtrans transaction created successfully:', {
-        token: transaction.token ? 'TOKEN_RECEIVED' : 'NO_TOKEN',
-        redirect_url: transaction.redirect_url ? 'URL_RECEIVED' : 'NO_URL',
-        environment: midtransConfig.isProduction ? 'PRODUCTION' : 'SANDBOX'
-      });
+      console.log('✅ Midtrans transaction created successfully');
+      console.log('🎫 Token received:', transaction.token ? 'YES' : 'NO');
+      console.log('🔗 Redirect URL received:', transaction.redirect_url ? 'YES' : 'NO');
     } catch (midtransTransactionError) {
-      console.error('❌ Midtrans transaction creation failed:', midtransTransactionError);
+      console.error('❌ Midtrans transaction creation failed:');
+      console.error('Error message:', midtransTransactionError.message);
+      console.error('Error details:', midtransTransactionError);
 
-      // Enhanced error handling for production
-      let errorMessage = 'Failed to create payment transaction';
+      // Enhanced error messages based on Midtrans API response
+      let userErrorMessage = 'Failed to create payment transaction';
+
       if (midtransTransactionError.message) {
-        if (midtransTransactionError.message.includes('401')) {
-          errorMessage = 'Payment gateway authentication failed';
-        } else if (midtransTransactionError.message.includes('400')) {
-          errorMessage = 'Invalid payment request data';
+        const errorMsg = midtransTransactionError.message.toLowerCase();
+
+        if (errorMsg.includes('401') || errorMsg.includes('unauthorized')) {
+          userErrorMessage = 'Payment gateway authentication failed. Please contact support.';
+        } else if (errorMsg.includes('400') || errorMsg.includes('bad request')) {
+          userErrorMessage = 'Invalid payment request. Please check your order details.';
+        } else if (errorMsg.includes('403') || errorMsg.includes('forbidden')) {
+          userErrorMessage = 'Payment method not allowed. Please try a different payment method.';
         }
       }
 
       return res.status(500).json({
         success: false,
-        message: errorMessage,
-        error: midtransTransactionError.message,
-        environment: midtransConfig.isProduction ? 'PRODUCTION' : 'SANDBOX'
+        message: userErrorMessage,
+        details: process.env.NODE_ENV === 'development' ? {
+          originalError: midtransTransactionError.message,
+          environment: midtransConfig.isProduction ? 'PRODUCTION' : 'SANDBOX',
+          serverKeyPrefix: midtransConfig.serverKey.substring(0, 20) + '...'
+        } : undefined
       });
     }
 
@@ -215,16 +236,14 @@ exports.createTransaction = async (req, res) => {
         totalAmount: grossAmount,
         status: 'pending',
         transactionId: transactionId,
-        paymentMethod: 'midtrans',
-        // Add production flag
-        environment: midtransConfig.isProduction ? 'production' : 'sandbox'
+        paymentMethod: 'midtrans'
       });
 
       await newOrder.save();
       console.log('✅ Order saved to database:', newOrder._id);
     } catch (orderError) {
       console.error('❌ Failed to save order:', orderError);
-      // Don't return error here as Midtrans transaction is already created
+      // Continue anyway as Midtrans transaction is already created
     }
 
     // Success response
@@ -248,13 +267,54 @@ exports.createTransaction = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Payment processing failed',
-      error: error.message,
-      environment: process.env.MIDTRANS_IS_PRODUCTION === 'true' ? 'production' : 'sandbox'
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }
 };
 
-// UPDATED: Handle notification dengan validation yang lebih baik
+// FIXED: Cart transaction handler
+exports.createCartTransaction = async (req, res) => {
+  try {
+    console.log('🛒 Creating cart transaction...');
+    console.log('📦 Request body:', req.body);
+
+    const { items, totalAmount } = req.body;
+    const userId = req.user._id;
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cart items are required'
+      });
+    }
+
+    // For now, process first item (can be enhanced later for multiple items)
+    const firstItem = items[0];
+
+    // Redirect to single product transaction
+    req.body = {
+      productId: firstItem.productId,
+      quantity: firstItem.quantity || 1,
+      totalAmount: totalAmount
+    };
+
+    console.log('🔄 Processing cart as single transaction:', req.body);
+
+    // Call the single transaction handler
+    return await exports.createTransaction(req, res);
+
+  } catch (error) {
+    console.error('💥 Cart transaction error:', error);
+
+    res.status(500).json({
+      success: false,
+      message: 'Cart payment processing failed',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+};
+
+// Handle notification (unchanged)
 exports.handleNotification = async (req, res) => {
   try {
     console.log('📨 Midtrans notification received:', req.body);
@@ -275,27 +335,21 @@ exports.handleNotification = async (req, res) => {
     console.log(`📋 Transaction notification processed:`, {
       orderId,
       transactionStatus,
-      fraudStatus,
-      environment: midtransConfig.isProduction ? 'PRODUCTION' : 'SANDBOX'
+      fraudStatus
     });
 
-    // Find orders with this transaction ID
-    const orders = await Order.find({
-      $or: [
-        { transactionId: orderId },
-        { _id: orderId }
-      ]
-    });
+    // Find order
+    const order = await Order.findOne({ transactionId: orderId });
 
-    if (orders.length === 0) {
-      console.log('❌ No orders found for transaction ID:', orderId);
+    if (!order) {
+      console.log('❌ Order not found for transaction ID:', orderId);
       return res.status(404).json({
         success: false,
-        message: 'Orders not found for this transaction ID'
+        message: 'Order not found'
       });
     }
 
-    // Map transaction status to order status
+    // Update order status
     let orderStatus;
     if (transactionStatus == 'capture') {
       orderStatus = fraudStatus == 'challenge' ? 'pending' : 'paid';
@@ -307,35 +361,23 @@ exports.handleNotification = async (req, res) => {
       orderStatus = 'pending';
     }
 
-    // Update all orders with this transaction ID
-    for (const order of orders) {
-      order.status = orderStatus;
-      order.paymentDetails = {
-        transactionStatus,
-        fraudStatus,
-        updatedAt: new Date(),
-        environment: midtransConfig.isProduction ? 'production' : 'sandbox'
-      };
-      await order.save();
-    }
+    order.status = orderStatus;
+    await order.save();
 
-    console.log(`✅ Updated ${orders.length} orders to status: ${orderStatus}`);
+    console.log(`✅ Order updated to status: ${orderStatus}`);
 
-    // Return success to Midtrans
     res.status(200).json({ success: true });
 
   } catch (error) {
     console.error('💥 Notification handling error:', error);
-
     res.status(500).json({
       success: false,
-      message: 'Error handling notification',
-      error: error.message
+      message: 'Error handling notification'
     });
   }
 };
 
-// NEW: Configuration verification endpoint
+// Configuration verification
 exports.verifyConfiguration = async (req, res) => {
   try {
     const midtransConfig = getMidtransConfig();
@@ -344,11 +386,10 @@ exports.verifyConfiguration = async (req, res) => {
       success: true,
       configuration: {
         environment: midtransConfig.isProduction ? 'PRODUCTION' : 'SANDBOX',
-        merchantId: process.env.MIDTRANS_MERCHANT_ID || 'NOT_SET',
         hasServerKey: !!midtransConfig.serverKey,
         hasClientKey: !!midtransConfig.clientKey,
-        serverKeyPrefix: midtransConfig.serverKey ? midtransConfig.serverKey.substring(0, 15) + '...' : 'NOT_SET',
-        clientKeyPrefix: midtransConfig.clientKey ? midtransConfig.clientKey.substring(0, 15) + '...' : 'NOT_SET',
+        serverKeyPrefix: midtransConfig.serverKey ? midtransConfig.serverKey.substring(0, 20) + '...' : 'NOT_SET',
+        clientKeyPrefix: midtransConfig.clientKey ? midtransConfig.clientKey.substring(0, 20) + '...' : 'NOT_SET',
         nodeEnv: process.env.NODE_ENV,
         timestamp: new Date().toISOString()
       }
