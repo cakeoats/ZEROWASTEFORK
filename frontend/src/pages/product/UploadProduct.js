@@ -133,6 +133,28 @@ export default function ProductUpload() {
     setLoading(true);
 
     try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setError(language === 'id' ?
+          'Anda harus login untuk mengunggah produk.' :
+          'You must be logged in to upload a product.');
+        setLoading(false);
+        navigate('/login', { state: { from: '/upload-product' } });
+        return;
+      }
+
+      // DEBUG: Log data sebelum dikirim
+      console.log('🔍 DEBUG - Form data before send:', {
+        name: formData.name,
+        price: formData.price,
+        category: formData.category,
+        condition: formData.condition,
+        tipe: formData.tipe,
+        description: formData.description,
+        imagesCount: formData.images.length, // Ini yang penting!
+        imagesArray: formData.images // Debug images array
+      });
+
       const uploadData = new FormData();
       uploadData.append('name', formData.name);
       uploadData.append('price', formData.price);
@@ -141,20 +163,33 @@ export default function ProductUpload() {
       uploadData.append('tipe', formData.tipe);
       uploadData.append('description', formData.description);
 
-      // Upload file gambar
-      formData.images.forEach(image => uploadData.append('images', image));
+      // DEBUG: Check images sebelum append
+      console.log('📁 DEBUG - Images to upload:');
+      formData.images.forEach((image, index) => {
+        console.log(`Image ${index + 1}:`, {
+          name: image.name,
+          size: image.size,
+          type: image.type,
+          lastModified: image.lastModified
+        });
+        uploadData.append('images', image);
+      });
 
-      // Ambil token dari localStorage
-      const token = localStorage.getItem('token');
-
-      if (!token) {
-        setError(language === 'id' ?
-          'Anda harus login untuk mengunggah produk. Silakan login dan coba lagi.' :
-          'You must be logged in to upload a product. Please login and try again.');
-        setLoading(false);
-        navigate('/login', { state: { from: '/upload-product' } });
-        return;
+      // DEBUG: Check FormData contents
+      console.log('📦 DEBUG - FormData contents:');
+      for (let pair of uploadData.entries()) {
+        if (pair[1] instanceof File) {
+          console.log(pair[0], ':', {
+            name: pair[1].name,
+            size: pair[1].size,
+            type: pair[1].type
+          });
+        } else {
+          console.log(pair[0], ':', pair[1]);
+        }
       }
+
+      console.log('🚀 Sending request to:', getApiUrl('api/products/upload'));
 
       const response = await axios.post(
         getApiUrl('api/products/upload'),
@@ -164,16 +199,20 @@ export default function ProductUpload() {
             'Content-Type': 'multipart/form-data',
             ...getAuthHeaders()
           },
+          timeout: 60000, // Increase timeout untuk upload besar
         }
       );
 
-      console.log("Upload successful:", response.data);
+      console.log("✅ Upload successful:", response.data);
       setSuccess(true);
 
-      // Navigasi ke halaman product-list setelah 2 detik
+      // Navigate setelah 2 detik
       setTimeout(() => navigate(`/products/${response.data.product._id}`), 2000);
     } catch (err) {
-      console.error('Error uploading product:', err);
+      console.error('❌ Error uploading product:', err);
+      console.error('❌ Error response:', err.response?.data);
+      console.error('❌ Error status:', err.response?.status);
+
       if (err.response?.status === 401) {
         setError(language === 'id' ?
           'Otentikasi gagal. Silakan login kembali dan coba lagi.' :
