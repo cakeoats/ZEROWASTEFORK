@@ -22,9 +22,28 @@ const MidtransPayment = () => {
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [snapScriptLoaded, setSnapScriptLoaded] = useState(false);
+  const [midtransConfig, setMidtransConfig] = useState(null);
 
-  // Get Midtrans configuration
-  const midtransConfig = getMidtransConfig();
+  // Fetch Midtrans configuration from backend
+  useEffect(() => {
+    const fetchMidtransConfig = async () => {
+      try {
+        console.log('🔧 Fetching Midtrans configuration...');
+        const config = await getMidtransConfig();
+        setMidtransConfig(config);
+        console.log('✅ Midtrans config loaded:', {
+          environment: config.environment,
+          scriptUrl: config.scriptUrl,
+          hasClientKey: !!config.clientKey
+        });
+      } catch (error) {
+        console.error('❌ Failed to load Midtrans config:', error);
+        setError('Failed to load payment configuration. Please refresh and try again.');
+      }
+    };
+
+    fetchMidtransConfig();
+  }, []);
 
   // Get product details
   useEffect(() => {
@@ -55,6 +74,11 @@ const MidtransPayment = () => {
 
   // Load Midtrans script
   useEffect(() => {
+    if (!midtransConfig) {
+      console.log('⏳ Waiting for Midtrans config...');
+      return;
+    }
+
     // Check if script is already loaded
     if (document.getElementById('midtrans-snap')) {
       console.log('✅ Midtrans script already loaded');
@@ -63,7 +87,11 @@ const MidtransPayment = () => {
     }
 
     console.log('🔧 Loading Midtrans Snap script...');
-    console.log('🔧 Midtrans Config:', midtransConfig);
+    console.log('🔧 Midtrans Config:', {
+      environment: midtransConfig.environment,
+      scriptUrl: midtransConfig.scriptUrl,
+      clientKeyPrefix: midtransConfig.clientKey ? midtransConfig.clientKey.substring(0, 15) + '...' : 'NOT_SET'
+    });
 
     // Load Midtrans Snap JS when component mounts
     const script = document.createElement('script');
@@ -73,12 +101,14 @@ const MidtransPayment = () => {
 
     script.onload = () => {
       console.log('✅ Midtrans Snap script loaded successfully');
+      console.log('🌍 Environment:', midtransConfig.environment);
       setSnapScriptLoaded(true);
     };
 
     script.onerror = () => {
       console.error('❌ Failed to load Midtrans Snap script');
-      setError('Failed to load payment gateway. Please refresh and try again.');
+      console.error('Script URL:', midtransConfig.scriptUrl);
+      setError(`Failed to load payment gateway (${midtransConfig.environment}). Please refresh and try again.`);
     };
 
     document.body.appendChild(script);
@@ -117,6 +147,12 @@ const MidtransPayment = () => {
       return;
     }
 
+    if (!midtransConfig) {
+      console.log('❌ Midtrans config not loaded');
+      setError('Payment configuration not loaded. Please refresh and try again.');
+      return;
+    }
+
     setPaymentLoading(true);
     setError(null);
 
@@ -125,6 +161,7 @@ const MidtransPayment = () => {
         productId: product._id,
         quantity: quantity,
         totalAmount: totalPrice,
+        environment: midtransConfig.environment,
         API_BASE_URL
       });
 
@@ -148,7 +185,7 @@ const MidtransPayment = () => {
       console.log('✅ Transaction created:', response.data);
 
       // Get the snap token from response
-      const { token: snapToken, success, message } = response.data;
+      const { token: snapToken, success, message, environment } = response.data;
 
       if (!success) {
         throw new Error(message || 'Transaction creation failed');
@@ -159,6 +196,8 @@ const MidtransPayment = () => {
       }
 
       console.log('🎫 Snap token received, opening payment popup...');
+      console.log('🌍 Backend environment:', environment);
+      console.log('🔧 Frontend config environment:', midtransConfig.environment);
 
       // Reset loading state before opening snap
       setPaymentLoading(false);
@@ -167,18 +206,22 @@ const MidtransPayment = () => {
       window.snap.pay(snapToken, {
         onSuccess: function (result) {
           console.log('✅ Payment success:', result);
+          console.log('🌍 Payment completed in:', midtransConfig.environment, 'mode');
           navigate('/payment/success?order_id=' + result.order_id + '&transaction_status=' + result.transaction_status);
         },
         onPending: function (result) {
           console.log('⏳ Payment pending:', result);
+          console.log('🌍 Payment pending in:', midtransConfig.environment, 'mode');
           navigate('/payment/pending?order_id=' + result.order_id + '&payment_type=' + result.payment_type);
         },
         onError: function (result) {
           console.error('❌ Payment error:', result);
-          setError('Payment failed: ' + (result.status_message || 'Please try again.'));
+          console.error('🌍 Payment error in:', midtransConfig.environment, 'mode');
+          setError(`Payment failed (${midtransConfig.environment}): ` + (result.status_message || 'Please try again.'));
         },
         onClose: function () {
           console.log('🚫 Payment window closed');
+          console.log('🌍 Payment closed in:', midtransConfig.environment, 'mode');
           setError('Payment canceled. Please try again to complete your purchase.');
         }
       });
@@ -186,10 +229,11 @@ const MidtransPayment = () => {
       console.error('💥 Payment error details:', {
         message: err.message,
         response: err.response?.data,
-        status: err.response?.status
+        status: err.response?.status,
+        environment: midtransConfig?.environment
       });
 
-      let errorMessage = 'Failed to process payment. Please try again.';
+      let errorMessage = `Failed to process payment (${midtransConfig?.environment || 'Unknown'}). Please try again.`;
 
       if (err.response?.status === 500) {
         errorMessage = 'Server error occurred. Please try again later or contact support.';
@@ -267,6 +311,21 @@ const MidtransPayment = () => {
         <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
           <div className="p-8">
             <h1 className="text-2xl font-bold mb-6">Complete Your Purchase</h1>
+
+            {/* Environment indicator */}
+            {midtransConfig && (
+              <div className={`mb-4 p-3 rounded-lg ${midtransConfig.isProduction
+                  ? 'bg-green-50 text-green-800 border border-green-200'
+                  : 'bg-yellow-50 text-yellow-800 border border-yellow-200'
+                }`}>
+                <div className="font-medium text-sm">
+                  🌍 Payment Environment: {midtransConfig.environment}
+                  {midtransConfig.isProduction
+                    ? ' (Live transactions)'
+                    : ' (Test mode)'}
+                </div>
+              </div>
+            )}
 
             {error && (
               <Alert color="failure" className="mb-4">
@@ -357,12 +416,15 @@ const MidtransPayment = () => {
 
               <div className="text-right">
                 <div className="text-sm text-gray-500 mb-2">
-                  Snap Script: {snapScriptLoaded ? '✅ Ready' : '⏳ Loading...'}
+                  Config: {midtransConfig ? '✅ Ready' : '⏳ Loading...'}
+                  {midtransConfig && ` (${midtransConfig.environment})`}
+                  <br />
+                  Script: {snapScriptLoaded ? '✅ Ready' : '⏳ Loading...'}
                 </div>
                 <Button
                   color="warning"
                   onClick={handlePayment}
-                  disabled={paymentLoading || !snapScriptLoaded}
+                  disabled={paymentLoading || !snapScriptLoaded || !midtransConfig}
                   className="px-8"
                 >
                   {paymentLoading ? (
@@ -371,7 +433,7 @@ const MidtransPayment = () => {
                       Processing...
                     </>
                   ) : (
-                    '💳 Pay with Midtrans'
+                    `💳 Pay with Midtrans ${midtransConfig ? `(${midtransConfig.environment})` : ''}`
                   )}
                 </Button>
               </div>
@@ -384,10 +446,17 @@ const MidtransPayment = () => {
                 <div>API URL: {API_BASE_URL}</div>
                 <div>Product ID: {id}</div>
                 <div>Token: {token ? 'Present' : 'Missing'}</div>
-                <div>Snap Loaded: {snapScriptLoaded ? 'Yes' : 'No'}</div>
+                <div>Config Loaded: {midtransConfig ? 'Yes' : 'No'}</div>
+                <div>Script Loaded: {snapScriptLoaded ? 'Yes' : 'No'}</div>
                 <div>Product Price: {product.price}</div>
                 <div>Total Price: {totalPrice}</div>
-                <div>Midtrans Environment: {midtransConfig.isProduction ? 'Production' : 'Sandbox'}</div>
+                {midtransConfig && (
+                  <>
+                    <div>Environment: {midtransConfig.environment}</div>
+                    <div>Script URL: {midtransConfig.scriptUrl}</div>
+                    <div>Is Production: {midtransConfig.isProduction ? 'Yes' : 'No'}</div>
+                  </>
+                )}
               </div>
             )}
           </div>
