@@ -1,100 +1,48 @@
-// backend/config/db.js - Versi yang diperbaiki
+// backend/config/db.js - FIXED VERSION
 const mongoose = require('mongoose');
-require('dotenv').config();
 
-const MONGO_URI = process.env.MONGO_URI || '';
+const MONGO_URI = process.env.MONGO_URI;
 
 const connectDB = async () => {
   try {
-    console.log('🔄 Connecting to MongoDB Atlas...');
-    console.log('🌐 Target:', MONGO_URI.split('@')[1].split('/')[0]); // Show host without credentials
-
-    const conn = await mongoose.connect(MONGO_URI, {
-      // Hanya gunakan opsi yang didukung Mongoose terbaru
-      serverSelectionTimeoutMS: 30000, // 30 seconds
-      socketTimeoutMS: 75000, // 75 seconds  
-      connectTimeoutMS: 30000, // 30 seconds
-      maxPoolSize: 10, // Maximum connections
-      minPoolSize: 2, // Minimum connections
-      maxIdleTimeMS: 30000, // Close idle connections after 30s
-
-      // Opsi tambahan untuk Atlas
-      retryWrites: true,
-      w: 'majority',
-      family: 4, // Use IPv4
-
-      // HAPUS opsi yang tidak didukung:
-      // bufferCommands: false,     // <- Menyebabkan error
-      // bufferMaxEntries: 0,       // <- Menyebabkan error
-    });
-
-    console.log('✅ MongoDB Atlas Connected Successfully!');
-    console.log(`📍 Host: ${conn.connection.host}`);
-    console.log(`📊 Database: ${conn.connection.name}`);
-    console.log(`🔌 Ready State: ${mongoose.connection.readyState}`);
-
-    // Test ping untuk memastikan koneksi bekerja
-    await mongoose.connection.db.admin().ping();
-    console.log('🏓 Database ping successful');
-
-  } catch (error) {
-    console.error('❌ MongoDB Atlas Connection Error:', error.message);
-
-    // Specific error handling
-    if (error.message.includes('Authentication failed')) {
-      console.error('🔐 Check username/password in Atlas dashboard');
-    } else if (error.message.includes('timeout')) {
-      console.error('⏰ Check network connection and Atlas IP whitelist');
-    } else if (error.message.includes('ENOTFOUND')) {
-      console.error('🌐 DNS resolution failed - check internet connection');
-    } else if (error.message.includes('buffermaxentries')) {
-      console.error('🔧 Mongoose configuration error - remove unsupported options');
+    // Jika sudah terhubung, jangan koneksi lagi
+    if (mongoose.connection.readyState === 1) {
+      console.log('✅ MongoDB already connected');
+      return;
     }
 
-    // Exit process jika tidak bisa connect
-    console.error('💥 Application will exit due to database connection failure');
-    process.exit(1);
+    console.log('🔄 Connecting to MongoDB Atlas...');
+
+    // Pastikan MONGO_URI ada
+    if (!MONGO_URI) {
+      throw new Error('MONGO_URI environment variable is not defined');
+    }
+
+    const conn = await mongoose.connect(MONGO_URI, {
+      // HAPUS semua opsi yang tidak didukung
+      serverSelectionTimeoutMS: 10000, // Kurangi timeout untuk Vercel
+      socketTimeoutMS: 45000,
+      connectTimeoutMS: 10000,
+      maxPoolSize: 5, // Kurangi pool size untuk serverless
+      minPoolSize: 1,
+      maxIdleTimeMS: 10000,
+      retryWrites: true,
+      w: 'majority'
+    });
+
+    console.log('✅ MongoDB Connected Successfully!');
+    return conn;
+
+  } catch (error) {
+    console.error('❌ MongoDB Connection Error:', error.message);
+
+    // Jangan exit di serverless environment
+    if (process.env.NODE_ENV !== 'production') {
+      process.exit(1);
+    }
+    throw error;
   }
 };
 
-// Connection event listeners
-mongoose.connection.on('connected', () => {
-  console.log('✅ Mongoose connected to MongoDB Atlas');
-});
-
-mongoose.connection.on('error', (err) => {
-  console.error('❌ Mongoose connection error:', err.message);
-});
-
-mongoose.connection.on('disconnected', () => {
-  console.log('⚠️ Mongoose disconnected from MongoDB Atlas');
-});
-
-mongoose.connection.on('reconnected', () => {
-  console.log('🔄 Mongoose reconnected to MongoDB Atlas');
-});
-
-// Graceful shutdown handlers
-process.on('SIGINT', async () => {
-  try {
-    await mongoose.connection.close();
-    console.log('🔌 MongoDB connection closed through app termination (SIGINT)');
-    process.exit(0);
-  } catch (error) {
-    console.error('Error during graceful shutdown:', error);
-    process.exit(1);
-  }
-});
-
-process.on('SIGTERM', async () => {
-  try {
-    await mongoose.connection.close();
-    console.log('🔌 MongoDB connection closed through app termination (SIGTERM)');
-    process.exit(0);
-  } catch (error) {
-    console.error('Error during graceful shutdown:', error);
-    process.exit(1);
-  }
-});
-
+// Hapus event listeners untuk serverless
 module.exports = connectDB;
