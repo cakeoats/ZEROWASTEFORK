@@ -2,7 +2,7 @@
 const mongoose = require('mongoose');
 require('dotenv').config();
 
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://zerowastemarket:zerowastemarket@zerowastemarket.usk9srj.mongodb.net/zerowastemarket?retryWrites=true&w=majority&appName=zerowastemarket';
+const MONGO_URI = process.env.MONGO_URI || '';
 
 const connectDB = async () => {
   try {
