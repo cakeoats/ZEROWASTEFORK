@@ -1,4 +1,4 @@
-// backend/config/supabase.js
+// backend/config/supabase.js - FIXED VERSION
 const { createClient } = require('@supabase/supabase-js');
 
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -6,21 +6,49 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !supabaseServiceKey) {
     console.error('❌ Supabase credentials not found in environment variables');
-    throw new Error('Missing Supabase credentials');
+    console.error('SUPABASE_URL:', supabaseUrl ? 'SET' : 'MISSING');
+    console.error('SUPABASE_SERVICE_ROLE_KEY:', supabaseServiceKey ? 'SET' : 'MISSING');
+    // Don't throw error in production to prevent crash
+    if (process.env.NODE_ENV !== 'production') {
+        throw new Error('Missing Supabase credentials');
+    }
 }
 
 console.log('🔧 Initializing Supabase client...');
 console.log('📍 Supabase URL:', supabaseUrl);
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-    auth: {
-        autoRefreshToken: false,
-        persistSession: false
-    }
-});
+let supabase = null;
 
-// Test connection
+try {
+    supabase = createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false
+        }
+    });
+
+    console.log('✅ Supabase client created successfully');
+} catch (error) {
+    console.error('❌ Failed to create Supabase client:', error.message);
+    // Create dummy client to prevent crashes
+    supabase = {
+        storage: {
+            from: () => ({
+                upload: () => Promise.reject(new Error('Supabase not configured')),
+                remove: () => Promise.reject(new Error('Supabase not configured')),
+                getPublicUrl: () => ({ data: { publicUrl: null } })
+            })
+        }
+    };
+}
+
+// Test connection function (non-blocking)
 const testConnection = async () => {
+    if (!supabase || !supabaseUrl || !supabaseServiceKey) {
+        console.log('⚠️ Supabase not properly configured, skipping connection test');
+        return;
+    }
+
     try {
         const { data, error } = await supabase.storage.listBuckets();
         if (error) {
@@ -34,9 +62,9 @@ const testConnection = async () => {
     }
 };
 
-// Test connection on startup (only in development)
+// Test connection on startup (only in development and non-blocking)
 if (process.env.NODE_ENV !== 'production') {
-    testConnection();
+    setTimeout(testConnection, 1000); // Delay to prevent blocking startup
 }
 
 module.exports = supabase;
