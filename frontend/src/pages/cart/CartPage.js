@@ -12,7 +12,7 @@ import { getApiUrl, getImageUrl, getAuthHeaders, getMidtransConfig } from '../..
 import axios from 'axios';
 
 const CartPage = () => {
-    const { cartItems, removeFromCart, clearCart } = useCart(); // Removed updateQuantity
+    const { cartItems, removeFromCart, clearCart } = useCart();
     const { token } = useAuth();
     const { language } = useLanguage();
     const translate = useTranslate(language);
@@ -24,7 +24,7 @@ const CartPage = () => {
     // Get Midtrans configuration
     const midtransConfig = getMidtransConfig();
 
-    // Calculate total (simplified since quantity is always 1)
+    // Calculate total (simplified since each item has quantity of 1)
     const cartTotal = cartItems.reduce((total, item) => total + item.price, 0);
 
     // Handle checkout process
@@ -43,11 +43,11 @@ const CartPage = () => {
         setError(null);
 
         try {
-            // Format data untuk API request (simplified for single item quantity)
+            // Format data untuk API request (each item has quantity of 1)
             const requestData = {
                 items: cartItems.map(item => ({
                     productId: item._id,
-                    quantity: 1 // Fixed quantity of 1
+                    quantity: 1 // Fixed quantity of 1 for each item
                 })),
                 totalAmount: cartTotal
             };
@@ -234,10 +234,25 @@ const CartPage = () => {
                                                     <div className="text-amber-600 font-semibold">
                                                         {formatPrice(item.price)}
                                                     </div>
-                                                    {/* REMOVED: Quantity controls - now showing fixed "1 item" */}
+                                                    {/* Removed quantity controls - now showing fixed "1 unit" */}
                                                     <div className="text-sm text-gray-600">
-                                                        {language === 'id' ? '1 item' : '1 item'}
+                                                        {language === 'id' ? '1 unit' : '1 unit'}
                                                     </div>
+                                                </div>
+
+                                                {/* Product condition and type info */}
+                                                <div className="mt-1 flex items-center space-x-2">
+                                                    <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded">
+                                                        {item.condition === 'new' ? (language === 'id' ? 'Baru' : 'New') : (language === 'id' ? 'Bekas' : 'Used')}
+                                                    </span>
+                                                    <span className={`text-xs px-2 py-1 rounded ${item.tipe === 'Sell' ? 'bg-green-100 text-green-600' :
+                                                            item.tipe === 'Donation' ? 'bg-purple-100 text-purple-600' :
+                                                                'bg-blue-100 text-blue-600'
+                                                        }`}>
+                                                        {item.tipe === 'Sell' ? (language === 'id' ? 'Jual' : 'Sell') :
+                                                            item.tipe === 'Donation' ? (language === 'id' ? 'Donasi' : 'Donation') :
+                                                                item.tipe === 'Swap' ? (language === 'id' ? 'Tukar' : 'Swap') : item.tipe}
+                                                    </span>
                                                 </div>
                                             </div>
 

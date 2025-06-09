@@ -157,8 +157,9 @@ export default function ProductDetail() {
     navigate(`/payment/${id}`);
   };
 
+  // REMOVED: quantity parameter - now fixed to 1
   const handleAddToCart = () => {
-    addToCart(product, 1);
+    addToCart(product, 1); // Fixed quantity of 1
     setAddedToCart(true);
     setTimeout(() => {
       setAddedToCart(false);
@@ -362,13 +363,28 @@ export default function ProductDetail() {
 
                 <div className="py-4 border-t border-b border-gray-100">
                   <div className="text-3xl font-bold text-amber-600">
-                    Rp {product.price.toLocaleString('id-ID')}
+                    {product.tipe === 'Donation' ? (
+                      <span className="text-purple-600">GRATIS</span>
+                    ) : product.tipe === 'Swap' ? (
+                      <span className="text-blue-600">TUKAR</span>
+                    ) : (
+                      `Rp ${product.price.toLocaleString('id-ID')}`
+                    )}
                   </div>
                   {product.old_price && (
                     <div className="mt-1 text-gray-500 line-through text-sm">
                       Rp {product.old_price.toLocaleString('id-ID')}
                     </div>
                   )}
+                  {/* Product availability indicator */}
+                  <div className="mt-2 text-sm">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                      1 unit tersedia
+                    </span>
+                  </div>
                 </div>
 
                 <div className="space-y-4">
@@ -436,18 +452,38 @@ export default function ProductDetail() {
                   </div>
                 </div>
 
+                {/* REMOVED: Quantity selector - now shows fixed quantity info */}
+                <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm text-blue-700">
+                        {language === 'id'
+                          ? 'Produk ini dijual dalam jumlah 1 unit. Setelah terjual, produk akan dihapus dari sistem.'
+                          : 'This product is sold in quantity of 1 unit. After sold, the product will be removed from the system.'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="pt-6 border-t border-gray-100">
                   <div className="grid gap-4 sm:grid-cols-3">
-                    {/* Add to Cart Button */}
-                    <button
-                      onClick={handleAddToCart}
-                      className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-base font-medium w-full transition-all duration-300 flex items-center justify-center"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                      </svg>
-                      {language === 'id' ? 'Tambah ke Keranjang' : 'Add to Cart'}
-                    </button>
+                    {/* Add to Cart Button - only show for Sell type */}
+                    {product.tipe === 'Sell' && (
+                      <button
+                        onClick={handleAddToCart}
+                        className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-base font-medium w-full transition-all duration-300 flex items-center justify-center"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                        {language === 'id' ? 'Tambah ke Keranjang' : 'Add to Cart'}
+                      </button>
+                    )}
 
                     <button
                       onClick={handleBuy}
@@ -456,18 +492,26 @@ export default function ProductDetail() {
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                       </svg>
-                      {language === 'id' ? 'Beli via WhatsApp' : 'Buy via WhatsApp'}
+                      {product.tipe === 'Donation' ?
+                        (language === 'id' ? 'Ambil via WhatsApp' : 'Claim via WhatsApp') :
+                        product.tipe === 'Swap' ?
+                          (language === 'id' ? 'Tukar via WhatsApp' : 'Swap via WhatsApp') :
+                          (language === 'id' ? 'Beli via WhatsApp' : 'Buy via WhatsApp')
+                      }
                     </button>
 
-                    <button
-                      onClick={handlePayment}
-                      className="border border-amber-500 bg-white text-amber-500 hover:bg-amber-50 px-4 py-2 rounded-lg text-base font-medium w-full transition-all duration-300 flex items-center justify-center"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                      </svg>
-                      {language === 'id' ? 'Beli dengan Midtrans' : 'Buy with Midtrans'}
-                    </button>
+                    {/* Midtrans Payment - only show for Sell type */}
+                    {product.tipe === 'Sell' && (
+                      <button
+                        onClick={handlePayment}
+                        className="border border-amber-500 bg-white text-amber-500 hover:bg-amber-50 px-4 py-2 rounded-lg text-base font-medium w-full transition-all duration-300 flex items-center justify-center"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                        </svg>
+                        {language === 'id' ? 'Beli dengan Midtrans' : 'Buy with Midtrans'}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

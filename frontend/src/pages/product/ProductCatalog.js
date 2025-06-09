@@ -33,18 +33,22 @@ const ProductCatalog = () => {
     const [sortBy, setSortBy] = useState('newest');
     const [wishlist, setWishlist] = useState([]);
 
-    // Category data
-    const categories = [
-        { name: 'All', icon: '🛍️', count: 42 },
-        { name: 'Men Fashion', icon: '👔', count: 120 },
-        { name: 'Women Fashion', icon: '👗', count: 85 },
-        { name: 'Automotive', icon: '🚗', count: 64 },
-        { name: 'Gadget', icon: '📱', count: 42 },
-        { name: 'Decoration', icon: '🖼️', count: 42 },
-        { name: 'Sport', icon: '⚽', count: 42 },
-        { name: 'Health And Beauty', icon: '💄', count: 42 },
-        { name: 'Kids', icon: '🪁', count: 42 }
-    ];
+    // State for category statistics from database
+    const [categoryStats, setCategoryStats] = useState([]);
+    const [categoriesLoading, setCategoriesLoading] = useState(true);
+
+    // Default categories structure (will be updated with real data)
+    const [categories, setCategories] = useState([
+        { name: 'All', icon: '🛍️', count: 0 },
+        { name: 'Men Fashion', icon: '👔', count: 0 },
+        { name: 'Women Fashion', icon: '👗', count: 0 },
+        { name: 'Automotive', icon: '🚗', count: 0 },
+        { name: 'Gadget', icon: '📱', count: 0 },
+        { name: 'Decoration', icon: '🖼️', count: 0 },
+        { name: 'Sport', icon: '⚽', count: 0 },
+        { name: 'Health And Beauty', icon: '💄', count: 0 },
+        { name: 'Kids', icon: '🪁', count: 0 }
+    ]);
 
     // Effect to update selected category when URL changes
     useEffect(() => {
@@ -52,6 +56,50 @@ const ProductCatalog = () => {
             setSelectedCategory(categoryFromUrl);
         }
     }, [categoryFromUrl]);
+
+    // Fetch category statistics from database
+    useEffect(() => {
+        const fetchCategoryStats = async () => {
+            setCategoriesLoading(true);
+            try {
+                console.log('🔍 Fetching category statistics from database...');
+                const response = await axios.get(getApiUrl('api/products/category-stats'));
+
+                console.log('✅ Category stats received:', response.data);
+                setCategoryStats(response.data.stats || []);
+
+                // Update categories with real counts
+                const updatedCategories = categories.map(category => {
+                    if (category.name === 'All') {
+                        // Calculate total count for "All" category
+                        const totalCount = response.data.stats?.reduce((total, stat) => total + stat.count, 0) || 0;
+                        return { ...category, count: totalCount };
+                    } else {
+                        // Find matching category in stats
+                        const categoryLower = category.name.toLowerCase().replace(' ', ' ');
+                        const stat = response.data.stats?.find(s =>
+                            s._id?.toLowerCase() === categoryLower ||
+                            s._id?.toLowerCase() === category.name.toLowerCase() ||
+                            s._id?.toLowerCase().replace(/\s+/g, '').includes(category.name.toLowerCase().replace(/\s+/g, ''))
+                        );
+
+                        return { ...category, count: stat?.count || 0 };
+                    }
+                });
+
+                setCategories(updatedCategories);
+                console.log('✅ Categories updated with real counts:', updatedCategories);
+
+            } catch (err) {
+                console.error('❌ Error fetching category stats:', err);
+                // Keep default counts if API fails
+            } finally {
+                setCategoriesLoading(false);
+            }
+        };
+
+        fetchCategoryStats();
+    }, []); // Only run once on component mount
 
     // Fetch user's wishlist
     useEffect(() => {
@@ -237,6 +285,9 @@ const ProductCatalog = () => {
                     <div className="w-full md:w-64 bg-white rounded-lg shadow-sm p-4">
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-lg font-medium">{translate('product.filter')}</h2>
+                            {categoriesLoading && (
+                                <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+                            )}
                         </div>
 
                         {/* Category Filter */}
@@ -253,8 +304,12 @@ const ProductCatalog = () => {
                                         onClick={() => setSelectedCategory(category.name)}
                                     >
                                         <span className="mr-2">{category.icon}</span>
-                                        <span>{category.name === 'All' ? translate('product.allCategories') : category.name}</span>
-                                        <span className="ml-auto text-xs text-gray-500">{category.count}</span>
+                                        <span className="flex-1">{category.name === 'All' ? translate('product.allCategories') : category.name}</span>
+                                        <span className={`text-xs font-medium px-2 py-1 rounded-full ${categoriesLoading ? 'bg-gray-100 text-gray-400' :
+                                                category.count > 0 ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'
+                                            }`}>
+                                            {categoriesLoading ? '...' : category.count}
+                                        </span>
                                     </div>
                                 ))}
                             </div>
@@ -272,6 +327,18 @@ const ProductCatalog = () => {
                         >
                             {translate('product.clearFilters')}
                         </button>
+
+                        {/* Debug Info for Development */}
+                        {process.env.NODE_ENV === 'development' && categoryStats.length > 0 && (
+                            <div className="mt-4 p-2 bg-gray-100 rounded text-xs">
+                                <div className="font-medium mb-1">Debug - DB Stats:</div>
+                                {categoryStats.map((stat, index) => (
+                                    <div key={index} className="text-xs">
+                                        {stat._id}: {stat.count}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     {/* Right Content - Product Grid */}
@@ -399,13 +466,16 @@ const ProductCatalog = () => {
                                                 </Link>
                                             </div>
 
-                                            {/* Product condition */}
-                                            <div className="mt-2">
+                                            {/* Product condition and availability */}
+                                            <div className="mt-2 flex items-center justify-between">
                                                 <span className="text-xs text-gray-500">
                                                     {product.condition === 'new' ?
                                                         (language === 'id' ? 'Baru' : 'New') :
                                                         (language === 'id' ? 'Bekas' : 'Used')
                                                     }
+                                                </span>
+                                                <span className="text-xs px-2 py-1 bg-green-100 text-green-600 rounded-full">
+                                                    1 {language === 'id' ? 'unit' : 'unit'}
                                                 </span>
                                             </div>
                                         </div>

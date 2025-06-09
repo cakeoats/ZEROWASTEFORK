@@ -428,6 +428,177 @@ router.use((error, req, res, next) => {
     });
 });
 
+// backend/routes/products.js - Add this route to your existing products routes
+
+// GET /api/products/category-stats - Get product count by category
+router.get('/category-stats', async (req, res) => {
+    try {
+        console.log('📊 Fetching category statistics...');
+
+        // Aggregate products by category
+        const categoryStats = await Product.aggregate([
+            {
+                // Only count active/available products
+                $match: {
+                    // Add any conditions for active products if needed
+                    // For example: isActive: true, isDeleted: false
+                }
+            },
+            {
+                // Group by category and count
+                $group: {
+                    _id: '$category',
+                    count: { $sum: 1 }
+                }
+            },
+            {
+                // Sort by category name
+                $sort: { _id: 1 }
+            }
+        ]);
+
+        console.log('✅ Category statistics retrieved:', categoryStats);
+
+        res.json({
+            success: true,
+            stats: categoryStats,
+            totalCategories: categoryStats.length,
+            totalProducts: categoryStats.reduce((total, stat) => total + stat.count, 0)
+        });
+
+    } catch (error) {
+        console.error('❌ Error fetching category statistics:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch category statistics',
+            error: error.message
+        });
+    }
+});
+
+// Alternative more detailed version with additional stats
+router.get('/category-stats-detailed', async (req, res) => {
+    try {
+        console.log('📊 Fetching detailed category statistics...');
+
+        // More detailed aggregation with additional statistics
+        const categoryStats = await Product.aggregate([
+            {
+                $match: {
+                    // Add any conditions for active products
+                    // isActive: true, isDeleted: false
+                }
+            },
+            {
+                $group: {
+                    _id: '$category',
+                    count: { $sum: 1 },
+                    averagePrice: { $avg: '$price' },
+                    minPrice: { $min: '$price' },
+                    maxPrice: { $max: '$price' },
+                    newItems: {
+                        $sum: {
+                            $cond: [{ $eq: ['$condition', 'new'] }, 1, 0]
+                        }
+                    },
+                    usedItems: {
+                        $sum: {
+                            $cond: [{ $eq: ['$condition', 'used'] }, 1, 0]
+                        }
+                    },
+                    sellItems: {
+                        $sum: {
+                            $cond: [{ $eq: ['$tipe', 'Sell'] }, 1, 0]
+                        }
+                    },
+                    donationItems: {
+                        $sum: {
+                            $cond: [{ $eq: ['$tipe', 'Donation'] }, 1, 0]
+                        }
+                    },
+                    swapItems: {
+                        $sum: {
+                            $cond: [{ $eq: ['$tipe', 'Swap'] }, 1, 0]
+                        }
+                    }
+                }
+            },
+            {
+                $sort: { count: -1 } // Sort by count descending
+            }
+        ]);
+
+        console.log('✅ Detailed category statistics retrieved:', categoryStats);
+
+        // Calculate total statistics
+        const totalStats = {
+            totalProducts: categoryStats.reduce((total, stat) => total + stat.count, 0),
+            totalCategories: categoryStats.length,
+            totalNewItems: categoryStats.reduce((total, stat) => total + stat.newItems, 0),
+            totalUsedItems: categoryStats.reduce((total, stat) => total + stat.usedItems, 0),
+            totalSellItems: categoryStats.reduce((total, stat) => total + stat.sellItems, 0),
+            totalDonationItems: categoryStats.reduce((total, stat) => total + stat.donationItems, 0),
+            totalSwapItems: categoryStats.reduce((total, stat) => total + stat.swapItems, 0)
+        };
+
+        res.json({
+            success: true,
+            stats: categoryStats,
+            totals: totalStats
+        });
+
+    } catch (error) {
+        console.error('❌ Error fetching detailed category statistics:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch detailed category statistics',
+            error: error.message
+        });
+    }
+});
+
+// GET /api/products/category-stats-simple - Simple version for frontend
+router.get('/category-stats-simple', async (req, res) => {
+    try {
+        console.log('📊 Fetching simple category statistics...');
+
+        // Simple aggregation for frontend display
+        const stats = await Product.aggregate([
+            {
+                $group: {
+                    _id: '$category',
+                    count: { $sum: 1 }
+                }
+            },
+            {
+                $sort: { _id: 1 }
+            }
+        ]);
+
+        // Format for frontend consumption
+        const formattedStats = stats.map(stat => ({
+            category: stat._id,
+            count: stat.count
+        }));
+
+        console.log('✅ Simple category statistics retrieved:', formattedStats);
+
+        res.json({
+            success: true,
+            stats: formattedStats,
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error) {
+        console.error('❌ Error fetching simple category statistics:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch category statistics',
+            error: error.message
+        });
+    }
+});
+
 console.log('📋 Product routes (with Edit Product support) configured successfully');
 
 module.exports = router;
