@@ -37,7 +37,7 @@ const ProductCatalog = () => {
     const [categoryStats, setCategoryStats] = useState([]);
     const [categoriesLoading, setCategoriesLoading] = useState(true);
 
-    // Default categories structure (will be updated with real data)
+    // Dynamic categories with real counts (will be updated from API)
     const [categories, setCategories] = useState([
         { name: 'All', icon: '🛍️', count: 0 },
         { name: 'Men Fashion', icon: '👔', count: 0 },
@@ -57,33 +57,56 @@ const ProductCatalog = () => {
         }
     }, [categoryFromUrl]);
 
-    // Fetch category statistics from database
+    // Fetch category statistics from database - FIXED
     useEffect(() => {
         const fetchCategoryStats = async () => {
             setCategoriesLoading(true);
             try {
                 console.log('🔍 Fetching category statistics from database...');
+
+                // FIXED: Use the correct endpoint that matches backend route
                 const response = await axios.get(getApiUrl('api/products/category-stats'));
 
                 console.log('✅ Category stats received:', response.data);
-                setCategoryStats(response.data.stats || []);
+                const statsData = response.data.stats || [];
+                setCategoryStats(statsData);
 
-                // Update categories with real counts
+                // FIXED: Better category mapping with normalized names
                 const updatedCategories = categories.map(category => {
                     if (category.name === 'All') {
                         // Calculate total count for "All" category
-                        const totalCount = response.data.stats?.reduce((total, stat) => total + stat.count, 0) || 0;
+                        const totalCount = statsData.reduce((total, stat) => total + stat.count, 0);
                         return { ...category, count: totalCount };
                     } else {
-                        // Find matching category in stats
-                        const categoryLower = category.name.toLowerCase().replace(' ', ' ');
-                        const stat = response.data.stats?.find(s =>
-                            s._id?.toLowerCase() === categoryLower ||
-                            s._id?.toLowerCase() === category.name.toLowerCase() ||
-                            s._id?.toLowerCase().replace(/\s+/g, '').includes(category.name.toLowerCase().replace(/\s+/g, ''))
-                        );
+                        // FIXED: Better matching logic for category names
+                        const categoryLower = category.name.toLowerCase();
+                        const stat = statsData.find(s => {
+                            const statLower = s._id?.toLowerCase() || '';
 
-                        return { ...category, count: stat?.count || 0 };
+                            // Direct match
+                            if (statLower === categoryLower) return true;
+
+                            // Handle space variations
+                            const categoryNoSpace = categoryLower.replace(/\s+/g, '');
+                            const statNoSpace = statLower.replace(/\s+/g, '');
+                            if (statNoSpace === categoryNoSpace) return true;
+
+                            // Handle "health and beauty" vs "health and beauty"
+                            if (categoryLower.includes('health') && statLower.includes('health')) return true;
+                            if (categoryLower.includes('beauty') && statLower.includes('beauty')) return true;
+
+                            // Handle partial matches for common variations
+                            if (categoryLower.includes('men') && statLower.includes('men')) return true;
+                            if (categoryLower.includes('women') && statLower.includes('women')) return true;
+                            if (categoryLower.includes('fashion') && statLower.includes('fashion')) return true;
+
+                            return false;
+                        });
+
+                        const count = stat?.count || 0;
+                        console.log(`📊 Category "${category.name}" mapped to count: ${count}`);
+
+                        return { ...category, count };
                     }
                 });
 
@@ -92,7 +115,42 @@ const ProductCatalog = () => {
 
             } catch (err) {
                 console.error('❌ Error fetching category stats:', err);
-                // Keep default counts if API fails
+
+                // FIXED: Fallback to manual count if API fails
+                try {
+                    console.log('🔄 Fallback: Manually counting products...');
+                    const productsResponse = await axios.get(getApiUrl('api/products'));
+                    const allProducts = productsResponse.data || [];
+
+                    // Manual count by category
+                    const manualCounts = {};
+                    allProducts.forEach(product => {
+                        const category = product.category || 'unknown';
+                        manualCounts[category] = (manualCounts[category] || 0) + 1;
+                    });
+
+                    // Update categories with manual counts
+                    const fallbackCategories = categories.map(category => {
+                        if (category.name === 'All') {
+                            return { ...category, count: allProducts.length };
+                        } else {
+                            const categoryLower = category.name.toLowerCase();
+                            const matchingKey = Object.keys(manualCounts).find(key =>
+                                key.toLowerCase() === categoryLower ||
+                                key.toLowerCase().replace(/\s+/g, '') === categoryLower.replace(/\s+/g, '')
+                            );
+                            const count = matchingKey ? manualCounts[matchingKey] : 0;
+                            return { ...category, count };
+                        }
+                    });
+
+                    setCategories(fallbackCategories);
+                    console.log('✅ Fallback categories with manual counts:', fallbackCategories);
+
+                } catch (fallbackErr) {
+                    console.error('❌ Fallback count also failed:', fallbackErr);
+                    // Keep default counts of 0
+                }
             } finally {
                 setCategoriesLoading(false);
             }
@@ -201,6 +259,22 @@ const ProductCatalog = () => {
         fetchProducts();
     };
 
+    // FIXED: Category selection handler that updates counts
+    const handleCategorySelect = async (categoryName) => {
+        setSelectedCategory(categoryName);
+
+        // Update URL if needed
+        const newParams = new URLSearchParams(location.search);
+        if (categoryName === 'All') {
+            newParams.delete('category');
+        } else {
+            newParams.set('category', categoryName);
+        }
+
+        const newUrl = `${location.pathname}${newParams.toString() ? '?' + newParams.toString() : ''}`;
+        window.history.replaceState(null, '', newUrl);
+    };
+
     // Simplified price display
     const simplifyPrice = (price) => {
         return `Rp${price.toLocaleString(language === 'id' ? 'id-ID' : 'en-US')}`;
@@ -290,23 +364,30 @@ const ProductCatalog = () => {
                             )}
                         </div>
 
-                        {/* Category Filter */}
+                        {/* Category Filter - FIXED */}
                         <div className="mb-6">
                             <h3 className="font-medium mb-3">{translate('product.categories')}</h3>
                             <div className="space-y-2">
                                 {categories.map((category) => (
                                     <div
                                         key={category.name}
-                                        className={`flex items-center cursor-pointer p-2 rounded-md ${selectedCategory === category.name
-                                            ? 'bg-amber-50 text-amber-600'
-                                            : 'hover:bg-gray-50'
+                                        className={`flex items-center cursor-pointer p-2 rounded-md transition-colors ${selectedCategory === category.name
+                                                ? 'bg-amber-50 text-amber-600 border border-amber-200'
+                                                : 'hover:bg-gray-50'
                                             }`}
-                                        onClick={() => setSelectedCategory(category.name)}
+                                        onClick={() => handleCategorySelect(category.name)}
                                     >
-                                        <span className="mr-2">{category.icon}</span>
-                                        <span className="flex-1">{category.name === 'All' ? translate('product.allCategories') : category.name}</span>
-                                        <span className={`text-xs font-medium px-2 py-1 rounded-full ${categoriesLoading ? 'bg-gray-100 text-gray-400' :
-                                                category.count > 0 ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'
+                                        <span className="mr-2 text-lg">{category.icon}</span>
+                                        <span className="flex-1 text-sm font-medium">
+                                            {category.name === 'All' ? translate('product.allCategories') : category.name}
+                                        </span>
+                                        <span className={`text-xs font-bold px-2 py-1 rounded-full min-w-[24px] text-center ${categoriesLoading
+                                                ? 'bg-gray-100 text-gray-400'
+                                                : category.count > 0
+                                                    ? selectedCategory === category.name
+                                                        ? 'bg-amber-500 text-white'
+                                                        : 'bg-green-100 text-green-700'
+                                                    : 'bg-gray-100 text-gray-400'
                                             }`}>
                                             {categoriesLoading ? '...' : category.count}
                                         </span>
@@ -318,25 +399,31 @@ const ProductCatalog = () => {
                         {/* Clear Filters Button */}
                         <button
                             onClick={() => {
-                                setSelectedCategory('All');
+                                handleCategorySelect('All');
                                 setSearchQuery('');
                                 setSortBy('newest');
                                 handleSearch();
                             }}
-                            className="w-full py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors"
+                            className="w-full py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors font-medium"
                         >
-                            {translate('product.clearFilters')}
+                            {translate('product.clearFilters') || 'Clear Filters'}
                         </button>
 
                         {/* Debug Info for Development */}
                         {process.env.NODE_ENV === 'development' && categoryStats.length > 0 && (
-                            <div className="mt-4 p-2 bg-gray-100 rounded text-xs">
-                                <div className="font-medium mb-1">Debug - DB Stats:</div>
-                                {categoryStats.map((stat, index) => (
-                                    <div key={index} className="text-xs">
-                                        {stat._id}: {stat.count}
-                                    </div>
-                                ))}
+                            <div className="mt-4 p-3 bg-gray-100 rounded-lg text-xs">
+                                <div className="font-medium mb-2 text-gray-700">Debug - API Stats:</div>
+                                <div className="space-y-1">
+                                    {categoryStats.map((stat, index) => (
+                                        <div key={index} className="flex justify-between text-gray-600">
+                                            <span className="truncate">{stat._id || 'unknown'}:</span>
+                                            <span className="font-mono font-bold">{stat.count}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="mt-2 pt-2 border-t border-gray-200 font-medium text-gray-700">
+                                    Total: {categoryStats.reduce((sum, stat) => sum + stat.count, 0)}
+                                </div>
                             </div>
                         )}
                     </div>
@@ -348,8 +435,8 @@ const ProductCatalog = () => {
                             <div className="relative w-full md:w-64 mb-4 md:mb-0">
                                 <input
                                     type="text"
-                                    placeholder={translate('common.search')}
-                                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                    placeholder={translate('common.search') || 'Search products...'}
+                                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
@@ -365,38 +452,55 @@ const ProductCatalog = () => {
                                 </button>
                             </div>
 
-                            <div className="flex items-center">
-                                <span className="text-sm text-gray-600 mr-2">{translate('product.sort')}:</span>
-                                <select
-                                    value={sortBy}
-                                    onChange={(e) => setSortBy(e.target.value)}
-                                    className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                                >
-                                    <option value="newest">{translate('product.newest')}</option>
-                                    <option value="price-desc">{translate('product.priceHighToLow')}</option>
-                                    <option value="price-asc">{translate('product.priceLowToHigh')}</option>
-                                </select>
+                            <div className="flex items-center space-x-4">
+                                <span className="text-sm text-gray-600 font-medium">
+                                    {products.length} {language === 'id' ? 'produk ditemukan' : 'products found'}
+                                </span>
+
+                                <div className="flex items-center">
+                                    <span className="text-sm text-gray-600 mr-2">{translate('product.sort') || 'Sort'}:</span>
+                                    <select
+                                        value={sortBy}
+                                        onChange={(e) => setSortBy(e.target.value)}
+                                        className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+                                    >
+                                        <option value="newest">{translate('product.newest') || 'Newest'}</option>
+                                        <option value="price-desc">{translate('product.priceHighToLow') || 'Price: High to Low'}</option>
+                                        <option value="price-asc">{translate('product.priceLowToHigh') || 'Price: Low to High'}</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
 
                         {/* Error Message */}
                         {error && (
-                            <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-6">
-                                <p>{error}</p>
+                            <div className="bg-red-50 border-l-4 border-red-500 text-red-600 p-4 rounded-lg mb-6">
+                                <div className="flex">
+                                    <div className="flex-shrink-0">
+                                        <svg className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                        </svg>
+                                    </div>
+                                    <div className="ml-3">
+                                        <p className="text-sm">{error}</p>
+                                    </div>
+                                </div>
                             </div>
                         )}
 
                         {/* Loading Indicator */}
                         {loading && (
-                            <div className="flex justify-center items-center py-12">
+                            <div className="flex justify-center items-center py-12 bg-white rounded-lg shadow-sm">
                                 <div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
-                                <p className="ml-3 text-gray-600">Loading products...</p>
+                                <p className="ml-3 text-gray-600">
+                                    {language === 'id' ? 'Memuat produk...' : 'Loading products...'}
+                                </p>
                             </div>
                         )}
 
                         {/* Products Grid */}
                         {!loading && products.length > 0 ? (
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                                 {products.map((product) => (
                                     <div key={product._id} className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                                         <div className="relative">
@@ -430,8 +534,8 @@ const ProductCatalog = () => {
                                             {/* Product Type Badge */}
                                             <div className="absolute bottom-2 left-2">
                                                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${product.tipe === 'Donation' ? 'bg-purple-100 text-purple-800' :
-                                                    product.tipe === 'Swap' ? 'bg-blue-100 text-blue-800' :
-                                                        'bg-green-100 text-green-800'
+                                                        product.tipe === 'Swap' ? 'bg-blue-100 text-blue-800' :
+                                                            'bg-green-100 text-green-800'
                                                     }`}>
                                                     {product.tipe === 'Sell' ? (language === 'id' ? 'Jual' : 'Sell') :
                                                         product.tipe === 'Donation' ? (language === 'id' ? 'Donasi' : 'Donation') :
@@ -487,18 +591,25 @@ const ProductCatalog = () => {
                                 <div className="inline-flex justify-center items-center w-24 h-24 bg-gray-100 rounded-full mb-4">
                                     <HiSearch className="w-10 h-10 text-gray-400" />
                                 </div>
-                                <h3 className="text-xl font-medium text-gray-900 mb-2">{translate('product.noProducts')}</h3>
-                                <p className="text-gray-500 mb-6">Try a different search term or filter</p>
+                                <h3 className="text-xl font-medium text-gray-900 mb-2">
+                                    {translate('product.noProducts') || 'No products found'}
+                                </h3>
+                                <p className="text-gray-500 mb-6">
+                                    {selectedCategory !== 'All'
+                                        ? `No products found in "${selectedCategory}" category.`
+                                        : 'Try a different search term or filter'
+                                    }
+                                </p>
                                 <button
                                     onClick={() => {
                                         setSearchQuery('');
-                                        setSelectedCategory('All');
+                                        handleCategorySelect('All');
                                         setSortBy('newest');
                                         handleSearch();
                                     }}
                                     className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg transition-colors"
                                 >
-                                    {translate('product.clearFilters')}
+                                    {translate('product.clearFilters') || 'Clear Filters'}
                                 </button>
                             </div>
                         )}
