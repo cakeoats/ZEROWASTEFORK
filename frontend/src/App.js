@@ -1,80 +1,75 @@
-import React from "react";
-import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-dom";
-import LandingPage from "./pages/LandingPage";
-import AuthSlider from "./pages/auth/AuthSlider";
-import ForgotPasswordPage from "./pages/auth/ForgetPasswordPage";
-import EmailVerificationPage from "./pages/auth/EmailVerificationPage";
-import EmailVerificationSuccess from "./pages/auth/EmailVerificationSuccess";
-import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
-import ProtectedRoute from "./components/ProtectedRoute";
-import { AuthProvider } from "./contexts/AuthContext";
-import { LanguageProvider } from "./contexts/LanguageContext";
-import { CartProvider } from "./contexts/CartContext"; // Import CartProvider
-import 'tailwindcss/tailwind.css';
-import ProfilePage from "./pages/ProfilePage";
-import AdminDashboard from "./pages/admin/AdminDashboard";
-import AdminLogin from "./pages/admin/AdminLogin";
-import ProductCatalog from "./pages/product/ProductCatalog";
-import ProductDetail from "./pages/product/ProductDetail";
-import UploadProduct from "./pages/product/UploadProduct";
-import RatingUlasan from "./pages/product/RatingUlasan";
-import WishlistPage from "./pages/product/WishlistPage";
-import CartPage from "./pages/cart/CartPage"; // Import CartPage
-import MidtransPayment from "./pages/payment/MidtransPayment";
-import PaymentSuccess from "./pages/payment/PaymentSuccess";
-import PaymentPending from "./pages/payment/PaymentPending";
-import MyProductsPage from "./pages/MyProductsPage";
-import EditProduct from "./pages/product/EditProduct";
+// frontend/src/App.js - Updated dengan Order History Route
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
+import { CartProvider } from './contexts/CartContext';
+import { LanguageProvider } from './contexts/LanguageContext';
+import ProtectedRoute from './components/ProtectedRoute';
+import AdminProtectedRoute from './components/AdminProtectedRoute';
 
-// Admin ProtectedRoute component
-const AdminProtectedRoute = ({ children }) => {
-  const adminToken = localStorage.getItem('adminToken');
-  const adminId = localStorage.getItem('adminId');
+// Import semua halaman
+import LandingPage from './pages/LandingPage';
+import AuthSlider from './pages/auth/AuthSlider';
+import LoginPage from './pages/auth/Login';
+import RegisterPage from './pages/auth/RegisterPage';
+import ForgotPasswordPage from './pages/auth/ForgetPasswordPage';
+import ResetPasswordPage from './pages/auth/ResetPasswordPage';
+import EmailVerificationPage from './pages/auth/EmailVerificationPage';
+import EmailVerificationSuccess from './pages/auth/EmailVerificationSuccess';
+import ProfilePage from './pages/ProfilePage';
+import ProductCatalog from './pages/product/ProductCatalog';
+import ProductDetail from './pages/product/ProductDetail';
+import UploadProduct from './pages/product/UploadProduct';
+import EditProduct from './pages/product/EditProduct';
+import MyProductsPage from './pages/MyProductsPage';
+import WishlistPage from './pages/product/WishlistPage';
+import OrderHistoryPage from './pages/OrderHistoryPage'; // NEW
+import CartPage from './pages/cart/CartPage';
+import MidtransPayment from './pages/payment/MidtransPayment';
+import PaymentSuccess from './pages/payment/PaymentSuccess';
+import PaymentPending from './pages/payment/PaymentPending';
+import AdminLogin from './pages/admin/AdminLogin';
+import AdminDashboard from './pages/admin/AdminDashboard';
 
-  if (!adminToken || !adminId) {
-    // If not logged in, redirect to admin login page
-    return <Navigate to="/admin/login" />;
-  }
-
-  // If logged in, show the protected component
-  return children;
-};
-
-const App = () => {
+function App() {
   return (
-    <AuthProvider>
-      <LanguageProvider>
-        <CartProvider> {/* Wrap with CartProvider */}
+    <LanguageProvider>
+      <AuthProvider>
+        <CartProvider>
           <Router>
-            <div>
+            <div className="App">
               <Routes>
+                {/* Public Routes */}
                 <Route path="/" element={<LandingPage />} />
+                <Route path="/product-list" element={<ProductCatalog />} />
+                <Route path="/products/:id" element={<ProductDetail />} />
 
-                {/* Auth routes - using AuthSlider for both login and register */}
-                <Route path="/login" element={<AuthSlider />} />
-                <Route path="/register" element={<AuthSlider />} />
+                {/* Auth Routes */}
+                <Route path="/auth" element={<AuthSlider />} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
                 <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                <Route path="/reset-password" element={<ResetPasswordPage />} />
                 <Route path="/verif-email" element={<EmailVerificationPage />} />
                 <Route path="/success-email" element={<EmailVerificationSuccess />} />
-                <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-                {/* Cart Route */}
-                <Route path="/cart" element={<CartPage />} />
-
-                {/* Protected user routes */}
-                <Route path="/profile" element={<ProfilePage />} />
-
-                {/* My Products route - Protected */}
+                {/* Protected User Routes */}
                 <Route
-                  path="/my-products"
+                  path="/profile"
                   element={
                     <ProtectedRoute>
-                      <MyProductsPage />
+                      <ProfilePage />
                     </ProtectedRoute>
                   }
                 />
-
-                {/* Edit Product route - Protected */}
+                <Route
+                  path="/upload-product"
+                  element={
+                    <ProtectedRoute>
+                      <UploadProduct />
+                    </ProtectedRoute>
+                  }
+                />
                 <Route
                   path="/edit-product/:id"
                   element={
@@ -83,8 +78,14 @@ const App = () => {
                     </ProtectedRoute>
                   }
                 />
-
-                {/* New Wishlist route - Protected */}
+                <Route
+                  path="/my-products"
+                  element={
+                    <ProtectedRoute>
+                      <MyProductsPage />
+                    </ProtectedRoute>
+                  }
+                />
                 <Route
                   path="/wishlist"
                   element={
@@ -93,8 +94,25 @@ const App = () => {
                     </ProtectedRoute>
                   }
                 />
+                {/* NEW: Order History Route */}
+                <Route
+                  path="/order-history"
+                  element={
+                    <ProtectedRoute>
+                      <OrderHistoryPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/cart"
+                  element={
+                    <ProtectedRoute>
+                      <CartPage />
+                    </ProtectedRoute>
+                  }
+                />
 
-                {/* Payment Routes - Protected */}
+                {/* Payment Routes */}
                 <Route
                   path="/payment/:id"
                   element={
@@ -122,32 +140,45 @@ const App = () => {
 
                 {/* Admin Routes */}
                 <Route path="/admin/login" element={<AdminLogin />} />
-                <Route path="/admin/dashboard" element={
-                  <AdminProtectedRoute>
-                    <AdminDashboard />
-                  </AdminProtectedRoute>
-                } />
-                <Route path="/admin" element={<Navigate to="/admin/dashboard" />} />
-
-                {/* Product routes */}
-                <Route path="/product-list" element={<ProductCatalog />} />
-                <Route path="/products/:id" element={<ProductDetail />} />
                 <Route
-                  path="/upload-product"
+                  path="/admin/dashboard"
                   element={
-                    <ProtectedRoute>
-                      <UploadProduct />
-                    </ProtectedRoute>
+                    <AdminProtectedRoute>
+                      <AdminDashboard />
+                    </AdminProtectedRoute>
                   }
                 />
-                <Route path="/rating" element={<RatingUlasan />} />
+
+                {/* 404 Route */}
+                <Route
+                  path="*"
+                  element={
+                    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+                      <div className="text-center">
+                        <h1 className="text-6xl font-bold text-gray-600 mb-4">404</h1>
+                        <h2 className="text-2xl font-semibold text-gray-800 mb-4">
+                          Halaman Tidak Ditemukan
+                        </h2>
+                        <p className="text-gray-600 mb-8">
+                          Maaf, halaman yang Anda cari tidak dapat ditemukan.
+                        </p>
+                        <a
+                          href="/"
+                          className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-lg transition-colors"
+                        >
+                          Kembali ke Beranda
+                        </a>
+                      </div>
+                    </div>
+                  }
+                />
               </Routes>
             </div>
           </Router>
         </CartProvider>
-      </LanguageProvider>
-    </AuthProvider>
+      </AuthProvider>
+    </LanguageProvider>
   );
-};
+}
 
 export default App;

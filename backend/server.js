@@ -1,4 +1,4 @@
-// backend/server.js - FIXED FOR VERCEL
+// backend/server.js - UPDATED dengan Order Routes
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -15,6 +15,24 @@ const adminRoutes = require('./route/adminRoutes');
 const wishlistRoutes = require('./route/wishlistRoutes');
 const cartRoutes = require('./route/cartRoutes');
 const paymentRoutes = require('./route/paymentRoutes');
+
+// Import order routes with error handling
+let orderRoutes;
+try {
+  orderRoutes = require('./route/orderRoutes');
+  console.log('✅ Order routes imported successfully');
+} catch (err) {
+  console.error('❌ Failed to import order routes:', err.message);
+  // Create fallback router
+  orderRoutes = express.Router();
+  orderRoutes.use('*', (req, res) => {
+    res.status(500).json({
+      success: false,
+      message: 'Order routes not available',
+      error: 'Order controller not properly configured'
+    });
+  });
+}
 
 const app = express();
 
@@ -89,6 +107,11 @@ app.get('/health', async (req, res) => {
       mongodb: {
         connected: dbStatus === 1,
         readyState: dbStatus
+      },
+      features: {
+        orders: !!orderRoutes,
+        payments: !!paymentRoutes,
+        products: !!productRoutes
       }
     });
   } catch (error) {
@@ -106,7 +129,17 @@ app.get('/', (req, res) => {
     message: 'ZeroWasteMarket API - Backend Server',
     version: '1.0.0',
     timestamp: new Date().toISOString(),
-    status: 'running'
+    status: 'running',
+    features: [
+      'Authentication',
+      'User Management',
+      'Product Management',
+      'Order History',
+      'Payment Integration',
+      'Admin Panel',
+      'Wishlist',
+      'Shopping Cart'
+    ]
   });
 });
 
@@ -118,22 +151,78 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/wishlist', wishlistRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/payment', paymentRoutes);
+app.use('/api/orders', orderRoutes); // NEW: Order routes
 
 // Static files serving (simplified for Vercel)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// API endpoint listing
+app.get('/api', (req, res) => {
+  res.json({
+    message: 'ZeroWasteMarket API Endpoints',
+    version: '1.0.0',
+    endpoints: {
+      auth: '/api/auth',
+      users: '/api/users',
+      products: '/api/products',
+      orders: '/api/orders',
+      payment: '/api/payment',
+      admin: '/api/admin',
+      wishlist: '/api/wishlist',
+      cart: '/api/cart'
+    },
+    documentation: 'Contact admin for API documentation'
+  });
+});
 
 // 404 handler
 app.use('/api/*', (req, res) => {
   res.status(404).json({
     success: false,
     message: 'API endpoint not found',
-    path: req.path
+    path: req.path,
+    method: req.method,
+    availableEndpoints: [
+      '/api/auth',
+      '/api/users',
+      '/api/products',
+      '/api/orders',
+      '/api/payment',
+      '/api/admin',
+      '/api/wishlist',
+      '/api/cart'
+    ]
   });
 });
 
 // Global error handler
 app.use((err, req, res, next) => {
   console.error('🚨 Server Error:', err.message);
+
+  // Handle specific error types
+  if (err.name === 'ValidationError') {
+    return res.status(400).json({
+      success: false,
+      message: 'Validation error',
+      errors: Object.values(err.errors).map(e => e.message)
+    });
+  }
+
+  if (err.name === 'CastError') {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid ID format',
+      error: err.message
+    });
+  }
+
+  if (err.code === 11000) {
+    return res.status(409).json({
+      success: false,
+      message: 'Duplicate entry',
+      field: Object.keys(err.keyPattern)[0]
+    });
+  }
 
   res.status(err.status || 500).json({
     success: false,
@@ -151,6 +240,15 @@ if (require.main === module) {
 
   app.listen(PORT, async () => {
     console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`📋 Available endpoints:`);
+    console.log(`   - Auth: http://localhost:${PORT}/api/auth`);
+    console.log(`   - Users: http://localhost:${PORT}/api/users`);
+    console.log(`   - Products: http://localhost:${PORT}/api/products`);
+    console.log(`   - Orders: http://localhost:${PORT}/api/orders`);
+    console.log(`   - Payment: http://localhost:${PORT}/api/payment`);
+    console.log(`   - Admin: http://localhost:${PORT}/api/admin`);
+    console.log(`   - Wishlist: http://localhost:${PORT}/api/wishlist`);
+    console.log(`   - Cart: http://localhost:${PORT}/api/cart`);
     await initializeDB();
   });
 }

@@ -1,3 +1,4 @@
+// frontend/src/pages/ProfilePage.js - Updated dengan Order History
 import React, { useState, useEffect, useRef } from 'react';
 import { Button, Avatar, TextInput, Textarea, Modal } from 'flowbite-react';
 import {
@@ -9,6 +10,7 @@ import {
   HiOutlineLockClosed,
   HiOutlineShoppingBag,
   HiOutlineHeart,
+  HiOutlineClipboardList,
   HiArrowRight
 } from 'react-icons/hi';
 import { Link } from 'react-router-dom';
@@ -51,6 +53,9 @@ function ProfilePage() {
   const [previewImage, setPreviewImage] = useState(null);
   const fileInputRef = useRef(null);
 
+  // State for order stats
+  const [orderStats, setOrderStats] = useState(null);
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setUserData((prev) => ({ ...prev, [name]: value }));
@@ -66,7 +71,6 @@ function ProfilePage() {
       const token = localStorage.getItem('token');
       if (!token) throw new Error('No token found');
 
-      // Log what we're sending to help with debugging
       console.log('Sending data:', {
         full_name: userData.full_name,
         username: userData.username,
@@ -217,6 +221,23 @@ function ProfilePage() {
     }
   };
 
+  // Fetch order stats
+  const fetchOrderStats = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await axios.get(getApiUrl('api/orders/stats'), {
+        headers: getAuthHeaders()
+      });
+
+      setOrderStats(response.data.stats);
+    } catch (error) {
+      console.error('Error fetching order stats:', error);
+      // Don't show error to user, just fail silently
+    }
+  };
+
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -230,6 +251,9 @@ function ProfilePage() {
         });
         console.log('Profile response:', res.data);
         setUserData(res.data);
+
+        // Fetch order stats
+        fetchOrderStats();
       } catch (error) {
         console.error('Error fetching profile:', error.response?.data || error.message);
         alert(error.response?.data?.message || 'Gagal memuat data profil.');
@@ -316,8 +340,8 @@ function ProfilePage() {
             </div>
           </div>
 
-          {/* Quick Action Links */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-6 bg-gray-50 border-t border-b border-gray-100">
+          {/* Quick Action Links - Updated dengan Order History */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-6 bg-gray-50 border-t border-b border-gray-100">
             <Link
               to="/my-products"
               className="flex items-center space-x-3 p-3 bg-amber-50 rounded-lg hover:bg-amber-100 transition-colors"
@@ -344,6 +368,26 @@ function ProfilePage() {
                 <p className="text-sm text-gray-500">{language === 'id' ? 'Lihat wishlist Anda' : 'View your wishlist'}</p>
               </div>
               <HiArrowRight className="ml-auto text-pink-500" />
+            </Link>
+
+            {/* NEW: Order History Link */}
+            <Link
+              to="/order-history"
+              className="flex items-center space-x-3 p-3 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+            >
+              <div className="p-2 bg-green-100 rounded-lg">
+                <HiOutlineClipboardList className="h-6 w-6 text-green-600" />
+              </div>
+              <div>
+                <div className="font-medium">{language === 'id' ? 'Riwayat Pesanan' : 'Order History'}</div>
+                <p className="text-sm text-gray-500">
+                  {orderStats ?
+                    `${orderStats.totalOrders} ${language === 'id' ? 'pesanan' : 'orders'}` :
+                    (language === 'id' ? 'Lihat pesanan Anda' : 'View your orders')
+                  }
+                </p>
+              </div>
+              <HiArrowRight className="ml-auto text-green-500" />
             </Link>
 
             <button

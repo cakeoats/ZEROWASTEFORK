@@ -1,11 +1,11 @@
-// backend/controller/payment/paymentController.js - FIXED EXPIRY TIME ISSUE
+// backend/controller/payment/paymentController.js - UPDATED untuk Order History
 const midtransClient = require('midtrans-client');
 const Product = require('../../models/product');
 const User = require('../../models/User');
 const Cart = require('../../models/cart');
 const Order = require('../../models/order');
 
-// FIXED: Improved Midtrans configuration
+// Improved Midtrans configuration
 const getMidtransConfig = () => {
   const isProduction = process.env.MIDTRANS_IS_PRODUCTION === 'true';
 
@@ -14,7 +14,7 @@ const getMidtransConfig = () => {
     NODE_ENV: process.env.NODE_ENV
   });
 
-  // Use SANDBOX keys consistently (since production keys are not properly set)
+  // Use SANDBOX keys consistently
   const config = {
     isProduction: false, // FORCE SANDBOX for now
     serverKey: process.env.MIDTRANS_SERVER_KEY_SANDBOX,
@@ -27,7 +27,6 @@ const getMidtransConfig = () => {
     clientKeyPrefix: config.clientKey ? config.clientKey.substring(0, 20) + '...' : '❌ NOT_SET'
   });
 
-  // Enhanced validation
   if (!config.serverKey || !config.clientKey) {
     const missing = [];
     if (!config.serverKey) missing.push('MIDTRANS_SERVER_KEY_SANDBOX');
@@ -38,18 +37,15 @@ const getMidtransConfig = () => {
   return config;
 };
 
-// FIXED: Helper function to get proper timezone time
+// Helper functions for Indonesian timezone
 const getIndonesianTime = () => {
-  // Get current time in Indonesian timezone (UTC+7)
   const now = new Date();
   const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
   const indonesianTime = new Date(utc + (7 * 3600000)); // UTC+7
   return indonesianTime;
 };
 
-// FIXED: Helper function to format time for Midtrans
 const formatMidtransTime = (date) => {
-  // Format: YYYY-MM-DD HH:mm:ss +0700
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
@@ -60,7 +56,7 @@ const formatMidtransTime = (date) => {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds} +0700`;
 };
 
-// FIXED: Create transaction with proper expiry time handling
+// UPDATED: Create transaction with enhanced order saving
 exports.createTransaction = async (req, res) => {
   try {
     console.log('🚀 Starting payment transaction creation...');
@@ -147,7 +143,7 @@ exports.createTransaction = async (req, res) => {
     // Calculate amount - ensure it's an integer
     const grossAmount = Math.round(totalAmount || (product.price * quantity));
 
-    // FIXED: Proper time handling for Indonesian timezone
+    // Proper time handling for Indonesian timezone
     const currentTime = getIndonesianTime();
     const expiryTime = new Date(currentTime.getTime() + (60 * 60 * 1000)); // Add 1 hour
 
@@ -158,7 +154,7 @@ exports.createTransaction = async (req, res) => {
       timeDifferenceMinutes: (expiryTime.getTime() - currentTime.getTime()) / (1000 * 60)
     });
 
-    // FIXED: Enhanced transaction parameters with proper expiry handling
+    // Enhanced transaction parameters
     const parameter = {
       transaction_details: {
         order_id: transactionId,
@@ -191,7 +187,6 @@ exports.createTransaction = async (req, res) => {
       credit_card: {
         secure: true
       },
-      // FIXED: Proper expiry time format
       expiry: {
         start_time: formatMidtransTime(currentTime),
         duration: 60, // 60 minutes
@@ -221,7 +216,6 @@ exports.createTransaction = async (req, res) => {
       console.error('Error message:', midtransTransactionError.message);
       console.error('Full error:', midtransTransactionError);
 
-      // Enhanced error messages based on Midtrans API response
       let userErrorMessage = 'Failed to create payment transaction';
 
       if (midtransTransactionError.message) {
@@ -254,7 +248,7 @@ exports.createTransaction = async (req, res) => {
       });
     }
 
-    // Save order to database
+    // UPDATED: Save order to database with enhanced data
     console.log('💾 Saving order to database...');
     try {
       const newOrder = new Order({
@@ -265,7 +259,18 @@ exports.createTransaction = async (req, res) => {
         totalAmount: grossAmount,
         status: 'pending',
         transactionId: transactionId,
-        paymentMethod: 'midtrans'
+        paymentMethod: 'midtrans',
+        // Enhanced order data
+        midtransData: {
+          snapToken: transaction.token,
+          redirectUrl: transaction.redirect_url,
+          expiryTime: expiryTime
+        },
+        shippingAddress: {
+          street: user.address || '',
+          city: 'Jakarta',
+          country: 'Indonesia'
+        }
       });
 
       await newOrder.save();
@@ -301,7 +306,7 @@ exports.createTransaction = async (req, res) => {
   }
 };
 
-// FIXED: Cart transaction handler
+// UPDATED: Cart transaction handler
 exports.createCartTransaction = async (req, res) => {
   try {
     console.log('🛒 Creating cart transaction...');
@@ -343,7 +348,7 @@ exports.createCartTransaction = async (req, res) => {
   }
 };
 
-// Handle notification (unchanged)
+// UPDATED: Handle notification with enhanced order updating
 exports.handleNotification = async (req, res) => {
   try {
     console.log('📨 Midtrans notification received:', req.body);
@@ -360,11 +365,15 @@ exports.handleNotification = async (req, res) => {
     const orderId = statusResponse.order_id;
     const transactionStatus = statusResponse.transaction_status;
     const fraudStatus = statusResponse.fraud_status;
+    const transactionTime = statusResponse.transaction_time;
+    const settlementTime = statusResponse.settlement_time;
+    const paymentType = statusResponse.payment_type;
 
     console.log(`📋 Transaction notification processed:`, {
       orderId,
       transactionStatus,
-      fraudStatus
+      fraudStatus,
+      paymentType
     });
 
     // Find order
@@ -378,20 +387,31 @@ exports.handleNotification = async (req, res) => {
       });
     }
 
-    // Update order status
+    // Determine order status and additional data
     let orderStatus;
+    let additionalData = {
+      midtransData: {
+        paymentType: paymentType,
+        transactionTime: transactionTime ? new Date(transactionTime) : undefined,
+        settlementTime: settlementTime ? new Date(settlementTime) : undefined,
+        statusCode: statusResponse.status_code,
+        statusMessage: statusResponse.status_message
+      }
+    };
+
     if (transactionStatus == 'capture') {
       orderStatus = fraudStatus == 'challenge' ? 'pending' : 'paid';
     } else if (transactionStatus == 'settlement') {
       orderStatus = 'paid';
     } else if (['cancel', 'deny', 'expire'].includes(transactionStatus)) {
       orderStatus = 'cancelled';
+      additionalData.reason = `Payment ${transactionStatus}`;
     } else if (transactionStatus == 'pending') {
       orderStatus = 'pending';
     }
 
-    order.status = orderStatus;
-    await order.save();
+    // Update order using the enhanced method
+    await order.updateStatus(orderStatus, additionalData);
 
     console.log(`✅ Order updated to status: ${orderStatus}`);
 
@@ -421,7 +441,12 @@ exports.verifyConfiguration = async (req, res) => {
         clientKeyPrefix: midtransConfig.clientKey ? midtransConfig.clientKey.substring(0, 20) + '...' : 'NOT_SET',
         nodeEnv: process.env.NODE_ENV,
         timestamp: new Date().toISOString(),
-        timeZone: 'Asia/Jakarta (UTC+7)'
+        timeZone: 'Asia/Jakarta (UTC+7)',
+        features: {
+          orderHistory: true,
+          enhancedOrderTracking: true,
+          statusUpdates: true
+        }
       }
     });
   } catch (error) {

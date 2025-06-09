@@ -251,7 +251,7 @@ export default function ProductDetail() {
                       />
 
                       {/* Click overlay for fullscreen */}
-                      <div 
+                      <div
                         className="absolute inset-0 cursor-pointer z-10"
                         onClick={() => setShowFullscreenCarousel(true)}
                       />
