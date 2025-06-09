@@ -1,4 +1,3 @@
-// backend/controller/userController.js - FIXED VERSION
 const User = require('../models/User');
 const Product = require('../models/product');
 const bcrypt = require('bcryptjs');
@@ -123,74 +122,21 @@ const updateProfilePicture = async (req, res) => {
   }
 };
 
-// FIXED: Get user products function dengan query yang benar
+// Get user products
 const getUserProducts = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    console.log('🔍 Fetching products for user ID:', userId);
-    console.log('👤 User object from token:', {
-      id: req.user._id,
-      username: req.user.username,
-      email: req.user.email
-    });
-
-    // FIXED: Query yang benar untuk mencari produk berdasarkan seller_id
-    // Tidak menggunakan query middleware yang mungkin memfilter produk
-    const products = await Product.find({
-      seller_id: userId,
-      // FIXED: Jangan filter berdasarkan status untuk "My Products"
-      // User harus bisa melihat semua produknya termasuk yang sold/inactive
-    })
-      .populate('seller_id', 'username full_name email') // Populate seller info
+    // Find all products where seller_id matches the current user's ID
+    const products = await Product.find({ seller_id: userId })
       .sort({ createdAt: -1 }) // Sort by creation date (newest first)
       .lean(); // Convert to plain JS objects for better performance
 
-    console.log('📦 Found products:', products.length);
-
-    // Debug: Log beberapa produk untuk memverifikasi seller_id
-    if (products.length > 0) {
-      console.log('📋 Sample products:');
-      products.slice(0, 3).forEach((product, index) => {
-        console.log(`   ${index + 1}. ${product.name} - seller_id: ${product.seller_id?._id || product.seller_id}`);
-      });
-    } else {
-      console.log('❌ No products found. Checking all products in database...');
-
-      // Debug: Check if there are any products at all for this user
-      const allUserProducts = await Product.find({}).select('seller_id name').lean();
-      console.log('🔍 All products in database:');
-      allUserProducts.forEach((product, index) => {
-        if (index < 5) { // Show first 5 for debugging
-          console.log(`   ${index + 1}. ${product.name} - seller_id: ${product.seller_id}`);
-        }
-      });
-
-      // Check if userId matches any seller_id
-      const matchingProducts = allUserProducts.filter(p =>
-        p.seller_id && p.seller_id.toString() === userId.toString()
-      );
-      console.log(`🔍 Products matching user ID ${userId}:`, matchingProducts.length);
-    }
-
-    // FIXED: Ensure we return the products with proper image URLs
-    const productsWithImages = products.map(product => {
-      // Add image URLs for backward compatibility
-      if (product.images && product.images.length > 0) {
-        product.imageUrls = product.images;
-        product.imageUrl = product.images[0];
-      }
-      return product;
-    });
-
     // Return the products
-    res.json(productsWithImages);
+    res.json(products);
   } catch (err) {
-    console.error('💥 Error fetching user products:', err);
-    res.status(500).json({
-      message: 'Server error while fetching products',
-      error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
-    });
+    console.error('Error fetching user products:', err);
+    res.status(500).json({ message: 'Server error while fetching products' });
   }
 };
 
