@@ -1,4 +1,4 @@
-// backend/controller/payment/paymentController.js - UPDATED untuk Order History
+// backend/controller/payment/paymentController.js - UPDATED untuk menghilangkan produk setelah dibeli
 const midtransClient = require('midtrans-client');
 const Product = require('../../models/product');
 const User = require('../../models/User');
@@ -37,6 +37,69 @@ const getMidtransConfig = () => {
   return config;
 };
 
+// Helper function untuk menghilangkan produk
+const handleProductAfterPayment = async (productId, quantity = 1) => {
+  try {
+    console.log(`🗑️ Processing product removal after payment: ${productId}`);
+
+    const product = await Product.findById(productId);
+    if (!product) {
+      console.log('❌ Product not found for removal:', productId);
+      return;
+    }
+
+    // STRATEGY 1: Set status to 'sold' instead of deleting
+    // This preserves database integrity and order history
+    product.status = 'sold';
+    product.soldAt = new Date();
+
+    // Optional: Reduce stock if you're tracking it
+    if (product.stock && product.stock > 0) {
+      product.stock = Math.max(0, product.stock - quantity);
+    }
+
+    await product.save();
+
+    console.log(`✅ Product ${product.name} marked as sold`);
+
+    // STRATEGY 2: Alternative - Delete from database (more aggressive)
+    // Uncomment this if you prefer to completely remove the product
+    /*
+    await Product.findByIdAndDelete(productId);
+    console.log(`✅ Product ${productId} completely removed from database`);
+    */
+
+  } catch (error) {
+    console.error('❌ Error handling product after payment:', error);
+    // Don't throw error - let the payment continue successfully
+  }
+};
+
+// Helper function untuk membersihkan cart user
+const clearUserCart = async (userId, productId) => {
+  try {
+    console.log(`🧹 Clearing product ${productId} from user ${userId} cart`);
+
+    const cart = await Cart.findOne({ user: userId });
+    if (!cart) {
+      console.log('ℹ️ No cart found for user');
+      return;
+    }
+
+    // Remove the purchased product from cart
+    cart.items = cart.items.filter(item =>
+      item.product.toString() !== productId.toString()
+    );
+
+    await cart.save();
+    console.log('✅ Product removed from user cart');
+
+  } catch (error) {
+    console.error('❌ Error clearing cart:', error);
+    // Don't throw error - this is cleanup, not critical
+  }
+};
+
 // Helper functions for Indonesian timezone
 const getIndonesianTime = () => {
   const now = new Date();
@@ -56,7 +119,7 @@ const formatMidtransTime = (date) => {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds} +0700`;
 };
 
-// UPDATED: Create transaction with enhanced order saving
+// UPDATED: Create transaction (same as before)
 exports.createTransaction = async (req, res) => {
   try {
     console.log('🚀 Starting payment transaction creation...');
@@ -102,6 +165,15 @@ exports.createTransaction = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Product not found'
+      });
+    }
+
+    // Check if product is still available (not sold)
+    if (product.status === 'sold') {
+      console.log('❌ Product already sold:', productId);
+      return res.status(400).json({
+        success: false,
+        message: 'Product is no longer available'
       });
     }
 
@@ -248,7 +320,7 @@ exports.createTransaction = async (req, res) => {
       });
     }
 
-    // UPDATED: Save order to database with enhanced data
+    // Save order to database with enhanced data
     console.log('💾 Saving order to database...');
     try {
       const newOrder = new Order({
@@ -348,7 +420,7 @@ exports.createCartTransaction = async (req, res) => {
   }
 };
 
-// UPDATED: Handle notification with enhanced order updating
+// UPDATED: Handle notification with product removal after successful payment
 exports.handleNotification = async (req, res) => {
   try {
     console.log('📨 Midtrans notification received:', req.body);
@@ -377,7 +449,7 @@ exports.handleNotification = async (req, res) => {
     });
 
     // Find order
-    const order = await Order.findOne({ transactionId: orderId });
+    const order = await Order.findOne({ transactionId: orderId }).populate('product');
 
     if (!order) {
       console.log('❌ Order not found for transaction ID:', orderId);
@@ -410,8 +482,21 @@ exports.handleNotification = async (req, res) => {
       orderStatus = 'pending';
     }
 
-    // Update order using the enhanced method
+    // Update order status
     await order.updateStatus(orderStatus, additionalData);
+
+    // NEW: Handle product removal after successful payment
+    if (orderStatus === 'paid' && order.product) {
+      console.log('💰 Payment successful! Processing product removal...');
+
+      // Remove product from system
+      await handleProductAfterPayment(order.product._id, order.quantity);
+
+      // Clear product from buyer's cart
+      await clearUserCart(order.buyer, order.product._id);
+
+      console.log('✅ Product processed after successful payment');
+    }
 
     console.log(`✅ Order updated to status: ${orderStatus}`);
 
@@ -445,7 +530,8 @@ exports.verifyConfiguration = async (req, res) => {
         features: {
           orderHistory: true,
           enhancedOrderTracking: true,
-          statusUpdates: true
+          statusUpdates: true,
+          productRemovalAfterPurchase: true // NEW FEATURE
         }
       }
     });

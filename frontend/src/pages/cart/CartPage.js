@@ -12,7 +12,7 @@ import { getApiUrl, getImageUrl, getAuthHeaders, getMidtransConfig } from '../..
 import axios from 'axios';
 
 const CartPage = () => {
-    const { cartItems, cartTotal, updateQuantity, removeFromCart, clearCart } = useCart();
+    const { cartItems, removeFromCart, clearCart } = useCart(); // Removed updateQuantity
     const { token } = useAuth();
     const { language } = useLanguage();
     const translate = useTranslate(language);
@@ -23,6 +23,9 @@ const CartPage = () => {
 
     // Get Midtrans configuration
     const midtransConfig = getMidtransConfig();
+
+    // Calculate total (simplified since quantity is always 1)
+    const cartTotal = cartItems.reduce((total, item) => total + item.price, 0);
 
     // Handle checkout process
     const handleCheckout = async () => {
@@ -40,11 +43,11 @@ const CartPage = () => {
         setError(null);
 
         try {
-            // Format data untuk API request
+            // Format data untuk API request (simplified for single item quantity)
             const requestData = {
                 items: cartItems.map(item => ({
                     productId: item._id,
-                    quantity: item.quantity
+                    quantity: 1 // Fixed quantity of 1
                 })),
                 totalAmount: cartTotal
             };
@@ -213,7 +216,7 @@ const CartPage = () => {
                                 <div className="divide-y divide-gray-100">
                                     {cartItems.map((item) => (
                                         <div key={item._id} className="p-4 flex items-center">
-                                            <div className="w-20 h-20 rounded-md overflow-hidden bg-gray-100 flex-shrink-0">
+                                            <div className="w-20 h-20 rounded-md overflow-hidden bg-gray-100 flex-shrink-0 mr-4">
                                                 <img
                                                     src={getProductImageUrl(item)}
                                                     alt={item.name}
@@ -224,32 +227,16 @@ const CartPage = () => {
                                                 />
                                             </div>
 
-                                            <div className="ml-4 flex-grow">
+                                            <div className="flex-grow">
                                                 <h3 className="font-medium text-gray-800">{item.name}</h3>
                                                 <p className="text-sm text-gray-500 capitalize">{item.category}</p>
                                                 <div className="mt-1 flex items-center justify-between">
                                                     <div className="text-amber-600 font-semibold">
                                                         {formatPrice(item.price)}
                                                     </div>
-
-                                                    <div className="flex items-center">
-                                                        <button
-                                                            onClick={() => updateQuantity(item._id, Math.max(1, item.quantity - 1))}
-                                                            className="p-1 rounded-md hover:bg-gray-100"
-                                                        >
-                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
-                                                                <path fillRule="evenodd" d="M3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
-                                                            </svg>
-                                                        </button>
-                                                        <span className="w-8 text-center">{item.quantity}</span>
-                                                        <button
-                                                            onClick={() => updateQuantity(item._id, item.quantity + 1)}
-                                                            className="p-1 rounded-md hover:bg-gray-100"
-                                                        >
-                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
-                                                                <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
-                                                            </svg>
-                                                        </button>
+                                                    {/* REMOVED: Quantity controls - now showing fixed "1 item" */}
+                                                    <div className="text-sm text-gray-600">
+                                                        {language === 'id' ? '1 item' : '1 item'}
                                                     </div>
                                                 </div>
                                             </div>
@@ -293,7 +280,7 @@ const CartPage = () => {
                                 <div className="space-y-3 mb-6">
                                     <div className="flex justify-between text-sm">
                                         <span className="text-gray-600">
-                                            {language === 'id' ? 'Subtotal' : 'Subtotal'}
+                                            {language === 'id' ? 'Subtotal' : 'Subtotal'} ({cartItems.length} {language === 'id' ? 'item' : 'items'})
                                         </span>
                                         <span className="font-medium">{formatPrice(cartTotal)}</span>
                                     </div>
@@ -312,6 +299,24 @@ const CartPage = () => {
                                             {language === 'id' ? 'Total' : 'Total'}
                                         </span>
                                         <span className="text-amber-600 text-lg">{formatPrice(cartTotal)}</span>
+                                    </div>
+                                </div>
+
+                                {/* Enhanced Notice about One Item Per Product */}
+                                <div className="mb-4 p-3 bg-blue-50 border-l-4 border-blue-400 rounded">
+                                    <div className="flex">
+                                        <div className="flex-shrink-0">
+                                            <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                                            </svg>
+                                        </div>
+                                        <div className="ml-3">
+                                            <p className="text-sm text-blue-700">
+                                                {language === 'id'
+                                                    ? 'Setiap produk dijual dalam jumlah 1 unit. Produk akan dihapus dari sistem setelah terjual.'
+                                                    : 'Each product is sold in quantity of 1 unit. Product will be removed from system after sold.'}
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
 
