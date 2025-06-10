@@ -43,71 +43,159 @@ const CartPage = () => {
         setError(null);
 
         try {
-            // Format data untuk API request (each item has quantity of 1)
+            // Validate cart items before sending
+            const validItems = cartItems.filter(item =>
+                item._id &&
+                item.price &&
+                item.price > 0 &&
+                item.name
+            );
+
+            if (validItems.length !== cartItems.length) {
+                throw new Error('Some cart items are invalid. Please refresh and try again.');
+            }
+
+            // Format data untuk API request dengan validation
             const requestData = {
-                items: cartItems.map(item => ({
+                items: validItems.map(item => ({
                     productId: item._id,
                     quantity: 1 // Fixed quantity of 1 for each item
                 })),
                 totalAmount: cartTotal
             };
 
-            console.log('Sending to server:', requestData);
+            // Validate total amount
+            const calculatedTotal = validItems.reduce((total, item) => total + item.price, 0);
+            if (Math.abs(calculatedTotal - cartTotal) > 1) {
+                throw new Error('Cart total mismatch. Please refresh and try again.');
+            }
+
+            console.log('🛒 Sending cart checkout request:', {
+                itemCount: requestData.items.length,
+                totalAmount: requestData.totalAmount,
+                calculatedTotal
+            });
 
             // Create order with all cart items
             const response = await axios.post(
                 getApiUrl('api/payment/create-cart-transaction'),
                 requestData,
                 {
-                    headers: getAuthHeaders()
+                    headers: getAuthHeaders(),
+                    timeout: 30000 // 30 second timeout
                 }
             );
 
-            console.log('Server response:', response.data);
+            console.log('✅ Server response:', response.data);
 
-            const { token: snapToken } = response.data;
+            if (!response.data.success) {
+                throw new Error(response.data.message || 'Transaction creation failed');
+            }
+
+            const { token: snapToken, summary } = response.data;
 
             if (!snapToken) {
                 throw new Error('Payment token not received from server');
             }
 
-            // Process with Midtrans payment
-            if (window.snap && typeof window.snap.pay === 'function') {
-                window.snap.pay(snapToken, {
-                    onSuccess: function (result) {
-                        console.log('Payment success:', result);
-                        clearCart(); // Clear cart after successful payment
-                        navigate('/payment/success?order_id=' + result.order_id + '&transaction_status=' + result.transaction_status);
-                    },
-                    onPending: function (result) {
-                        console.log('Payment pending:', result);
-                        navigate('/payment/pending?order_id=' + result.order_id + '&payment_type=' + result.payment_type);
-                    },
-                    onError: function (result) {
-                        console.error('Payment error:', result);
-                        setError('Payment failed: ' + (result.status_message || 'Please try again.'));
-                        setLoading(false);
-                    },
-                    onClose: function () {
-                        console.log('Payment window closed');
-                        setError('Payment canceled. Please try again to complete your purchase.');
-                        setLoading(false);
-                    }
-                });
-            } else {
-                setError('Payment gateway not loaded. Please refresh the page and try again.');
-                setLoading(false);
+            // Log transaction summary
+            if (summary) {
+                console.log('📋 Transaction Summary:', summary);
             }
-        } catch (err) {
-            console.error('Checkout error:', err);
-            console.error('Error response:', err.response?.data);
 
-            setError(
-                err.response?.data?.message ||
-                err.message ||
-                'Failed to process checkout. Please try again.'
-            );
+            // Check if Midtrans script is loaded
+            if (!window.snap || typeof window.snap.pay !== 'function') {
+                throw new Error('Payment gateway not loaded. Please refresh the page and try again.');
+            }
+
+            console.log('💳 Opening Midtrans payment popup...');
+
+            // Process with Midtrans payment
+            window.snap.pay(snapToken, {
+                onSuccess: function (result) {
+                    console.log('✅ Payment success:', result);
+                    clearCart(); // Clear cart after successful payment
+
+                    // Navigate with transaction details
+                    const successUrl = `/payment/success?order_id=${result.order_id}&transaction_status=${result.transaction_status}`;
+                    navigate(successUrl);
+                },
+                onPending: function (result) {
+                    console.log('⏳ Payment pending:', result);
+
+                    // Navigate with pending details
+                    const pendingUrl = `/payment/pending?order_id=${result.order_id}&payment_type=${result.payment_type}`;
+                    navigate(pendingUrl);
+                },
+                onError: function (result) {
+                    console.error('❌ Payment error:', result);
+
+                    let errorMessage = 'Payment failed. Please try again.';
+                    if (result.status_message) {
+                        errorMessage = `Payment failed: ${result.status_message}`;
+                    }
+
+                    setError(errorMessage);
+                    setLoading(false);
+                },
+                onClose: function () {
+                    console.log('🚫 Payment window closed by user');
+                    setError('Payment cancelled. Please complete your purchase to continue.');
+                    setLoading(false);
+                }
+            });
+
+        } catch (err) {
+            console.error('💥 Checkout error:', err);
+            console.error('Error details:', {
+                message: err.message,
+                response: err.response?.data,
+                status: err.response?.status,
+                code: err.code
+            });
+
+            let errorMessage = 'Failed to process checkout. Please try again.';
+
+            // Handle specific error types
+            if (err.code === 'ECONNABORTED') {
+                errorMessage = 'Request timeout. Please check your connection and try again.';
+            } else if (err.code === 'ERR_NETWORK') {
+                errorMessage = 'Network error. Please check your internet connection.';
+            } else if (err.response) {
+                const status = err.response.status;
+                const serverMessage = err.response.data?.message;
+
+                switch (status) {
+                    case 400:
+                        errorMessage = serverMessage || 'Invalid cart data. Please refresh and try again.';
+                        break;
+                    case 401:
+                        errorMessage = 'Session expired. Please login again.';
+                        // Redirect to login after delay
+                        setTimeout(() => {
+                            navigate('/login', { state: { from: '/cart' } });
+                        }, 2000);
+                        break;
+                    case 404:
+                        errorMessage = 'Some products in your cart are no longer available.';
+                        break;
+                    case 500:
+                        errorMessage = 'Server error. Please try again later or contact support.';
+                        break;
+                    default:
+                        errorMessage = serverMessage || `Server error (${status}). Please try again.`;
+                }
+            } else if (err.message) {
+                errorMessage = err.message;
+            }
+
+            setError(errorMessage);
             setLoading(false);
+
+            // Auto-clear error after 10 seconds
+            setTimeout(() => {
+                setError(null);
+            }, 10000);
         }
     };
 
@@ -246,8 +334,8 @@ const CartPage = () => {
                                                         {item.condition === 'new' ? (language === 'id' ? 'Baru' : 'New') : (language === 'id' ? 'Bekas' : 'Used')}
                                                     </span>
                                                     <span className={`text-xs px-2 py-1 rounded ${item.tipe === 'Sell' ? 'bg-green-100 text-green-600' :
-                                                            item.tipe === 'Donation' ? 'bg-purple-100 text-purple-600' :
-                                                                'bg-blue-100 text-blue-600'
+                                                        item.tipe === 'Donation' ? 'bg-purple-100 text-purple-600' :
+                                                            'bg-blue-100 text-blue-600'
                                                         }`}>
                                                         {item.tipe === 'Sell' ? (language === 'id' ? 'Jual' : 'Sell') :
                                                             item.tipe === 'Donation' ? (language === 'id' ? 'Donasi' : 'Donation') :
