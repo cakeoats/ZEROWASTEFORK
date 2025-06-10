@@ -1,213 +1,350 @@
+// frontend/src/pages/product/WishlistPage.js - FIXED with proper authentication
+
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { HiOutlineHeart, HiOutlineEye, HiTrash, HiOutlineShoppingCart } from 'react-icons/hi';
-import NavbarComponent from '../../components/NavbarComponent';
-import { useAuth } from '../../contexts/AuthContext';
-import { useLanguage } from '../../contexts/LanguageContext';
-import { useTranslate } from '../../utils/languageUtils';
-import axios from 'axios';
+import { Button, Spinner, Alert } from 'flowbite-react';
+import { HiHeart, HiShoppingCart, HiTrash, HiHome } from 'react-icons/hi';
+import Navbar from '../../components/Navbar';
 import Footer from '../../components/Footer';
-import { getApiUrl, getImageUrl, getAuthHeaders } from '../../config/api';
+import { useAuth } from '../../contexts/AuthContext';
+import { useCart } from '../../contexts/CartContext';
+import { wishlistApi, debugAuth } from '../../utils/apiUtils';
+import { getProductImageUrl } from '../../config/api';
 
-const WishlistPage = () => {
+function WishlistPage() {
     const navigate = useNavigate();
-    const { token, user } = useAuth();
-    const { language } = useLanguage();
-    const translate = useTranslate(language);
+    const { isAuthenticated, user, token } = useAuth();
+    const { addToCart, isInCart } = useCart();
+
     const [wishlistItems, setWishlistItems] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+    const [error, setError] = useState('');
+    const [removingItems, setRemovingItems] = useState(new Set());
 
-    // Redirect if not logged in
+    // Debug auth state on component mount
     useEffect(() => {
-        if (!token) {
-            navigate('/login', { state: { from: '/wishlist' } });
+        console.log('🔍 WishlistPage mounted - Auth state:', {
+            isAuthenticated,
+            hasUser: !!user,
+            hasToken: !!token,
+            userId: user?.id || user?._id
+        });
+
+        // Debug localStorage
+        debugAuth();
+    }, [isAuthenticated, user, token]);
+
+    // Redirect if not authenticated
+    useEffect(() => {
+        if (!isAuthenticated) {
+            console.log('❌ User not authenticated, redirecting to login');
+            navigate('/login');
+            return;
         }
-    }, [token, navigate]);
+    }, [isAuthenticated, navigate]);
 
     // Fetch wishlist items
-    useEffect(() => {
-        const fetchWishlist = async () => {
-            if (!token) return;
+    const fetchWishlist = async () => {
+        if (!isAuthenticated) {
+            console.log('⚠️ Cannot fetch wishlist - user not authenticated');
+            return;
+        }
 
+        try {
             setLoading(true);
-            try {
-                const response = await axios.get(getApiUrl('api/wishlist'), {
-                    headers: getAuthHeaders()
-                });
-                setWishlistItems(response.data);
-            } catch (err) {
-                console.error('Error fetching wishlist:', err);
-                setError('Failed to load your wishlist. Please try again.');
-            } finally {
-                setLoading(false);
-            }
-        };
+            setError('');
 
-        fetchWishlist();
-    }, [token]);
+            console.log('📤 Fetching wishlist...');
+            const data = await wishlistApi.getAll();
+
+            console.log('✅ Wishlist fetched successfully:', data);
+            setWishlistItems(data || []);
+        } catch (err) {
+            console.error('❌ Error fetching wishlist:', err);
+
+            let errorMessage = 'Failed to load wishlist';
+
+            if (err.response?.status === 401) {
+                errorMessage = 'Please log in to view your wishlist';
+                navigate('/login');
+            } else if (err.response?.status === 403) {
+                errorMessage = 'Access denied. Please log in again.';
+                navigate('/login');
+            } else if (err.response?.data?.message) {
+                errorMessage = err.response.data.message;
+            }
+
+            setError(errorMessage);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     // Remove item from wishlist
-    const removeFromWishlist = async (productId) => {
+    const handleRemoveFromWishlist = async (productId, productName) => {
         try {
-            await axios.delete(getApiUrl(`api/wishlist/${productId}`), {
-                headers: getAuthHeaders()
-            });
+            setRemovingItems(prev => new Set([...prev, productId]));
 
-            // Update local state - Fixed to safely check if product_id exists and has _id
-            setWishlistItems(wishlistItems.filter(item =>
-                item.product_id && item.product_id._id ?
-                    item.product_id._id !== productId : true
+            console.log('🗑️ Removing from wishlist:', { productId, productName });
+            await wishlistApi.remove(productId);
+
+            // Update local state
+            setWishlistItems(prev => prev.filter(item =>
+                item.product_id._id !== productId && item.product_id !== productId
             ));
+
+            console.log('✅ Item removed from wishlist successfully');
         } catch (err) {
-            console.error('Error removing from wishlist:', err);
-            setError('Failed to remove item from wishlist.');
+            console.error('❌ Error removing from wishlist:', err);
+
+            let errorMessage = 'Failed to remove item from wishlist';
+            if (err.response?.data?.message) {
+                errorMessage = err.response.data.message;
+            }
+
+            setError(errorMessage);
+        } finally {
+            setRemovingItems(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(productId);
+                return newSet;
+            });
         }
     };
 
-    // Helper to format price
-    const simplifyPrice = (price) => {
-        return `Rp${price.toLocaleString(language === 'id' ? 'id-ID' : 'en-US')}`;
+    // Add item to cart
+    const handleAddToCart = (product) => {
+        try {
+            console.log('🛒 Adding to cart:', product.name);
+            addToCart(product);
+            console.log('✅ Item added to cart successfully');
+        } catch (err) {
+            console.error('❌ Error adding to cart:', err);
+            setError('Failed to add item to cart');
+        }
     };
 
-    // Function to get product image URL
-    const getProductImageUrl = (product) => {
-        if (product.imageUrl) {
-            return product.imageUrl;
+    // Initial fetch
+    useEffect(() => {
+        if (isAuthenticated) {
+            fetchWishlist();
         }
+    }, [isAuthenticated]);
 
-        if (product.images && product.images.length > 0) {
-            return getImageUrl(product.images[0]);
-        }
-
-        return 'https://via.placeholder.com/300?text=No+Image';
-    };
-
-    if (!token) {
-        return null; // Will redirect in useEffect
+    // Show loading spinner while checking authentication
+    if (!isAuthenticated) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <Spinner size="xl" />
+            </div>
+        );
     }
 
     return (
         <div className="min-h-screen bg-gray-50">
-            <NavbarComponent />
+            <Navbar />
 
-            {/* Breadcrumb navigation */}
-            <div className="container mx-auto px-4 py-4">
-                <div className="flex items-center text-sm text-gray-500">
-                    <Link to="/" className="hover:text-gray-700">{translate('footer.home')}</Link>
-                    <span className="mx-2">/</span>
-                    <span className="font-medium text-gray-700">{translate('common.myWishlist')}</span>
-                </div>
-            </div>
-
-            {/* Main Content */}
-            <div className="container mx-auto px-4 pb-12">
-                <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-                    <h1 className="text-2xl font-bold text-gray-800 mb-2">{translate('wishlist.title')}</h1>
-                    <p className="text-gray-600">{translate('wishlist.subtitle')}</p>
-                </div>
-
-                {/* Error message */}
-                {error && (
-                    <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-6">
-                        <p>{error}</p>
-                    </div>
-                )}
-
-                {/* Loading state */}
-                {loading ? (
-                    <div className="flex justify-center items-center py-12">
-                        <div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
-                    </div>
-                ) : wishlistItems.length === 0 ? (
-                    // Empty wishlist state
-                    <div className="bg-white rounded-lg shadow-sm p-8 text-center">
-                        <div className="inline-flex justify-center items-center w-20 h-20 bg-gray-100 rounded-full mb-4">
-                            <HiOutlineHeart className="w-10 h-10 text-gray-400" />
+            <div className="container mx-auto px-4 py-8">
+                {/* Header */}
+                <div className="mb-8">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h1 className="text-3xl font-bold text-gray-900 flex items-center">
+                                <HiHeart className="text-red-500 mr-3" />
+                                My Wishlist
+                            </h1>
+                            <p className="text-gray-600 mt-2">
+                                Items you've saved for later
+                            </p>
                         </div>
-                        <h2 className="text-xl font-medium text-gray-900 mb-2">{translate('wishlist.empty')}</h2>
-                        <p className="text-gray-500 mb-6">{translate('wishlist.saveItems')}</p>
-                        <Link to="/product-list" className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-2 rounded-lg transition-colors inline-block">
-                            {translate('wishlist.exploreProducts')}
+
+                        <Link to="/product-list">
+                            <Button color="blue" className="flex items-center">
+                                <HiHome className="mr-2 h-4 w-4" />
+                                Continue Shopping
+                            </Button>
                         </Link>
                     </div>
+                </div>
+
+                {/* Error Alert */}
+                {error && (
+                    <Alert color="failure" className="mb-6">
+                        <div className="flex items-center">
+                            <span>{error}</span>
+                            <Button
+                                size="sm"
+                                color="failure"
+                                className="ml-4"
+                                onClick={() => setError('')}
+                            >
+                                Dismiss
+                            </Button>
+                        </div>
+                    </Alert>
+                )}
+
+                {/* Loading State */}
+                {loading ? (
+                    <div className="flex justify-center items-center py-12">
+                        <Spinner size="xl" />
+                        <span className="ml-3 text-gray-600">Loading wishlist...</span>
+                    </div>
                 ) : (
-                    // Wishlist items grid
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {wishlistItems.map((item) => {
-                            // Skip rendering items with missing product data
-                            if (!item.product_id) {
-                                return null;
-                            }
+                    <>
+                        {/* Wishlist Items */}
+                        {wishlistItems.length === 0 ? (
+                            <div className="text-center py-12">
+                                <HiHeart className="mx-auto h-24 w-24 text-gray-300 mb-4" />
+                                <h3 className="text-xl font-semibold text-gray-600 mb-2">
+                                    Your wishlist is empty
+                                </h3>
+                                <p className="text-gray-500 mb-6">
+                                    Start adding items you love to your wishlist
+                                </p>
+                                <Link to="/product-list">
+                                    <Button color="blue">
+                                        Browse Products
+                                    </Button>
+                                </Link>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                {wishlistItems.map((item) => {
+                                    const product = item.product_id || item.product;
+                                    const productId = product._id || product.id;
+                                    const isRemoving = removingItems.has(productId);
+                                    const inCart = isInCart(productId);
 
-                            return (
-                                <div key={item._id} className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow relative">
-                                    <div className="relative">
-                                        <Link to={`/products/${item.product_id._id}`}>
-                                            <img
-                                                src={getProductImageUrl(item.product_id)}
-                                                alt={item.product_id.name || 'Product'}
-                                                className="w-full aspect-square object-cover"
-                                                onError={(e) => {
-                                                    e.target.src = 'https://via.placeholder.com/300?text=No+Image';
-                                                }}
-                                            />
-                                        </Link>
+                                    return (
+                                        <div key={item._id || productId} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+                                            {/* Product Image */}
+                                            <div className="relative">
+                                                <img
+                                                    src={getProductImageUrl(product)}
+                                                    alt={product.name}
+                                                    className="w-full h-48 object-cover"
+                                                    onError={(e) => {
+                                                        e.target.src = 'https://images.unsplash.com/photo-1560472355-536de3962603?w=400&h=400&fit=crop&crop=center&auto=format&q=80';
+                                                    }}
+                                                />
 
-                                        {/* Remove button */}
-                                        <button
-                                            onClick={() => removeFromWishlist(item.product_id._id)}
-                                            className="absolute top-2 right-2 p-1.5 bg-white rounded-full text-gray-400 hover:text-red-500 transition-colors"
-                                        >
-                                            <HiTrash className="w-5 h-5" />
-                                        </button>
-
-                                        {/* Sale Badge */}
-                                        {item.product_id.discount && (
-                                            <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 text-xs font-semibold rounded">
-                                                SALE
+                                                {/* Remove button */}
+                                                <button
+                                                    onClick={() => handleRemoveFromWishlist(productId, product.name)}
+                                                    disabled={isRemoving}
+                                                    className="absolute top-2 right-2 p-2 bg-white rounded-full shadow-lg hover:bg-red-50 transition-colors"
+                                                    title="Remove from wishlist"
+                                                >
+                                                    {isRemoving ? (
+                                                        <Spinner size="sm" />
+                                                    ) : (
+                                                        <HiTrash className="h-4 w-4 text-red-500" />
+                                                    )}
+                                                </button>
                                             </div>
-                                        )}
+
+                                            {/* Product Info */}
+                                            <div className="p-4">
+                                                <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">
+                                                    {product.name}
+                                                </h3>
+
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <span className="text-lg font-bold text-green-600">
+                                                        Rp {product.price?.toLocaleString('id-ID')}
+                                                    </span>
+                                                    <span className="text-sm text-gray-500 capitalize">
+                                                        {product.condition}
+                                                    </span>
+                                                </div>
+
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <span className="text-sm text-gray-600">
+                                                        {product.category}
+                                                    </span>
+                                                    <span className={`text-xs px-2 py-1 rounded-full ${product.tipe === 'Sell' ? 'bg-blue-100 text-blue-800' :
+                                                            product.tipe === 'Donation' ? 'bg-green-100 text-green-800' :
+                                                                'bg-orange-100 text-orange-800'
+                                                        }`}>
+                                                        {product.tipe}
+                                                    </span>
+                                                </div>
+
+                                                {/* Actions */}
+                                                <div className="flex gap-2">
+                                                    <Link
+                                                        to={`/products/${productId}`}
+                                                        className="flex-1"
+                                                    >
+                                                        <Button
+                                                            color="gray"
+                                                            size="sm"
+                                                            className="w-full"
+                                                        >
+                                                            View Details
+                                                        </Button>
+                                                    </Link>
+
+                                                    {product.tipe === 'Sell' && (
+                                                        <Button
+                                                            color={inCart ? "green" : "blue"}
+                                                            size="sm"
+                                                            onClick={() => handleAddToCart(product)}
+                                                            disabled={inCart}
+                                                            className="flex items-center"
+                                                        >
+                                                            <HiShoppingCart className="h-4 w-4 mr-1" />
+                                                            {inCart ? 'In Cart' : 'Add'}
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        {/* Wishlist Summary */}
+                        {wishlistItems.length > 0 && (
+                            <div className="mt-8 bg-white p-6 rounded-lg shadow-md">
+                                <h3 className="text-lg font-semibold mb-4">Wishlist Summary</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="text-center">
+                                        <div className="text-2xl font-bold text-blue-600">
+                                            {wishlistItems.length}
+                                        </div>
+                                        <div className="text-sm text-gray-600">Total Items</div>
                                     </div>
 
-                                    <div className="p-4">
-                                        <Link to={`/products/${item.product_id._id}`}>
-                                            <h3 className="font-medium text-gray-800 mb-1 truncate">{item.product_id.name}</h3>
-                                        </Link>
-                                        <p className="text-sm text-gray-500 mb-2 capitalize">{item.product_id.category}</p>
-
-                                        <div className="flex items-center justify-between mb-3">
-                                            <div className="font-semibold text-gray-800">
-                                                {simplifyPrice(item.product_id.price)}
-                                            </div>
+                                    <div className="text-center">
+                                        <div className="text-2xl font-bold text-green-600">
+                                            {wishlistItems.filter(item =>
+                                                (item.product_id || item.product)?.tipe === 'Sell'
+                                            ).length}
                                         </div>
+                                        <div className="text-sm text-gray-600">For Sale</div>
+                                    </div>
 
-                                        <div className="flex space-x-2">
-                                            <Link
-                                                to={`/products/${item.product_id._id}`}
-                                                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-2 rounded-lg transition-colors text-sm flex items-center justify-center"
-                                            >
-                                                <HiOutlineShoppingCart className="mr-1 w-4 h-4" />
-                                                {translate('product.buyNow')}
-                                            </Link>
-                                            <Link
-                                                to={`/products/${item.product_id._id}`}
-                                                className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                                            >
-                                                <HiOutlineEye className="w-4 h-4" />
-                                            </Link>
+                                    <div className="text-center">
+                                        <div className="text-2xl font-bold text-orange-600">
+                                            {wishlistItems.filter(item =>
+                                                (item.product_id || item.product)?.tipe === 'Donation'
+                                            ).length}
                                         </div>
+                                        <div className="text-sm text-gray-600">Donations</div>
                                     </div>
                                 </div>
-                            );
-                        })}
-                    </div>
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
 
             <Footer />
         </div>
     );
-};
+}
 
 export default WishlistPage;
