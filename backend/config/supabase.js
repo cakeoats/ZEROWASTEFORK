@@ -1,4 +1,4 @@
-// backend/config/supabase.js - CONFIGURED FOR BUCKET: product-image
+// backend/config/supabase.js - UPDATED FOR PROFILE PICTURES COMPATIBILITY
 const { createClient } = require('@supabase/supabase-js');
 
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -10,13 +10,13 @@ if (!supabaseUrl || !supabaseServiceKey) {
     console.error('SUPABASE_URL:', supabaseUrl ? '✅ SET' : '❌ MISSING');
     console.error('SUPABASE_SERVICE_ROLE_KEY:', supabaseServiceKey ? '✅ SET' : '❌ MISSING');
 
-    if (process.env.NODE_ENV !== 'production') {
+    if (process.env.NODE_ENV === 'production') {
         throw new Error('Missing Supabase credentials in environment variables');
     }
 }
 
 console.log('🔧 Initializing Supabase client...');
-console.log('📍 Supabase URL:', supabaseUrl);
+console.log('📍 Supabase URL:', supabaseUrl?.substring(0, 30) + '...');
 
 let supabase = null;
 
@@ -255,6 +255,26 @@ const deleteFiles = async (fileNames) => {
     }
 };
 
+// ADDED: Helper function untuk extract file path dari URL Supabase
+const extractFilePathFromUrl = (url) => {
+    try {
+        if (!url || typeof url !== 'string') return null;
+
+        // URL format: https://project.supabase.co/storage/v1/object/public/bucket/path
+        const urlParts = url.split('/');
+        const bucketIndex = urlParts.findIndex(part => part === BUCKET_NAME);
+
+        if (bucketIndex !== -1 && bucketIndex < urlParts.length - 1) {
+            return urlParts.slice(bucketIndex + 1).join('/');
+        }
+
+        return null;
+    } catch (error) {
+        console.error('❌ Error extracting file path:', error);
+        return null;
+    }
+};
+
 // Initialize and test connection (non-blocking)
 const initializeSupabase = async () => {
     try {
@@ -275,6 +295,7 @@ const initializeSupabase = async () => {
             console.log('     * image/gif');
             console.log('     * image/webp');
             console.log('5. Set up RLS policies if needed');
+            console.log('6. Enable "Allow uploads from anonymous users" if using anon key');
         }
 
         return isConnected;
@@ -289,13 +310,46 @@ if (process.env.NODE_ENV !== 'production') {
     setTimeout(initializeSupabase, 2000);
 }
 
-// Export main client and helpers
-module.exports = supabase;
-module.exports.BUCKET_NAME = BUCKET_NAME;
-module.exports.getBucketInfo = getBucketInfo;
-module.exports.ensureBucketExists = ensureBucketExists;
-module.exports.testConnection = testConnection;
-module.exports.getPublicUrl = getPublicUrl;
-module.exports.uploadFile = uploadFile;
-module.exports.deleteFile = deleteFile;
-module.exports.deleteFiles = deleteFiles;
+// COMPATIBILITY: Export dalam format yang kompatibel dengan userController
+const supabaseExport = {
+    // Main client methods
+    storage: supabase?.storage || null,
+
+    // Direct access to the client
+    client: supabase,
+
+    // Configuration
+    BUCKET_NAME,
+
+    // Helper functions
+    getBucketInfo,
+    ensureBucketExists,
+    testConnection,
+    getPublicUrl,
+    uploadFile,
+    deleteFile,
+    deleteFiles,
+    extractFilePathFromUrl, // ADDED untuk userController
+
+    // COMPATIBILITY: Direct storage access (untuk spread operator di userController)
+    from: (bucketName) => {
+        if (!supabase) {
+            throw new Error('Supabase not configured');
+        }
+        return supabase.storage.from(bucketName);
+    },
+
+    // Configuration info
+    config: {
+        url: supabaseUrl,
+        bucket: BUCKET_NAME,
+        initialized: !!supabase,
+        serviceKeyConfigured: !!supabaseServiceKey
+    }
+};
+
+// Export main client and all helpers
+module.exports = supabaseExport;
+
+// COMPATIBILITY: Allow accessing as if it's the Supabase client directly
+Object.setPrototypeOf(module.exports, supabase || {});

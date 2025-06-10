@@ -1,216 +1,273 @@
-// backend/middleware/uploadMiddleware.js - SUPABASE INTEGRATED VERSION
+// backend/middleware/uploadMiddleware.js - UPDATED untuk profile picture
 const multer = require('multer');
 const path = require('path');
 
-// Configure storage - Memory storage untuk Supabase upload
-const storage = multer.memoryStorage();
-
-// Enhanced file filter with more validation
+// Enhanced file filter with better validation
 const fileFilter = (req, file, cb) => {
-  console.log('📁 Processing uploaded file:', {
+  console.log('🔍 File filter check:', {
     fieldname: file.fieldname,
     originalname: file.originalname,
     mimetype: file.mimetype,
     size: file.size
   });
 
-  // Check if file is an image
+  // Check if it's an image
   if (file.mimetype.startsWith('image/')) {
-    // Additional validation for supported formats
-    const allowedMimes = [
-      'image/jpeg',
-      'image/jpg',
-      'image/png',
-      'image/gif',
-      'image/webp'
-    ];
+    // Additional check for common image extensions
+    const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+    const fileExtension = path.extname(file.originalname).toLowerCase();
 
-    if (allowedMimes.includes(file.mimetype)) {
-      console.log('✅ File accepted:', file.originalname);
+    if (allowedExtensions.includes(fileExtension)) {
+      console.log('✅ File type approved:', file.mimetype);
       cb(null, true);
     } else {
-      console.log('❌ Unsupported image format:', file.mimetype);
-      const error = new Error(`Unsupported image format: ${file.mimetype}. Allowed: JPEG, PNG, GIF, WebP`);
-      error.code = 'UNSUPPORTED_FORMAT';
-      cb(error, false);
+      console.log('❌ File extension not allowed:', fileExtension);
+      cb(new Error('Only image files with extensions .jpg, .jpeg, .png, .gif, .webp are allowed'), false);
     }
   } else {
-    console.log('❌ File is not an image:', file.mimetype);
-    const error = new Error('Only image files are allowed (JPEG, PNG, GIF, WebP)');
-    error.code = 'INVALID_FILE_TYPE';
-    cb(error, false);
+    console.log('❌ File type not allowed:', file.mimetype);
+    cb(new Error('Only image files are allowed'), false);
   }
 };
 
-// Enhanced multer configuration for Supabase
+// Memory storage configuration (for Supabase upload)
+const storage = multer.memoryStorage();
+
+// Create multer instance with comprehensive configuration
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB per file (Supabase default limit)
-    files: 5, // Maximum 5 files per upload
-    fieldSize: 1024 * 1024, // 1MB field size
-    fieldNameSize: 100, // Field name limit
-    fields: 10 // Max number of non-file fields
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+    files: 5, // Maximum 5 files
+    fields: 10, // Maximum 10 form fields
+    fieldNameSize: 100, // Maximum field name size
+    fieldSize: 1024 * 1024 // Maximum field value size (1MB)
   },
-  fileFilter: fileFilter,
-  // Additional options for better error handling
-  preservePath: false,
-  onError: (err, next) => {
-    console.error('❌ Multer error:', err);
-    next(err);
-  }
+  fileFilter: fileFilter
 });
 
-// Custom error handler for better error messages
-const handleUploadError = (error) => {
-  console.error('💥 Upload middleware error:', error);
+// Error handling middleware
+const handleUploadError = (error, req, res, next) => {
+  console.error('📁 Upload error details:', {
+    code: error.code,
+    message: error.message,
+    field: error.field,
+    storageErrors: error.storageErrors
+  });
 
-  switch (error.code) {
-    case 'LIMIT_FILE_SIZE':
-      return {
-        status: 400,
-        message: 'File too large. Maximum size is 10MB per file.',
-        code: 'FILE_TOO_LARGE'
-      };
-
-    case 'LIMIT_FILE_COUNT':
-      return {
-        status: 400,
-        message: 'Too many files. Maximum 5 files allowed.',
-        code: 'TOO_MANY_FILES'
-      };
-
-    case 'LIMIT_UNEXPECTED_FILE':
-      return {
-        status: 400,
-        message: 'Unexpected field name. Use "images" as field name.',
-        code: 'UNEXPECTED_FIELD'
-      };
-
-    case 'INVALID_FILE_TYPE':
-    case 'UNSUPPORTED_FORMAT':
-      return {
-        status: 400,
-        message: error.message,
-        code: error.code
-      };
-
-    case 'LIMIT_FIELD_COUNT':
-      return {
-        status: 400,
-        message: 'Too many fields in request.',
-        code: 'TOO_MANY_FIELDS'
-      };
-
-    default:
-      return {
-        status: 500,
-        message: error.message || 'Upload processing error',
-        code: 'UPLOAD_ERROR'
-      };
-  }
-};
-
-// Middleware wrapper untuk integrasi dengan Supabase workflow
-const createUploadMiddleware = (fieldName = 'images', maxFiles = 5) => {
-  return (req, res, next) => {
-    console.log(`🔄 Starting upload process for field: ${fieldName}`);
-    console.log('📊 Request info:', {
-      method: req.method,
-      url: req.url,
-      contentType: req.get('Content-Type'),
-      contentLength: req.get('Content-Length')
-    });
-
-    // Use multer's array method for multiple files
-    const uploadHandler = upload.array(fieldName, maxFiles);
-
-    uploadHandler(req, res, (err) => {
-      if (err) {
-        console.error('❌ Multer processing error:', err);
-        const errorInfo = handleUploadError(err);
-
-        return res.status(errorInfo.status).json({
-          success: false,
-          message: errorInfo.message,
-          code: errorInfo.code,
-          details: process.env.NODE_ENV === 'development' ? err.stack : undefined
-        });
-      }
-
-      // Log successful upload info
-      if (req.files && req.files.length > 0) {
-        console.log('✅ Files processed successfully:');
-        req.files.forEach((file, index) => {
-          console.log(`   ${index + 1}. ${file.originalname} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
-        });
-
-        // Add file validation summary to request
-        req.uploadSummary = {
-          totalFiles: req.files.length,
-          totalSize: req.files.reduce((sum, file) => sum + file.size, 0),
-          fileTypes: [...new Set(req.files.map(file => file.mimetype))]
-        };
-
-        console.log('📈 Upload summary:', req.uploadSummary);
-      } else {
-        console.log('ℹ️ No files in request');
-      }
-
-      console.log('✅ Upload middleware completed successfully');
-      next();
-    });
-  };
-};
-
-// Default export - untuk kompatibilitas dengan kode lama
-module.exports = upload;
-
-// Named exports untuk fleksibilitas
-module.exports.createUploadMiddleware = createUploadMiddleware;
-module.exports.handleUploadError = handleUploadError;
-
-// Pre-configured middleware untuk berbagai use case
-module.exports.uploadImages = createUploadMiddleware('images', 5);
-module.exports.uploadSingle = (fieldName = 'image') => {
-  return (req, res, next) => {
-    const uploadHandler = upload.single(fieldName);
-
-    uploadHandler(req, res, (err) => {
-      if (err) {
-        const errorInfo = handleUploadError(err);
-        return res.status(errorInfo.status).json({
-          success: false,
-          message: errorInfo.message,
-          code: errorInfo.code
-        });
-      }
-      next();
-    });
-  };
-};
-
-// File validation utilities
-module.exports.validateFileSize = (maxSizeMB = 10) => {
-  return (req, res, next) => {
-    if (req.files) {
-      const oversizedFiles = req.files.filter(file => file.size > maxSizeMB * 1024 * 1024);
-      if (oversizedFiles.length > 0) {
+  // Handle different types of upload errors
+  if (error instanceof multer.MulterError) {
+    switch (error.code) {
+      case 'LIMIT_FILE_SIZE':
         return res.status(400).json({
           success: false,
-          message: `Files exceed ${maxSizeMB}MB limit`,
-          oversizedFiles: oversizedFiles.map(f => f.originalname)
+          message: 'File terlalu besar. Maksimal 10MB per file.',
+          code: 'FILE_TOO_LARGE'
         });
-      }
+
+      case 'LIMIT_FILE_COUNT':
+        return res.status(400).json({
+          success: false,
+          message: 'Terlalu banyak file. Maksimal 5 file.',
+          code: 'TOO_MANY_FILES'
+        });
+
+      case 'LIMIT_UNEXPECTED_FILE':
+        return res.status(400).json({
+          success: false,
+          message: 'Field file tidak diizinkan. Gunakan "images" untuk product atau "profilePicture" untuk profile.',
+          code: 'UNEXPECTED_FIELD'
+        });
+
+      case 'LIMIT_PART_COUNT':
+        return res.status(400).json({
+          success: false,
+          message: 'Terlalu banyak bagian dalam form.',
+          code: 'TOO_MANY_PARTS'
+        });
+
+      case 'LIMIT_FIELD_KEY':
+        return res.status(400).json({
+          success: false,
+          message: 'Nama field terlalu panjang.',
+          code: 'FIELD_NAME_TOO_LONG'
+        });
+
+      case 'LIMIT_FIELD_VALUE':
+        return res.status(400).json({
+          success: false,
+          message: 'Nilai field terlalu besar.',
+          code: 'FIELD_VALUE_TOO_LARGE'
+        });
+
+      case 'LIMIT_FIELD_COUNT':
+        return res.status(400).json({
+          success: false,
+          message: 'Terlalu banyak field dalam form.',
+          code: 'TOO_MANY_FIELDS'
+        });
+
+      default:
+        return res.status(400).json({
+          success: false,
+          message: `Upload error: ${error.message}`,
+          code: error.code
+        });
     }
-    next();
-  };
+  }
+
+  // Handle custom validation errors
+  if (error.message.includes('Only image files')) {
+    return res.status(400).json({
+      success: false,
+      message: 'Hanya file gambar yang diperbolehkan (JPG, PNG, GIF, WebP).',
+      code: 'INVALID_FILE_TYPE'
+    });
+  }
+
+  // Handle other errors
+  return res.status(500).json({
+    success: false,
+    message: 'Upload error occurred',
+    error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+  });
 };
 
-module.exports.validateImageDimensions = async (req, res, next) => {
-  // This could be enhanced to check image dimensions if needed
-  // For now, just pass through
+// Enhanced logging middleware
+const logUploadDetails = (req, res, next) => {
+  const startTime = Date.now();
+
+  // Log request details
+  console.log('📤 Upload request started:', {
+    method: req.method,
+    url: req.originalUrl,
+    contentType: req.get('Content-Type'),
+    contentLength: req.get('Content-Length'),
+    userAgent: req.get('User-Agent')?.substring(0, 100),
+    timestamp: new Date().toISOString()
+  });
+
+  // Override res.json to log response
+  const originalJson = res.json;
+  res.json = function (body) {
+    const duration = Date.now() - startTime;
+    console.log('📤 Upload request completed:', {
+      statusCode: res.statusCode,
+      duration: `${duration}ms`,
+      success: body?.success !== false,
+      filesProcessed: req.files?.length || (req.file ? 1 : 0)
+    });
+    return originalJson.call(this, body);
+  };
+
   next();
 };
 
-console.log('✅ Upload middleware (Supabase-ready) configured successfully');
+// Create different upload handlers
+const createUploadMiddleware = (fieldName, maxCount = 1) => {
+  console.log('🔧 Creating upload middleware for field:', fieldName, 'maxCount:', maxCount);
+
+  if (maxCount === 1) {
+    // Single file upload (for profile pictures)
+    return [
+      logUploadDetails,
+      upload.single(fieldName),
+      handleUploadError
+    ];
+  } else {
+    // Multiple file upload (for products)
+    return [
+      logUploadDetails,
+      upload.array(fieldName, maxCount),
+      handleUploadError
+    ];
+  }
+};
+
+// Specific middleware for different use cases
+const uploadProfilePicture = createUploadMiddleware('profilePicture', 1);
+const uploadProductImages = createUploadMiddleware('images', 5);
+
+// Legacy support - single file upload
+const uploadImages = upload.array('images', 5);
+
+// Validation middleware for profile picture
+const validateProfilePicture = (req, res, next) => {
+  console.log('🔍 Validating profile picture...');
+
+  if (!req.file) {
+    console.log('❌ No profile picture file provided');
+    return res.status(400).json({
+      success: false,
+      message: 'Profile picture file is required'
+    });
+  }
+
+  const file = req.file;
+
+  // Additional validations
+  if (file.size > 5 * 1024 * 1024) { // 5MB limit for profile pictures
+    console.log('❌ Profile picture too large:', file.size);
+    return res.status(400).json({
+      success: false,
+      message: 'Profile picture size must be less than 5MB'
+    });
+  }
+
+  // Check image dimensions (optional)
+  // This would require image processing library like sharp
+
+  console.log('✅ Profile picture validation passed');
+  next();
+};
+
+// Validation middleware for product images
+const validateProductImages = (req, res, next) => {
+  console.log('🔍 Validating product images...');
+
+  if (!req.files || req.files.length === 0) {
+    console.log('❌ No product images provided');
+    return res.status(400).json({
+      success: false,
+      message: 'At least one product image is required'
+    });
+  }
+
+  const files = req.files;
+
+  // Validate each file
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+
+    if (file.size > 10 * 1024 * 1024) { // 10MB limit per image
+      console.log('❌ Product image too large:', file.originalname, file.size);
+      return res.status(400).json({
+        success: false,
+        message: `Image ${file.originalname} is too large. Maximum size is 10MB per image.`
+      });
+    }
+  }
+
+  console.log('✅ Product images validation passed');
+  next();
+};
+
+module.exports = {
+  // Main upload handlers
+  uploadProfilePicture,
+  uploadProductImages,
+  uploadImages, // Legacy support
+
+  // Validation middleware
+  validateProfilePicture,
+  validateProductImages,
+
+  // Error handler
+  handleUploadError,
+
+  // Factory function
+  createUploadMiddleware,
+
+  // Raw multer instance (if needed)
+  upload
+};

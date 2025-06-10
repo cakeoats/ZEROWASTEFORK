@@ -1,4 +1,4 @@
-// frontend/src/pages/ProfilePage.js - Updated dengan Order History
+// frontend/src/pages/ProfilePage.js - UPDATED with Supabase Profile Picture Handling
 import React, { useState, useEffect, useRef } from 'react';
 import { Button, Avatar, TextInput, Textarea, Modal } from 'flowbite-react';
 import {
@@ -48,9 +48,12 @@ function ProfilePage() {
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState('');
 
-  // State for profile picture
+  // UPDATED: State for profile picture with better handling
   const [profileImage, setProfileImage] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const [uploadSuccess, setUploadSuccess] = useState('');
   const fileInputRef = useRef(null);
 
   // State for order stats
@@ -169,32 +172,80 @@ function ProfilePage() {
     }
   };
 
-  // Handler for profile picture
+  // UPDATED: Handler for profile picture selection with better validation
   const handleProfilePictureChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+
+      // Reset previous states
+      setUploadError('');
+      setUploadSuccess('');
+
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setUploadError('Hanya file gambar yang diperbolehkan (JPG, PNG, GIF)');
+        e.target.value = ''; // Reset file input
+        return;
+      }
+
+      // Validate file size (5MB limit)
+      if (file.size > 5 * 1024 * 1024) {
+        setUploadError('Ukuran file maksimal 5MB');
+        e.target.value = ''; // Reset file input
+        return;
+      }
+
+      console.log('📷 Profile picture selected:', {
+        name: file.name,
+        size: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
+        type: file.type
+      });
+
       setProfileImage(file);
 
-      // Preview image
+      // Create preview
       const reader = new FileReader();
       reader.onload = () => {
         if (reader.result) {
           setPreviewImage(reader.result.toString());
+          console.log('✅ Preview image created');
         }
+      };
+      reader.onerror = () => {
+        setUploadError('Gagal membaca file gambar');
+        setProfileImage(null);
+        e.target.value = '';
       };
       reader.readAsDataURL(file);
     }
   };
 
+  // UPDATED: Handler for profile picture upload with Supabase
   const handleUploadProfilePicture = async () => {
-    if (!profileImage) return;
+    if (!profileImage) {
+      setUploadError('Pilih gambar terlebih dahulu');
+      return;
+    }
+
+    setUploadingImage(true);
+    setUploadError('');
+    setUploadSuccess('');
 
     try {
       const token = localStorage.getItem('token');
       if (!token) throw new Error('No token found');
 
+      console.log('📤 Uploading profile picture to Supabase...');
+
       const formData = new FormData();
       formData.append('profilePicture', profileImage);
+
+      // Log FormData contents
+      console.log('📦 FormData contents:', {
+        fileName: profileImage.name,
+        fileSize: profileImage.size,
+        fileType: profileImage.type
+      });
 
       const res = await axios.post(
         getApiUrl('api/users/profile-picture'),
@@ -202,22 +253,82 @@ function ProfilePage() {
         {
           headers: {
             'Content-Type': 'multipart/form-data',
-            ...getAuthHeaders()
+            Authorization: `Bearer ${token}`
+          },
+          timeout: 30000, // 30 second timeout for upload
+          onUploadProgress: (progressEvent) => {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            console.log(`📊 Upload progress: ${percentCompleted}%`);
           }
         }
       );
 
-      setUserData(prev => ({
-        ...prev,
-        profilePicture: res.data.profilePicture
-      }));
+      console.log('✅ Profile picture upload response:', res.data);
 
-      // Reset file input
-      setProfileImage(null);
-      alert('Foto profil berhasil diperbarui!');
+      if (res.data.success && res.data.profilePicture) {
+        // Update user data with new profile picture URL
+        setUserData(prev => ({
+          ...prev,
+          profilePicture: res.data.profilePicture
+        }));
+
+        // Reset states
+        setProfileImage(null);
+        setPreviewImage(null);
+        setUploadSuccess('Foto profil berhasil diperbarui!');
+
+        // Reset file input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+
+        // Clear success message after 3 seconds
+        setTimeout(() => {
+          setUploadSuccess('');
+        }, 3000);
+
+      } else {
+        throw new Error(res.data.message || 'Upload failed');
+      }
+
     } catch (error) {
-      console.error('Error uploading profile picture:', error.response?.data || error.message);
-      alert('Gagal mengupload foto profil: ' + (error.response?.data?.message || error.message));
+      console.error('❌ Error uploading profile picture:', error);
+
+      let errorMessage = 'Gagal mengupload foto profil';
+
+      if (error.code === 'ECONNABORTED') {
+        errorMessage = 'Upload timeout. Coba lagi dengan file yang lebih kecil.';
+      } else if (error.response?.status === 400) {
+        errorMessage = error.response.data?.message || 'File tidak valid';
+      } else if (error.response?.status === 413) {
+        errorMessage = 'File terlalu besar. Maksimal 5MB.';
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      setUploadError(errorMessage);
+
+      // Clear error after 5 seconds
+      setTimeout(() => {
+        setUploadError('');
+      }, 5000);
+
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  // UPDATED: Cancel profile picture selection
+  const handleCancelProfilePicture = () => {
+    setProfileImage(null);
+    setPreviewImage(null);
+    setUploadError('');
+    setUploadSuccess('');
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -262,10 +373,25 @@ function ProfilePage() {
     fetchProfile();
   }, []);
 
-  // Conditional render profile picture URL
-  const profilePictureUrl = previewImage ||
-    (userData.profilePicture ? getImageUrl(userData.profilePicture) :
-      'https://randomuser.me/api/portraits/men/32.jpg');
+  // UPDATED: Enhanced profile picture URL handling
+  const getProfilePictureUrl = () => {
+    // Priority order: preview (when selecting new image) > current profile picture > default
+    if (previewImage) {
+      return previewImage;
+    }
+
+    if (userData.profilePicture) {
+      // Check if it's already a full URL (Supabase URL)
+      if (userData.profilePicture.startsWith('http')) {
+        return userData.profilePicture;
+      }
+      // If it's a relative path, construct full URL
+      return getImageUrl(userData.profilePicture);
+    }
+
+    // Default avatar
+    return 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face&auto=format&q=80';
+  };
 
   return (
     <div className="min-h-screen bg-amber-50">
@@ -283,14 +409,15 @@ function ProfilePage() {
             <div className="flex flex-col md:flex-row items-center">
               <div className="relative mb-4 md:mb-0 md:mr-6">
                 <Avatar
-                  img={profilePictureUrl}
+                  img={getProfilePictureUrl()}
                   rounded
                   size="xl"
                 />
                 {isEditing && (
                   <button
-                    className="absolute bottom-0 right-0 bg-white p-2 rounded-full shadow-md"
+                    className="absolute bottom-0 right-0 bg-white p-2 rounded-full shadow-md hover:shadow-lg transition-shadow"
                     onClick={() => fileInputRef.current && fileInputRef.current.click()}
+                    disabled={uploadingImage}
                   >
                     <HiOutlinePencilAlt className="h-5 w-5 text-amber-600" />
                     <input
@@ -299,6 +426,7 @@ function ProfilePage() {
                       onChange={handleProfilePictureChange}
                       className="hidden"
                       accept="image/*"
+                      disabled={uploadingImage}
                     />
                   </button>
                 )}
@@ -325,16 +453,57 @@ function ProfilePage() {
                     })}
                 </p>
 
-                {/* Show Upload button if image is selected and in edit mode */}
-                {profileImage && isEditing && (
-                  <Button
-                    color="success"
-                    size="sm"
-                    className="mt-2"
-                    onClick={handleUploadProfilePicture}
-                  >
-                    Upload Foto
-                  </Button>
+                {/* UPDATED: Profile picture upload controls */}
+                {isEditing && (
+                  <div className="mt-3">
+                    {/* Upload success message */}
+                    {uploadSuccess && (
+                      <div className="mb-2 p-2 bg-green-50 text-green-600 rounded text-sm">
+                        {uploadSuccess}
+                      </div>
+                    )}
+
+                    {/* Upload error message */}
+                    {uploadError && (
+                      <div className="mb-2 p-2 bg-red-50 text-red-600 rounded text-sm">
+                        {uploadError}
+                      </div>
+                    )}
+
+                    {/* Upload controls */}
+                    {profileImage && (
+                      <div className="flex space-x-2">
+                        <Button
+                          color="success"
+                          size="sm"
+                          onClick={handleUploadProfilePicture}
+                          disabled={uploadingImage}
+                        >
+                          {uploadingImage ? (
+                            <>
+                              <div className="mr-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                              Uploading...
+                            </>
+                          ) : (
+                            'Upload Foto'
+                          )}
+                        </Button>
+                        <Button
+                          color="gray"
+                          size="sm"
+                          onClick={handleCancelProfilePicture}
+                          disabled={uploadingImage}
+                        >
+                          Batal
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* File size info */}
+                    <p className="text-xs text-gray-500 mt-1">
+                      Maksimal 5MB • Format: JPG, PNG, GIF
+                    </p>
+                  </div>
                 )}
               </div>
             </div>
@@ -370,7 +539,6 @@ function ProfilePage() {
               <HiArrowRight className="ml-auto text-pink-500" />
             </Link>
 
-            {/* NEW: Order History Link */}
             <Link
               to="/order-history"
               className="flex items-center space-x-3 p-3 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
