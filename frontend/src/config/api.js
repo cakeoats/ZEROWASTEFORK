@@ -1,6 +1,6 @@
-// frontend/src/config/api.js - FIXED FOR CONSISTENT SANDBOX MODE
+// frontend/src/config/api.js - FIXED API Configuration
 
-// Get API URL from environment variable with fallback to your actual backend
+// FIXED: Proper API URL handling
 export const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://zerowaste-backend-theta.vercel.app';
 
 // Environment check
@@ -8,13 +8,14 @@ export const isDevelopment = process.env.NODE_ENV === 'development';
 export const isProduction = process.env.NODE_ENV === 'production';
 export const currentEnv = process.env.REACT_APP_ENV || process.env.NODE_ENV || 'development';
 
-// API configuration object
+// FIXED: Enhanced API configuration with timeout and retry
 export const apiConfig = {
     baseURL: API_BASE_URL,
     timeout: 30000, // 30 seconds
     headers: {
         'Content-Type': 'application/json',
     },
+    withCredentials: false, // Set to false for CORS simplicity
 };
 
 // Helper function to get full API URL
@@ -29,7 +30,7 @@ export const getApiUrl = (endpoint = '') => {
     return url;
 };
 
-// Enhanced image URL handling
+// FIXED: Enhanced image URL handling
 export const getImageUrl = (imagePath) => {
     console.log('🔍 Processing image path:', imagePath);
 
@@ -81,26 +82,34 @@ export const getProductImageUrl = (product) => {
     return 'https://images.unsplash.com/photo-1560472355-536de3962603?w=400&h=400&fit=crop&crop=center&auto=format&q=80';
 };
 
-// Auth headers helper
+// FIXED: Auth headers helper with proper token handling
 export const getAuthHeaders = () => {
     const token = localStorage.getItem('token');
-    return token ? {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json'
-    } : {
-        'Content-Type': 'application/json'
+    const headers = {
+        'Content-Type': 'application/json',
     };
+
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    return headers;
 };
 
 // Multipart form headers helper
 export const getFormHeaders = () => {
     const token = localStorage.getItem('token');
-    return token ? {
-        Authorization: `Bearer ${token}`
-    } : {};
+    const headers = {};
+
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+    // Don't set Content-Type for FormData, let browser set it
+
+    return headers;
 };
 
-// FIXED: Midtrans Configuration - FORCE SANDBOX MODE for consistency
+// FIXED: Midtrans Configuration - Always use sandbox for consistency
 export const MIDTRANS_CONFIG = {
     development: {
         scriptUrl: 'https://app.sandbox.midtrans.com/snap/snap.js',
@@ -132,12 +141,77 @@ export const getMidtransConfig = () => {
         forced: 'SANDBOX_MODE'
     });
 
-    // Validation
     if (!selectedConfig.clientKey || selectedConfig.clientKey.includes('XXXXXXX')) {
         console.error('❌ Midtrans client key not properly configured!');
     }
 
     return selectedConfig;
+};
+
+// FIXED: Enhanced API request wrapper with retry logic
+export const makeApiRequest = async (url, options = {}) => {
+    const maxRetries = 3;
+    let lastError;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            console.log(`🚀 API Request (attempt ${attempt}/${maxRetries}):`, url);
+
+            const requestOptions = {
+                ...options,
+                headers: {
+                    ...getAuthHeaders(),
+                    ...options.headers
+                }
+            };
+
+            const response = await fetch(url, requestOptions);
+
+            // Log response details
+            console.log(`📥 API Response:`, {
+                status: response.status,
+                statusText: response.statusText,
+                url: response.url,
+                headers: Object.fromEntries(response.headers.entries())
+            });
+
+            if (!response.ok) {
+                const errorData = await response.text();
+                let errorMessage;
+
+                try {
+                    const errorJson = JSON.parse(errorData);
+                    errorMessage = errorJson.message || `HTTP ${response.status}: ${response.statusText}`;
+                } catch {
+                    errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                }
+
+                throw new Error(errorMessage);
+            }
+
+            const data = await response.json();
+            console.log(`✅ API Success:`, data);
+            return data;
+
+        } catch (error) {
+            console.error(`❌ API Error (attempt ${attempt}):`, error);
+            lastError = error;
+
+            // Don't retry on certain errors
+            if (error.message.includes('401') || error.message.includes('403')) {
+                break;
+            }
+
+            // Wait before retry (exponential backoff)
+            if (attempt < maxRetries) {
+                const waitTime = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+                console.log(`⏱️ Waiting ${waitTime}ms before retry...`);
+                await new Promise(resolve => setTimeout(resolve, waitTime));
+            }
+        }
+    }
+
+    throw lastError;
 };
 
 // Image validation helper
@@ -182,13 +256,28 @@ export const validateImageUrl = async (url, timeout = 10000, retries = 3) => {
     return false;
 };
 
-// API health check
+// FIXED: API health check with proper error handling
 export const checkApiHealth = async () => {
     try {
-        const response = await fetch(getApiUrl('health'));
-        return response.ok;
+        console.log('🏥 Checking API health...');
+        const response = await fetch(getApiUrl('health'), {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            timeout: 10000
+        });
+
+        if (!response.ok) {
+            console.log('❌ API health check failed:', response.status);
+            return false;
+        }
+
+        const data = await response.json();
+        console.log('✅ API health check passed:', data);
+        return true;
     } catch (error) {
-        console.error('API health check failed:', error);
+        console.error('💥 API health check error:', error);
         return false;
     }
 };
@@ -229,6 +318,11 @@ export const handleApiError = (error, defaultMessage = 'An error occurred') => {
     }
 };
 
+// Test API connectivity on load
+if (isDevelopment) {
+    checkApiHealth();
+}
+
 // Debug logging
 if (isDevelopment) {
     console.log('🔧 API Configuration:', {
@@ -237,7 +331,8 @@ if (isDevelopment) {
         customEnv: currentEnv,
         isDevelopment,
         isProduction,
-        midtransForced: 'SANDBOX'
+        midtransForced: 'SANDBOX',
+        corsMode: 'no-credentials'
     });
 }
 
@@ -250,6 +345,7 @@ export default {
     getAuthHeaders,
     getFormHeaders,
     getMidtransConfig,
+    makeApiRequest,
     checkApiHealth,
     validateImageUrl,
     handleApiError

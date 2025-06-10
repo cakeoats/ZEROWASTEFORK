@@ -42,6 +42,7 @@ const allowedOrigins = [
   'http://localhost:3001',
   'https://zerowaste-frontend-eosin.vercel.app',
   'https://zerowaste-backend-theta.vercel.app',
+  'https://www.zerowastermarket.web.id/',
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
