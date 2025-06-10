@@ -1,5 +1,3 @@
-// backend/controller/authController.js - FIXED REGISTER FUNCTION
-
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
@@ -8,175 +6,93 @@ const sendEmail = require('../utils/sendEmail');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
 
-// FIXED REGISTER FUNCTION
+// REGISTER
 exports.register = async (req, res) => {
-  // FIXED: Destructure username properly
   const { username, email, password, full_name, phone, address } = req.body;
-
-  console.log('📝 Register request received:', {
-    username,
-    email,
-    full_name,
-    phone,
-    address: address ? 'provided' : 'not provided'
-  });
-
-  // FIXED: Validation untuk required fields
-  if (!username || !email || !password) {
-    console.log('❌ Missing required fields');
-    return res.status(400).json({
-      message: 'Username, email, and password are required'
-    });
-  }
-
-  // FIXED: Validate username format
-  if (username.length < 3) {
-    return res.status(400).json({
-      message: 'Username must be at least 3 characters long'
-    });
-  }
-
-  // FIXED: Validate email format
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    return res.status(400).json({
-      message: 'Please enter a valid email address'
-    });
-  }
-
-  // FIXED: Validate password length
-  if (password.length < 6) {
-    return res.status(400).json({
-      message: 'Password must be at least 6 characters long'
-    });
-  }
-
   const verificationToken = crypto.randomBytes(32).toString('hex');
   const verificationTokenExpires = Date.now() + 3600000; // 1 jam (ms)
 
   try {
-    // FIXED: Check for existing user with better error handling
-    const existingUser = await User.findOne({
-      $or: [{ email }, { username }]
-    });
-
+    const existingUser = await User.findOne({ $or: [{ email }, { username }] });
     if (existingUser) {
-      console.log('❌ User already exists:', {
-        existingEmail: existingUser.email === email,
-        existingUsername: existingUser.username === username
-      });
-
-      if (existingUser.email === email) {
-        return res.status(400).json({
-          message: 'Email already exists. Please use a different email or try logging in.'
-        });
-      } else {
-        return res.status(400).json({
-          message: 'Username already exists. Please choose a different username.'
-        });
-      }
+      return res.status(400).json({ message: 'Username or email already exists' });
     }
-
-    console.log('✅ User validation passed, creating new user...');
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // FIXED: Create user dengan semua field yang diperlukan
     const newUser = new User({
-      username: username.trim().toLowerCase(), // Normalize username
-      email: email.trim().toLowerCase(), // Normalize email
+      username,
+      email,
       password: hashedPassword,
-      full_name: full_name ? full_name.trim() : '', // Optional field
-      phone: phone ? phone.trim() : '', // Optional field
-      address: address ? address.trim() : '', // Optional field
+      full_name,
+      phone,
+      address,
       verificationToken,
       verificationTokenExpires,
       isVerified: false,
     });
 
     await newUser.save();
-    console.log('✅ User created successfully:', newUser._id);
 
-    // FIXED: Better email content
     const verificationLink = `${process.env.BASE_URL || 'http://localhost:5000'}/api/auth/verify-email?token=${verificationToken}`;
     const emailContent = `
-      <div style="font-family: Arial, sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #333;">Hi, ${full_name || username}!</h2>
-        <p>Terima kasih telah mendaftar di <strong>ZeroWasteMarket</strong>! 🌱</p>
-        <p>
-          Kami sangat senang menyambut Anda sebagai bagian dari komunitas kami yang peduli terhadap lingkungan 🌍.
-          Silakan verifikasi email Anda dengan mengklik tombol di bawah ini:
-        </p>
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="${verificationLink}" 
-             style="display: inline-block; padding: 12px 30px; background-color: #22c55e; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">
-            Verifikasi Email Saya
-          </a>
-        </div>
-        <p style="color: #666; font-size: 14px;">
-          <em>Catatan: Tautan ini akan kedaluwarsa dalam waktu 1 jam.</em>
-        </p>
-        <p>
-          Kami tidak sabar menunggu Anda untuk mulai menjelajahi dan berbelanja produk-produk ramah lingkungan di platform kami.
-          Terima kasih telah ikut serta dalam misi menuju gaya hidup yang lebih berkelanjutan! 🌿
-        </p>
-        <p>Salam hangat,<br><strong>Tim ZeroWasteMarket</strong></p>
-        
-        <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
-        <p style="color: #999; font-size: 12px;">
-          Jika tombol tidak berfungsi, copy dan paste link ini ke browser Anda:<br>
-          <a href="${verificationLink}" style="color: #22c55e;">${verificationLink}</a>
-        </p>
-      </div>
-    `;
+  <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+    <h2>Hi, ${full_name || username}!</h2>
+    <p>Terima kasih telah mendaftar di <strong>ZeroWasteMarket</strong>! 🌱</p>
+    <p>
+      Kami sangat senang sekali menyambut Anda sebagai bagian dari komunitas kami yang peduli terhadap lingkungan 🌍.
+      Silakan verifikasi email Anda dengan mengklik tautan di bawah ini:
+    </p>
+    <p>
+      <a href="${verificationLink}" style="display: inline-block; padding: 10px 20px; background-color: #22c55e; color: white; text-decoration: none; border-radius: 5px;">
+        Verifikasi Email Saya
+      </a>
+    </p>
+    <p style="color: #888;"><em>Catatan: Tautan ini akan kedaluwarsa dalam waktu 1 jam.</em></p>
+    <p>
+      Kami tidak sabar menunggu Anda untuk mulai menjelajahi dan berbelanja produk-produk ramah lingkungan di platform kami.
+      Terima kasih telah ikut serta dalam misi menuju gaya hidup yang lebih berkelanjutan! 🌿
+    </p>
+    <p>Salam hangat,<br><strong>Tim ZeroWasteMarket</strong></p>
+  </div>
+`;
 
-    // FIXED: Better error handling untuk email sending
-    try {
-      await sendEmail(email, 'Verify your email for ZeroWasteMarket', emailContent);
-      console.log('✅ Verification email sent successfully');
-    } catch (emailError) {
-      console.error('❌ Failed to send verification email:', emailError);
-      // Don't fail registration if email fails
-      console.log('⚠️ Registration successful but email failed to send');
-    }
+    await sendEmail(email, 'Verify your email for ZeroWasteMarket', emailContent);
 
-    res.status(201).json({
-      message: 'User registered successfully! Please check your email to verify your account.',
-      user: {
-        id: newUser._id,
-        username: newUser.username,
-        email: newUser.email,
-        full_name: newUser.full_name
-      }
-    });
-
+    res.status(201).json({ message: 'User registered successfully! Please check your email to verify.' });
   } catch (err) {
-    console.error('💥 Register Error:', err);
-
-    // FIXED: Better error handling
-    if (err.code === 11000) {
-      // Duplicate key error
-      const field = Object.keys(err.keyPattern)[0];
-      return res.status(400).json({
-        message: `${field} already exists. Please use a different ${field}.`
-      });
-    }
-
-    if (err.name === 'ValidationError') {
-      const errors = Object.values(err.errors).map(e => e.message);
-      return res.status(400).json({
-        message: 'Validation error',
-        errors
-      });
-    }
-
-    res.status(500).json({
-      message: 'Server error during registration. Please try again later.'
-    });
+    console.error('Register Error:', err);
+    res.status(500).json({ message: 'Server error during registration' });
   }
 };
 
-// Keep other exports unchanged (login, forgotPassword, etc.)
+// VERIFY EMAIL
+exports.verifyEmail = async (req, res) => {
+  const { token } = req.query;
+
+  try {
+    const user = await User.findOne({
+      verificationToken: token,
+      verificationTokenExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/verif-email?status=expired`);
+    }
+
+    user.isVerified = true;
+    user.verificationToken = null;
+    user.verificationTokenExpires = null;
+    await user.save();
+
+    return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/success-email`);
+  } catch (err) {
+    console.error('Email Verification Error:', err);
+    return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/verif-email?status=error`);
+  }
+};
+
+// LOGIN
 exports.login = async (req, res) => {
   const { username, password } = req.body;
 
@@ -214,32 +130,6 @@ exports.login = async (req, res) => {
   }
 };
 
-// VERIFY EMAIL function remains the same
-exports.verifyEmail = async (req, res) => {
-  const { token } = req.query;
-
-  try {
-    const user = await User.findOne({
-      verificationToken: token,
-      verificationTokenExpires: { $gt: Date.now() },
-    });
-
-    if (!user) {
-      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/verif-email?status=expired`);
-    }
-
-    user.isVerified = true;
-    user.verificationToken = null;
-    user.verificationTokenExpires = null;
-    await user.save();
-
-    return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/success-email`);
-  } catch (err) {
-    console.error('Email Verification Error:', err);
-    return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/verif-email?status=error`);
-  }
-};
-
 exports.forgotPassword = async (req, res) => {
   const { email } = req.body;
   try {
@@ -255,23 +145,24 @@ exports.forgotPassword = async (req, res) => {
 
     const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
     const emailContent = `
-      <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-        <h3>Halo ${user.full_name},</h3>
-        <p>Kami menerima permintaan untuk mengatur ulang password akun Anda di <strong>ZeroWasteMarket</strong>.</p>
-        <p>
-          Jangan khawatir! Untuk melanjutkan proses ini, silakan klik tombol di bawah:
-        </p>
-        <p>
-          <a href="${resetLink}" style="display: inline-block; padding: 10px 20px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 5px;">
-            Reset Password
-          </a>
-        </p>
-        <p>Jika Anda tidak merasa melakukan permintaan ini, abaikan saja email ini — akun Anda tetap aman.</p>
-        <p style="color: #888;"><em>Catatan: Tautan reset password ini hanya berlaku selama 1 jam.</em></p>
-        <p>Terima kasih telah menjadi bagian dari perjalanan menuju gaya hidup yang lebih berkelanjutan bersama kami! 🌿</p>
-        <p>Salam hangat,<br><strong>Tim ZeroWasteMarket</strong></p>
-      </div>
-    `;
+  <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+    <h3>Halo ${user.full_name},</h3>
+    <p>Kami menerima permintaan untuk mengatur ulang password akun Anda di <strong>ZeroWasteMarket</strong>.</p>
+    <p>
+      Jangan khawatir! Untuk melanjutkan proses ini, silakan klik tombol di bawah:
+    </p>
+    <p>
+      <a href="${resetLink}" style="display: inline-block; padding: 10px 20px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 5px;">
+        Reset Password
+      </a>
+    </p>
+    <p>Jika Anda tidak merasa melakukan permintaan ini, abaikan saja email ini — akun Anda tetap aman.</p>
+    <p style="color: #888;"><em>Catatan: Tautan reset password ini hanya berlaku selama 1 jam.</em></p>
+    <p>Terima kasih telah menjadi bagian dari perjalanan menuju gaya hidup yang lebih berkelanjutan bersama kami! 🌿</p>
+    <p>Salam hangat,<br><strong>Tim ZeroWasteMarket</strong></p>
+  </div>
+`;
+
 
     await sendEmail(user.email, 'Reset your ZeroWasteMarket password', emailContent);
     res.status(200).json({ message: 'Reset password email sent!' });
@@ -304,6 +195,7 @@ exports.resetPassword = async (req, res) => {
   }
 };
 
+//resend email
 exports.resendVerificationEmail = async (req, res) => {
   const { email } = req.body;
 
@@ -329,13 +221,13 @@ exports.resendVerificationEmail = async (req, res) => {
     const verificationLink = `${process.env.BASE_URL || 'http://localhost:5000'}/api/auth/verify-email?token=${newToken}`;
     const emailContent = `
       <div style="font-family: Arial, sans-serif;">
-        <h3>Halo ${user.full_name},</h3>
-        <p>Sepertinya kamu lupa untuk memverifikasi emailmu setelah mendaftar di <strong>ZeroWasteMarket</strong>.</p>
-        <p>Tidak masalah, kami di sini untuk membantumu menyelesaikannya. Silakan klik tombol di bawah ini untuk memverifikasi email kamu dan mulai menjelajahi dunia belanja yang lebih ramah lingkungan 🌱</p>
-        <a href="${verificationLink}" style="background-color:#22c55e;padding:10px 15px;color:white;text-decoration:none;border-radius:5px;">Verifikasi Email</a>
-        <p><em>Catatan: Tautan ini hanya berlaku selama 1 jam.</em></p>
-        <p>Terima kasih telah bergabung dengan kami dalam misi menuju gaya hidup yang lebih berkelanjutan. 🌍</p>
-      </div>
+  <h3>Halo ${user.full_name},</h3>
+  <p>Sepertinya kamu lupa untuk memverifikasi emailmu setelah mendaftar di <strong>ZeroWasteMarket</strong>.</p>
+  <p>Tidak masalah, kami di sini untuk membantumu menyelesaikannya. Silakan klik tombol di bawah ini untuk memverifikasi email kamu dan mulai menjelajahi dunia belanja yang lebih ramah lingkungan 🌱</p>
+  <a href="${verificationLink}" style="background-color:#22c55e;padding:10px 15px;color:white;text-decoration:none;border-radius:5px;">Verifikasi Email</a>
+  <p><em>Catatan: Tautan ini hanya berlaku selama 1 jam.</em></p>
+  <p>Terima kasih telah bergabung dengan kami dalam misi menuju gaya hidup yang lebih berkelanjutan. 🌍</p>
+</div>
     `;
 
     await sendEmail(user.email, 'New verification link from ZeroWasteMarket', emailContent);
@@ -345,3 +237,4 @@ exports.resendVerificationEmail = async (req, res) => {
     res.status(500).json({ message: 'Server error while resending email' });
   }
 };
+
