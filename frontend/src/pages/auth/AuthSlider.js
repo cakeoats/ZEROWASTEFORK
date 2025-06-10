@@ -18,12 +18,8 @@ function AuthSlider() {
     const { language } = useLanguage();
     const translate = useTranslate(language);
 
-    // UPDATED: Determine initial form mode based on the route
-    const [isLoginMode, setIsLoginMode] = useState(() => {
-        // Check current path to determine initial mode
-        const path = location.pathname;
-        return path === '/login' || path === '/auth';
-    });
+    // Determine initial form mode based on the route
+    const [isLoginMode, setIsLoginMode] = useState(location.pathname === '/login');
 
     // Login state
     const [loginData, setLoginData] = useState({
@@ -69,27 +65,13 @@ function AuthSlider() {
         return () => clearTimeout(timer);
     }, [isPopupOpen, handlePopupClose]);
 
-    // UPDATED: Watch for route changes and update mode accordingly
+    // Update URL when mode changes
     useEffect(() => {
-        const path = location.pathname;
-        const shouldBeLoginMode = path === '/login' || path === '/auth';
-
-        if (shouldBeLoginMode !== isLoginMode) {
-            setIsLoginMode(shouldBeLoginMode);
-            setError('');
-            setSuccess('');
+        const newPath = isLoginMode ? '/login' : '/register';
+        if (location.pathname !== newPath) {
+            navigate(newPath, { replace: true });
         }
-    }, [location.pathname, isLoginMode]);
-
-    // UPDATED: Update URL when mode changes (only if not already correct)
-    useEffect(() => {
-        const currentPath = location.pathname;
-        const expectedPath = isLoginMode ? '/login' : '/register';
-
-        if (currentPath !== expectedPath && currentPath !== '/auth') {
-            navigate(expectedPath, { replace: true });
-        }
-    }, [isLoginMode, location.pathname, navigate]);
+    }, [isLoginMode, location, navigate]);
 
     // Handle login input changes
     const handleLoginChange = (e) => {
@@ -99,39 +81,6 @@ function AuthSlider() {
     // Handle register input changes
     const handleRegisterChange = (e) => {
         setRegisterData((prev) => ({ ...prev, [e.target.id]: e.target.value }));
-    };
-
-    // UPDATED: Validation function for register form
-    const validateRegisterForm = () => {
-        const errors = [];
-
-        if (!registerData.full_name.trim()) {
-            errors.push('Full name is required');
-        }
-
-        if (!registerData.username.trim()) {
-            errors.push('Username is required');
-        } else if (registerData.username.length < 3) {
-            errors.push('Username must be at least 3 characters long');
-        }
-
-        if (!registerData.email.trim()) {
-            errors.push('Email is required');
-        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(registerData.email)) {
-            errors.push('Please enter a valid email address');
-        }
-
-        if (!registerData.password) {
-            errors.push('Password is required');
-        } else if (registerData.password.length < 6) {
-            errors.push('Password must be at least 6 characters long');
-        }
-
-        if (registerData.password !== registerData.confirmPassword) {
-            errors.push('Passwords do not match');
-        }
-
-        return errors;
     };
 
     // Login form submit
@@ -174,53 +123,32 @@ function AuthSlider() {
         }
     };
 
-    // UPDATED: Register form submit with better validation
+    // Register form submit
     const handleRegister = async (e) => {
         if (e) e.preventDefault();
         setError('');
         setSuccess('');
 
-        // Validate form
-        const validationErrors = validateRegisterForm();
-        if (validationErrors.length > 0) {
-            setError(validationErrors.join(', '));
-            return;
+        if (registerData.password !== registerData.confirmPassword) {
+            return setError('Passwords do not match');
         }
 
         setIsLoading(true);
 
         try {
             const res = await axios.post(getApiUrl('api/auth/register'), {
-                username: registerData.username.trim(),
-                email: registerData.email.trim(),
+                username: registerData.username,
+                email: registerData.email,
                 password: registerData.password,
-                full_name: registerData.full_name.trim(),
-                phone: registerData.phone.trim(),
-                address: registerData.address.trim(),
+                full_name: registerData.full_name,
+                phone: registerData.phone,
+                address: registerData.address,
             });
 
-            // Show success message
-            setSuccess('Registration successful! Redirecting to email verification...');
-
             // Redirect to email verification page with email query
-            setTimeout(() => {
-                navigate(`/verif-email?email=${encodeURIComponent(registerData.email)}`);
-            }, 2000);
-
+            navigate(`/verif-email?email=${encodeURIComponent(registerData.email)}`);
         } catch (err) {
-            console.error('Registration error:', err);
-
-            let errorMessage = 'Registration failed. Please try again.';
-
-            if (err.response?.data?.message) {
-                errorMessage = err.response.data.message;
-            } else if (err.response?.status === 400) {
-                errorMessage = 'Invalid registration data. Please check your information.';
-            } else if (err.response?.status >= 500) {
-                errorMessage = 'Server error. Please try again later.';
-            }
-
-            setError(errorMessage);
+            setError(err.response?.data?.message || 'Registration failed');
         } finally {
             setIsLoading(false);
         }
@@ -247,15 +175,6 @@ function AuthSlider() {
                             {isLoginMode ? translate('auth.welcomeBack') : translate('auth.createAccount')}
                         </h1>
                     </div>
-
-                    {/* ADDED: Debug info for development */}
-                    {process.env.NODE_ENV === 'development' && (
-                        <div className="mb-4 p-2 bg-gray-100 rounded text-xs">
-                            <div>Current Path: {location.pathname}</div>
-                            <div>Mode: {isLoginMode ? 'Login' : 'Register'}</div>
-                            <div>API URL: {getApiUrl('api/auth/' + (isLoginMode ? 'login' : 'register'))}</div>
-                        </div>
-                    )}
 
                     {error && (
                         <Alert color="failure" icon={HiInformationCircle} className="mb-4 alert-animate">
@@ -324,90 +243,20 @@ function AuthSlider() {
                         // Register Form
                         <form onSubmit={handleRegister} className={`space-y-4 ${isAnimating ? 'opacity-0' : 'opacity-100 transition-opacity duration-500'}`}>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <TextInput
-                                    id="full_name"
-                                    type="text"
-                                    placeholder={translate('auth.fullName')}
-                                    icon={HiUser}
-                                    required
-                                    onChange={handleRegisterChange}
-                                    value={registerData.full_name}
-                                    disabled={isLoading}
-                                    className="focus:ring-blue-500"
-                                />
-                                <TextInput
-                                    id="username"
-                                    type="text"
-                                    placeholder={translate('auth.username')}
-                                    icon={HiUser}
-                                    required
-                                    onChange={handleRegisterChange}
-                                    value={registerData.username}
-                                    disabled={isLoading}
-                                    minLength={3}
-                                    className="focus:ring-blue-500"
-                                />
+                                <TextInput id="full_name" type="text" placeholder={translate('auth.fullName')} icon={HiUser} required onChange={handleRegisterChange} value={registerData.full_name} disabled={isLoading} className="focus:ring-blue-500" />
+                                <TextInput id="username" type="text" placeholder={translate('auth.username')} icon={HiUser} required onChange={handleRegisterChange} value={registerData.username} disabled={isLoading} className="focus:ring-blue-500" />
                             </div>
 
-                            <TextInput
-                                id="email"
-                                type="email"
-                                placeholder={translate('auth.email')}
-                                icon={HiMail}
-                                required
-                                onChange={handleRegisterChange}
-                                value={registerData.email}
-                                disabled={isLoading}
-                                className="focus:ring-blue-500"
-                            />
+                            <TextInput id="email" type="email" placeholder={translate('auth.email')} icon={HiMail} required onChange={handleRegisterChange} value={registerData.email} disabled={isLoading} className="focus:ring-blue-500" />
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <TextInput
-                                    id="phone"
-                                    type="tel"
-                                    placeholder={translate('auth.phone')}
-                                    icon={HiPhone}
-                                    onChange={handleRegisterChange}
-                                    value={registerData.phone}
-                                    disabled={isLoading}
-                                    className="focus:ring-blue-500"
-                                />
-                                <TextInput
-                                    id="address"
-                                    type="text"
-                                    placeholder={translate('auth.address')}
-                                    icon={HiHome}
-                                    onChange={handleRegisterChange}
-                                    value={registerData.address}
-                                    disabled={isLoading}
-                                    className="focus:ring-blue-500"
-                                />
+                                <TextInput id="phone" type="tel" placeholder={translate('auth.phone')} icon={HiPhone} required onChange={handleRegisterChange} value={registerData.phone} disabled={isLoading} className="focus:ring-blue-500" />
+                                <TextInput id="address" type="text" placeholder={translate('auth.address')} icon={HiHome} required onChange={handleRegisterChange} value={registerData.address} disabled={isLoading} className="focus:ring-blue-500" />
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <TextInput
-                                    id="password"
-                                    type="password"
-                                    placeholder={translate('auth.password')}
-                                    icon={HiLockClosed}
-                                    required
-                                    onChange={handleRegisterChange}
-                                    value={registerData.password}
-                                    disabled={isLoading}
-                                    minLength={6}
-                                    className="focus:ring-blue-500"
-                                />
-                                <TextInput
-                                    id="confirmPassword"
-                                    type="password"
-                                    placeholder={translate('auth.confirmPassword')}
-                                    icon={HiLockClosed}
-                                    required
-                                    onChange={handleRegisterChange}
-                                    value={registerData.confirmPassword}
-                                    disabled={isLoading}
-                                    className="focus:ring-blue-500"
-                                />
+                                <TextInput id="password" type="password" placeholder={translate('auth.password')} icon={HiLockClosed} required onChange={handleRegisterChange} value={registerData.password} disabled={isLoading} className="focus:ring-blue-500" />
+                                <TextInput id="confirmPassword" type="password" placeholder={translate('auth.confirmPassword')} icon={HiLockClosed} required onChange={handleRegisterChange} value={registerData.confirmPassword} disabled={isLoading} className="focus:ring-blue-500" />
                             </div>
 
                             <Button
