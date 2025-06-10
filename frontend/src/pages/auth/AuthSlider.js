@@ -18,8 +18,9 @@ function AuthSlider() {
     const { language } = useLanguage();
     const translate = useTranslate(language);
 
-    // FIXED: Simpler initial state determination
+    // UPDATED: Determine initial form mode based on the route
     const [isLoginMode, setIsLoginMode] = useState(() => {
+        // Check current path to determine initial mode
         const path = location.pathname;
         return path === '/login' || path === '/auth';
     });
@@ -68,19 +69,27 @@ function AuthSlider() {
         return () => clearTimeout(timer);
     }, [isPopupOpen, handlePopupClose]);
 
-    // FIXED: Only update mode based on initial route, not on every route change
+    // UPDATED: Watch for route changes and update mode accordingly
     useEffect(() => {
         const path = location.pathname;
         const shouldBeLoginMode = path === '/login' || path === '/auth';
 
-        // Only update if it's different from current mode
         if (shouldBeLoginMode !== isLoginMode) {
-            console.log('Route changed, updating mode:', { path, shouldBeLoginMode, currentMode: isLoginMode });
             setIsLoginMode(shouldBeLoginMode);
             setError('');
             setSuccess('');
         }
-    }, [location.pathname]); // Removed isLoginMode dependency to prevent loop
+    }, [location.pathname, isLoginMode]);
+
+    // UPDATED: Update URL when mode changes (only if not already correct)
+    useEffect(() => {
+        const currentPath = location.pathname;
+        const expectedPath = isLoginMode ? '/login' : '/register';
+
+        if (currentPath !== expectedPath && currentPath !== '/auth') {
+            navigate(expectedPath, { replace: true });
+        }
+    }, [isLoginMode, location.pathname, navigate]);
 
     // Handle login input changes
     const handleLoginChange = (e) => {
@@ -92,7 +101,7 @@ function AuthSlider() {
         setRegisterData((prev) => ({ ...prev, [e.target.id]: e.target.value }));
     };
 
-    // Validation function for register form
+    // UPDATED: Validation function for register form
     const validateRegisterForm = () => {
         const errors = [];
 
@@ -143,8 +152,7 @@ function AuthSlider() {
             // Store token and user in localStorage
             const userInfo = { token, user };
             localStorage.setItem('userInfo', JSON.stringify(userInfo));
-            localStorage.setItem('token', token);
-            localStorage.setItem('user', JSON.stringify(user));
+            console.log('Stored userInfo in localStorage:', userInfo);
 
             // Update auth context
             login(user, token);
@@ -166,7 +174,7 @@ function AuthSlider() {
         }
     };
 
-    // Register form submit
+    // UPDATED: Register form submit with better validation
     const handleRegister = async (e) => {
         if (e) e.preventDefault();
         setError('');
@@ -218,41 +226,15 @@ function AuthSlider() {
         }
     };
 
-    // FIXED: Toggle mode and update URL properly
+    // Toggle between login and register forms with animation
     const toggleMode = () => {
-        console.log('Toggle mode clicked, current mode:', isLoginMode);
         setIsAnimating(true);
-
-        const newMode = !isLoginMode;
-        const newPath = newMode ? '/login' : '/register';
-
-        console.log('Switching to:', { newMode, newPath });
-
-        // Update URL first
-        navigate(newPath, { replace: true });
-
-        // Then update state after a small delay for animation
         setTimeout(() => {
-            setIsLoginMode(newMode);
+            setIsLoginMode(!isLoginMode);
             setError('');
             setSuccess('');
             setIsAnimating(false);
-        }, 150);
-    };
-
-    // Handle the "Daftar" button click from the right panel
-    const handleRightPanelToggle = () => {
-        console.log('Right panel toggle clicked');
-        toggleMode();
-    };
-
-    // FIXED: Clear translation fallback
-    const safeTranslate = (key, fallback = key) => {
-        try {
-            return translate(key) || fallback;
-        } catch (e) {
-            return fallback;
-        }
+        }, 300);
     };
 
     return (
@@ -262,11 +244,11 @@ function AuthSlider() {
                 <div className="w-full md:w-1/2 p-8">
                     <div className="flex justify-center mb-6">
                         <h1 className="text-3xl font-bold text-gray-700">
-                            {isLoginMode ? 'Selamat Datang Kembali' : 'Buat Akun Baru'}
+                            {isLoginMode ? translate('auth.welcomeBack') : translate('auth.createAccount')}
                         </h1>
                     </div>
 
-                    {/* Debug info for development */}
+                    {/* ADDED: Debug info for development */}
                     {process.env.NODE_ENV === 'development' && (
                         <div className="mb-4 p-2 bg-gray-100 rounded text-xs">
                             <div>Current Path: {location.pathname}</div>
@@ -292,7 +274,7 @@ function AuthSlider() {
                             <TextInput
                                 id="username"
                                 type="text"
-                                placeholder="Nama Pengguna"
+                                placeholder={translate('auth.username')}
                                 icon={HiUser}
                                 required
                                 value={loginData.username}
@@ -304,7 +286,7 @@ function AuthSlider() {
                             <TextInput
                                 id="password"
                                 type="password"
-                                placeholder="Kata Sandi"
+                                placeholder={translate('auth.password')}
                                 icon={HiLockClosed}
                                 required
                                 value={loginData.password}
@@ -318,22 +300,23 @@ function AuthSlider() {
                                     to="/forgot-password"
                                     className="text-sm text-blue-600 hover:text-amber-800 transition-colors font-medium"
                                 >
-                                    Lupa Password?
+                                    {translate('common.forgotPassword')}
                                 </Link>
                             </div>
 
                             <Button
                                 type="submit"
-                                className="w-full py-2 mt-6 font-semibold bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-all flex items-center justify-center"
+                                color="amber"
+                                className="w-full py-2 mt-6 font-semibold transition-all flex items-center justify-center hover:bg-amber-600"
                                 disabled={isLoading}
                             >
                                 {isLoading ? (
                                     <>
                                         <ClipLoader size={20} color="#ffffff" className="mr-2" />
-                                        Masuk...
+                                        {translate('auth.loggingIn')}
                                     </>
                                 ) : (
-                                    'Masuk'
+                                    translate('auth.loginButton')
                                 )}
                             </Button>
                         </form>
@@ -344,7 +327,7 @@ function AuthSlider() {
                                 <TextInput
                                     id="full_name"
                                     type="text"
-                                    placeholder="Nama Lengkap *"
+                                    placeholder={translate('auth.fullName')}
                                     icon={HiUser}
                                     required
                                     onChange={handleRegisterChange}
@@ -355,7 +338,7 @@ function AuthSlider() {
                                 <TextInput
                                     id="username"
                                     type="text"
-                                    placeholder="Nama Pengguna *"
+                                    placeholder={translate('auth.username')}
                                     icon={HiUser}
                                     required
                                     onChange={handleRegisterChange}
@@ -369,7 +352,7 @@ function AuthSlider() {
                             <TextInput
                                 id="email"
                                 type="email"
-                                placeholder="Email *"
+                                placeholder={translate('auth.email')}
                                 icon={HiMail}
                                 required
                                 onChange={handleRegisterChange}
@@ -382,7 +365,7 @@ function AuthSlider() {
                                 <TextInput
                                     id="phone"
                                     type="tel"
-                                    placeholder="Nomor Telepon"
+                                    placeholder={translate('auth.phone')}
                                     icon={HiPhone}
                                     onChange={handleRegisterChange}
                                     value={registerData.phone}
@@ -392,7 +375,7 @@ function AuthSlider() {
                                 <TextInput
                                     id="address"
                                     type="text"
-                                    placeholder="Alamat"
+                                    placeholder={translate('auth.address')}
                                     icon={HiHome}
                                     onChange={handleRegisterChange}
                                     value={registerData.address}
@@ -405,7 +388,7 @@ function AuthSlider() {
                                 <TextInput
                                     id="password"
                                     type="password"
-                                    placeholder="Kata Sandi *"
+                                    placeholder={translate('auth.password')}
                                     icon={HiLockClosed}
                                     required
                                     onChange={handleRegisterChange}
@@ -417,7 +400,7 @@ function AuthSlider() {
                                 <TextInput
                                     id="confirmPassword"
                                     type="password"
-                                    placeholder="Konfirmasi Kata Sandi *"
+                                    placeholder={translate('auth.confirmPassword')}
                                     icon={HiLockClosed}
                                     required
                                     onChange={handleRegisterChange}
@@ -429,30 +412,30 @@ function AuthSlider() {
 
                             <Button
                                 type="submit"
-                                className="w-full py-2 font-bold mt-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all"
+                                color="blue"
+                                className="w-full py-2 font-bold mt-4 hover:bg-blue-700"
                                 disabled={isLoading}
                             >
                                 {isLoading ? (
                                     <>
                                         <ClipLoader size={20} color="#ffffff" className="mr-2" />
-                                        Mendaftar...
+                                        {translate('auth.registering')}
                                     </>
                                 ) : (
-                                    'Daftar'
+                                    translate('auth.registerButton')
                                 )}
                             </Button>
                         </form>
                     )}
 
                     <div className="mt-6 text-center text-sm text-gray-600">
-                        {isLoginMode ? 'Belum punya akun?' : 'Sudah punya akun?'}
+                        {isLoginMode ? translate('auth.noAccount') : translate('auth.haveAccount')}
                         <button
                             type="button"
                             onClick={toggleMode}
                             className={`font-medium ml-1 ${isLoginMode ? 'text-blue-600 hover:text-blue-700' : 'text-amber-600 hover:text-amber-700'}`}
-                            disabled={isAnimating}
                         >
-                            {isLoginMode ? 'Daftar' : 'Masuk'}
+                            {isLoginMode ? translate('auth.signUp') : translate('auth.signIn')}
                         </button>
                     </div>
                 </div>
@@ -468,7 +451,7 @@ function AuthSlider() {
 
                         <h1 className="text-3xl font-bold mb-4">ZeroWasteMarket</h1>
                         <h2 className="text-2xl font-bold mb-3">
-                            {isLoginMode ? 'Belum punya akun?' : 'Sudah punya akun?'}
+                            {isLoginMode ? translate('auth.noAccount') : translate('auth.haveAccount')}
                         </h2>
                         <p className="mb-8 text-white/80">
                             {isLoginMode
@@ -476,11 +459,11 @@ function AuthSlider() {
                                 : 'Login with your personal details to continue your eco-friendly journey with us.'}
                         </p>
                         <button
-                            onClick={handleRightPanelToggle}
-                            className="px-8 py-3 border-2 border-white rounded-full font-bold text-white hover:bg-white hover:text-gray-800 transition-colors duration-300"
+                            onClick={toggleMode}
+                            className="px-8 py-3 border-2 border-white rounded-full font-bold text-white hover:bg-white hover:text-amber-600 transition-colors duration-300"
                             disabled={isAnimating}
                         >
-                            {isLoginMode ? 'Daftar' : 'Masuk'}
+                            {isLoginMode ? translate('auth.signUp') : translate('auth.signIn')}
                         </button>
                     </div>
                 </div>
