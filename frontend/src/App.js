@@ -1,4 +1,4 @@
-// frontend/src/App.js - Updated dengan Order History Route
+// frontend/src/App.js - Updated to use AuthSlider for login/register
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
@@ -9,9 +9,7 @@ import AdminProtectedRoute from './components/AdminProtectedRoute';
 
 // Import semua halaman
 import LandingPage from './pages/LandingPage';
-import AuthSlider from './pages/auth/AuthSlider';
-import LoginPage from './pages/auth/Login';
-import RegisterPage from './pages/auth/RegisterPage';
+import AuthSlider from './pages/auth/AuthSlider'; // Main auth component
 import ForgotPasswordPage from './pages/auth/ForgetPasswordPage';
 import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 import EmailVerificationPage from './pages/auth/EmailVerificationPage';
@@ -23,7 +21,7 @@ import UploadProduct from './pages/product/UploadProduct';
 import EditProduct from './pages/product/EditProduct';
 import MyProductsPage from './pages/MyProductsPage';
 import WishlistPage from './pages/product/WishlistPage';
-import OrderHistoryPage from './pages/OrderHistoryPage'; // NEW
+import OrderHistoryPage from './pages/OrderHistoryPage';
 import CartPage from './pages/cart/CartPage';
 import MidtransPayment from './pages/payment/MidtransPayment';
 import PaymentSuccess from './pages/payment/PaymentSuccess';
@@ -44,10 +42,12 @@ function App() {
                 <Route path="/product-list" element={<ProductCatalog />} />
                 <Route path="/products/:id" element={<ProductDetail />} />
 
-                {/* Auth Routes */}
+                {/* UPDATED: Auth Routes - Now using AuthSlider */}
                 <Route path="/auth" element={<AuthSlider />} />
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/register" element={<RegisterPage />} />
+                <Route path="/login" element={<AuthSlider />} />
+                <Route path="/register" element={<AuthSlider />} />
+
+                {/* Separate auth pages that don't use AuthSlider */}
                 <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                 <Route path="/reset-password" element={<ResetPasswordPage />} />
                 <Route path="/verif-email" element={<EmailVerificationPage />} />
@@ -94,7 +94,6 @@ function App() {
                     </ProtectedRoute>
                   }
                 />
-                {/* NEW: Order History Route */}
                 <Route
                   path="/order-history"
                   element={
