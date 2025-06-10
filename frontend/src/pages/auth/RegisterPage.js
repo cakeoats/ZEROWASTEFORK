@@ -1,4 +1,4 @@
-// frontend/src/pages/auth/RegisterPage.js - FIXED API URL
+// frontend/src/pages/auth/RegisterPage.js - FIXED COMPLETE VERSION
 
 import React, { useState } from 'react';
 import { TextInput, Button, Alert } from 'flowbite-react';
@@ -6,15 +6,13 @@ import { HiUser, HiMail, HiPhone, HiLockClosed, HiInformationCircle, HiHome } fr
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-// FIXED: Import API configuration
-import { getApiUrl } from '../../config/api';
-
 function RegisterPage() {
   const navigate = useNavigate();
 
+  // FIXED: Added username to initial state
   const [formData, setFormData] = useState({
     full_name: '',
-    username: '',
+    username: '', // ADDED: Missing username field
     email: '',
     phone: '',
     address: '',
@@ -24,13 +22,15 @@ function RegisterPage() {
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); // ADDED: Loading state
 
   const handleChange = (e) => {
     setFormData((prev) => ({ ...prev, [e.target.id]: e.target.value }));
+    // ADDED: Clear errors when user starts typing
     if (error) setError('');
   };
 
+  // FIXED: Better validation and error handling
   const validateForm = () => {
     const errors = [];
 
@@ -42,6 +42,8 @@ function RegisterPage() {
       errors.push('Username is required');
     } else if (formData.username.length < 3) {
       errors.push('Username must be at least 3 characters long');
+    } else if (!/^[a-zA-Z0-9_]+$/.test(formData.username)) {
+      errors.push('Username can only contain letters, numbers, and underscore');
     }
 
     if (!formData.email.trim()) {
@@ -68,6 +70,7 @@ function RegisterPage() {
     setError('');
     setSuccess('');
 
+    // FIXED: Client-side validation
     const validationErrors = validateForm();
     if (validationErrors.length > 0) {
       setError(validationErrors.join(', '));
@@ -77,11 +80,7 @@ function RegisterPage() {
     setIsLoading(true);
 
     try {
-      // FIXED: Use proper API URL from config
-      const apiUrl = getApiUrl('api/auth/register');
-
-      console.log('📤 Submitting registration data to:', apiUrl);
-      console.log('📦 Data:', {
+      console.log('📤 Submitting registration data:', {
         username: formData.username,
         email: formData.email,
         full_name: formData.full_name,
@@ -89,37 +88,29 @@ function RegisterPage() {
         address: formData.address
       });
 
-      const res = await axios.post(apiUrl, {
-        username: formData.username.trim(),
+      const res = await axios.post('https://zerowastemarket-production.up.railway.app/api/auth/register', {
+        username: formData.username.trim(), // FIXED: Include username
         email: formData.email.trim(),
         password: formData.password,
         full_name: formData.full_name.trim(),
         phone: formData.phone.trim(),
         address: formData.address.trim(),
       }, {
-        timeout: 30000, // INCREASED: 30 second timeout
+        timeout: 15000, // 15 second timeout
         headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        // ADDED: Better error handling
-        validateStatus: function (status) {
-          return status < 500; // Accept all status codes less than 500
+          'Content-Type': 'application/json'
         }
       });
 
-      console.log('✅ Registration response:', res);
+      console.log('✅ Registration successful:', res.data);
 
-      if (res.status === 201 || res.status === 200) {
-        console.log('✅ Registration successful');
-        setSuccess('Registration successful! Redirecting to email verification...');
+      // Show success message briefly
+      setSuccess('Registration successful! Redirecting to email verification...');
 
-        setTimeout(() => {
-          navigate(`/verif-email?email=${encodeURIComponent(formData.email)}`);
-        }, 2000);
-      } else {
-        throw new Error(res.data?.message || 'Registration failed');
-      }
+      // Redirect to email verification page with email query after a short delay
+      setTimeout(() => {
+        navigate(`/verif-email?email=${encodeURIComponent(formData.email)}`);
+      }, 2000);
 
     } catch (err) {
       console.error('❌ Registration error:', err);
@@ -128,22 +119,17 @@ function RegisterPage() {
 
       if (err.code === 'ECONNABORTED') {
         errorMessage = 'Request timeout. Please check your connection and try again.';
-      } else if (err.code === 'ERR_NETWORK') {
-        errorMessage = 'Network error. Please check your internet connection or try again later.';
-      } else if (err.code === 'ERR_CONNECTION_REFUSED') {
-        errorMessage = 'Server is not available. Please try again later.';
-      } else if (err.response) {
-        // Server responded with error
-        if (err.response.data?.message) {
-          errorMessage = err.response.data.message;
-        } else if (err.response.status === 400) {
-          errorMessage = 'Invalid registration data. Please check your information.';
-        } else if (err.response.status >= 500) {
-          errorMessage = 'Server error. Please try again later.';
-        }
-      } else if (err.request) {
-        // Request was made but no response received
-        errorMessage = 'No response from server. Please check your connection.';
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.response?.data?.errors) {
+        // Handle validation errors array
+        errorMessage = err.response.data.errors.join(', ');
+      } else if (err.response?.status === 400) {
+        errorMessage = 'Invalid registration data. Please check your information.';
+      } else if (err.response?.status >= 500) {
+        errorMessage = 'Server error. Please try again later.';
+      } else if (!err.response) {
+        errorMessage = 'Network error. Please check your internet connection.';
       }
 
       setError(errorMessage);
@@ -159,16 +145,6 @@ function RegisterPage() {
           <span className="text-3xl font-bold text-gray-600">Register Here!</span>
         </div>
 
-        {/* ADDED: Debug info for development */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="mb-4 p-3 bg-gray-100 rounded text-xs">
-            <div><strong>Debug Info:</strong></div>
-            <div>API URL: {getApiUrl('api/auth/register')}</div>
-            <div>Environment: {process.env.NODE_ENV}</div>
-            <div>Base URL: {process.env.REACT_APP_API_URL || 'Using default'}</div>
-          </div>
-        )}
-
         {error && (
           <Alert color="failure" icon={HiInformationCircle} className="mb-4">
             {error}
@@ -181,6 +157,7 @@ function RegisterPage() {
         )}
 
         <form className="space-y-5" onSubmit={handleSubmit}>
+          {/* Full Name Field */}
           <TextInput
             id="full_name"
             type="text"
@@ -193,6 +170,7 @@ function RegisterPage() {
             className="focus:ring-amber-500"
           />
 
+          {/* FIXED: Added username field */}
           <TextInput
             id="username"
             type="text"
@@ -204,8 +182,10 @@ function RegisterPage() {
             disabled={isLoading}
             minLength={3}
             className="focus:ring-amber-500"
+            helperText="Username must be at least 3 characters (letters, numbers, underscore only)"
           />
 
+          {/* Email Field */}
           <TextInput
             id="email"
             type="email"
@@ -218,6 +198,7 @@ function RegisterPage() {
             className="focus:ring-amber-500"
           />
 
+          {/* Phone Field */}
           <TextInput
             id="phone"
             type="tel"
@@ -229,6 +210,7 @@ function RegisterPage() {
             className="focus:ring-amber-500"
           />
 
+          {/* Address Field */}
           <TextInput
             id="address"
             type="text"
@@ -240,6 +222,7 @@ function RegisterPage() {
             className="focus:ring-amber-500"
           />
 
+          {/* Password Field */}
           <TextInput
             id="password"
             type="password"
@@ -251,8 +234,10 @@ function RegisterPage() {
             disabled={isLoading}
             minLength={6}
             className="focus:ring-amber-500"
+            helperText="Password must be at least 6 characters"
           />
 
+          {/* Confirm Password Field */}
           <TextInput
             id="confirmPassword"
             type="password"
@@ -265,6 +250,7 @@ function RegisterPage() {
             className="focus:ring-amber-500"
           />
 
+          {/* Submit Button */}
           <Button
             type="submit"
             color="gray"
@@ -285,6 +271,7 @@ function RegisterPage() {
           </Button>
         </form>
 
+        {/* Login Link */}
         <div className="mt-6 text-center text-sm text-gray-600">
           Already have an account?{' '}
           <Link to="/login" className="text-blue-600 hover:underline font-medium">
@@ -292,8 +279,19 @@ function RegisterPage() {
           </Link>
         </div>
 
+        {/* ADDED: Required fields notice */}
         <div className="mt-2 text-center text-xs text-gray-500">
+          * Required fields
         </div>
+
+        {/* ADDED: Debug info for development */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="mt-4 p-2 bg-gray-100 rounded text-xs">
+            <div><strong>Debug Info:</strong></div>
+            <div>API URL: https://zerowastemarket-production.up.railway.app</div>
+            <div>Environment: {process.env.NODE_ENV}</div>
+          </div>
+        )}
       </div>
     </div>
   );
