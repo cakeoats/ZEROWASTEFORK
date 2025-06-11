@@ -10,12 +10,12 @@ const getApiBaseUrl = () => {
   if (process.env.REACT_APP_API_URL) {
     return process.env.REACT_APP_API_URL;
   }
-  
+
   // Fallback URLs based on environment
   if (isDevelopment) {
     return 'http://localhost:5000';
   }
-  
+
   // Production fallbacks
   return 'https://zerowaste-backend-theta.vercel.app';
 };
@@ -29,17 +29,17 @@ export { isDevelopment, isProduction };
 export const getApiUrl = (endpoint = '') => {
   // Remove leading slash if present
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
-  
+
   // Ensure base URL doesn't end with slash
   const cleanBaseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
-  
+
   const fullUrl = `${cleanBaseUrl}/${cleanEndpoint}`;
-  
+
   // Debug in development only
   if (isDevelopment) {
     console.log('🔗 API URL built:', fullUrl);
   }
-  
+
   return fullUrl;
 };
 
@@ -47,7 +47,7 @@ export const getApiUrl = (endpoint = '') => {
 export const getAuthHeaders = () => {
   // Try multiple token storage locations
   let token = localStorage.getItem('token');
-  
+
   if (!token) {
     try {
       const userInfo = localStorage.getItem('userInfo');
@@ -74,7 +74,7 @@ export const getAuthHeaders = () => {
 // FIXED: Form headers for file uploads
 export const getFormHeaders = () => {
   let token = localStorage.getItem('token');
-  
+
   if (!token) {
     try {
       const userInfo = localStorage.getItem('userInfo');
@@ -92,7 +92,7 @@ export const getFormHeaders = () => {
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
-  
+
   // Don't set Content-Type for FormData, let browser handle it
   return headers;
 };
@@ -111,7 +111,7 @@ export const getImageUrl = (imagePath) => {
   // Handle relative paths
   const cleanPath = imagePath.startsWith('/') ? imagePath.slice(1) : imagePath;
   const cleanBaseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
-  
+
   return `${cleanBaseUrl}/${cleanPath}`;
 };
 
@@ -143,31 +143,34 @@ export const getProductImageUrl = (product) => {
 
 // FIXED: Midtrans configuration with environment variables
 export const getMidtransConfig = () => {
-  // Check if we should use production
-  const useProduction = process.env.REACT_APP_MIDTRANS_IS_PRODUCTION === 'true';
-  
+  // PERBAIKAN: PAKSA SANDBOX
   const config = {
-    clientKey: useProduction 
-      ? process.env.REACT_APP_MIDTRANS_CLIENT_KEY_PRODUCTION
-      : process.env.REACT_APP_MIDTRANS_CLIENT_KEY_SANDBOX,
-    isProduction: useProduction,
-    scriptUrl: useProduction
-      ? 'https://app.midtrans.com/snap/snap.js'
-      : 'https://app.sandbox.midtrans.com/snap/snap.js',
-    environment: useProduction ? 'PRODUCTION' : 'SANDBOX'
+    clientKey: process.env.REACT_APP_MIDTRANS_CLIENT_KEY_SANDBOX || 'SB-Mid-client-FHBq0wtUSyCEStlH',
+    isProduction: false, // ❌ JANGAN UBAH INI
+    scriptUrl: 'https://app.sandbox.midtrans.com/snap/snap.js', // ✅ SANDBOX URL
+    environment: 'SANDBOX' // ✅ SANDBOX
   };
 
-  // Debug logging
+  // Validasi client key
+  if (!config.clientKey || !config.clientKey.startsWith('SB-Mid-client-')) {
+    console.error('❌ Client key bukan sandbox key!');
+    console.error('Expected: SB-Mid-client-xxx');
+    console.error('Received:', config.clientKey);
+    throw new Error('Midtrans client key harus menggunakan sandbox key');
+  }
+
   if (isDevelopment) {
-    console.log('🔧 Midtrans Config:', {
+    console.log('🔧 Midtrans Config (FIXED):', {
       environment: config.environment,
+      scriptUrl: config.scriptUrl,
       hasClientKey: !!config.clientKey,
-      clientKeyPrefix: config.clientKey ? config.clientKey.substring(0, 15) + '...' : 'NOT_SET'
+      clientKeyPrefix: config.clientKey.substring(0, 20) + '...'
     });
   }
 
   return config;
 };
+
 
 // FIXED: Simple API request wrapper with proper error handling
 export const apiRequest = async (url, options = {}) => {
@@ -184,9 +187,9 @@ export const apiRequest = async (url, options = {}) => {
     if (isDevelopment) {
       console.log(`🚀 Making API request to: ${url}`);
     }
-    
+
     const response = await fetch(url, requestOptions);
-    
+
     if (!response.ok) {
       let errorMessage;
       try {

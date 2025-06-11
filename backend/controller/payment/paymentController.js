@@ -9,26 +9,25 @@ const Order = require('../../models/order');
 const getMidtransConfig = () => {
   console.log('🔧 Checking Midtrans configuration...');
 
-  // PERBAIKAN: Gunakan environment variables dengan fallback yang benar
+  // PERBAIKAN: PAKSA SANDBOX untuk testing
   const config = {
-    isProduction: false,
+    isProduction: false, // ❌ JANGAN UBAH INI ke true
     serverKey: process.env.MIDTRANS_SERVER_KEY_SANDBOX,
     clientKey: process.env.MIDTRANS_CLIENT_KEY_SANDBOX
   };
 
-  // PERBAIKAN: Jika env variables tidak ada, gunakan hardcoded (untuk testing)
+  // Fallback jika env tidak ada
   if (!config.serverKey) {
-    console.warn('⚠️ MIDTRANS_SERVER_KEY_SANDBOX tidak ditemukan, menggunakan default');
-    config.serverKey = 'SB-Mid-server-BkKF6yfBZF3pjp7nNKLv94Cy';
+    config.serverKey = 'SB-Mid-server-SttJTyJGqTjOckPQhNZemu1Y';
   }
 
   if (!config.clientKey) {
-    console.warn('⚠️ MIDTRANS_CLIENT_KEY_SANDBOX tidak ditemukan, menggunakan default');
     config.clientKey = 'SB-Mid-client-FHBq0wtUSyCEStlH';
   }
 
   console.log('🔧 Midtrans Configuration:', {
-    environment: '🧪 SANDBOX',
+    environment: '🧪 SANDBOX (FORCED)', // Harus sandbox
+    isProduction: config.isProduction,
     serverKeyExists: !!config.serverKey,
     clientKeyExists: !!config.clientKey,
     serverKeyPrefix: config.serverKey ? config.serverKey.substring(0, 20) + '...' : '❌ NOT_SET',
