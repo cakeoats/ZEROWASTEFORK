@@ -8,19 +8,31 @@ const Order = require('../../models/order');
 // FIXED: Proper Midtrans configuration
 const getMidtransConfig = () => {
   console.log('🔧 Checking Midtrans configuration...');
-  
-  // Always use sandbox for development/testing
+
+  // PERBAIKAN: Gunakan environment variables dengan fallback yang benar
   const config = {
     isProduction: false,
-    serverKey: process.env.MIDTRANS_SERVER_KEY_SANDBOX || 'SB-Mid-server-BkKF6yfBZF3pjp7nNKLv94Cy',
-    clientKey: process.env.MIDTRANS_CLIENT_KEY_SANDBOX || 'SB-Mid-client-FHBq0wtUSyCEStlH'
+    serverKey: process.env.MIDTRANS_SERVER_KEY_SANDBOX,
+    clientKey: process.env.MIDTRANS_CLIENT_KEY_SANDBOX
   };
 
+  // PERBAIKAN: Jika env variables tidak ada, gunakan hardcoded (untuk testing)
+  if (!config.serverKey) {
+    console.warn('⚠️ MIDTRANS_SERVER_KEY_SANDBOX tidak ditemukan, menggunakan default');
+    config.serverKey = 'SB-Mid-server-BkKF6yfBZF3pjp7nNKLv94Cy';
+  }
+
+  if (!config.clientKey) {
+    console.warn('⚠️ MIDTRANS_CLIENT_KEY_SANDBOX tidak ditemukan, menggunakan default');
+    config.clientKey = 'SB-Mid-client-FHBq0wtUSyCEStlH';
+  }
+
   console.log('🔧 Midtrans Configuration:', {
-    environment: '🧪 SANDBOX (FIXED)',
+    environment: '🧪 SANDBOX',
     serverKeyExists: !!config.serverKey,
     clientKeyExists: !!config.clientKey,
-    serverKeyPrefix: config.serverKey ? config.serverKey.substring(0, 20) + '...' : '❌ NOT_SET'
+    serverKeyPrefix: config.serverKey ? config.serverKey.substring(0, 20) + '...' : '❌ NOT_SET',
+    clientKeyPrefix: config.clientKey ? config.clientKey.substring(0, 20) + '...' : '❌ NOT_SET'
   });
 
   return config;
@@ -35,7 +47,7 @@ exports.createTransaction = async (req, res) => {
 
     // Get and validate Midtrans config
     const midtransConfig = getMidtransConfig();
-    
+
     if (!midtransConfig.serverKey || !midtransConfig.clientKey) {
       console.error('❌ Midtrans credentials missing');
       return res.status(500).json({
@@ -66,7 +78,7 @@ exports.createTransaction = async (req, res) => {
     // Get product data
     console.log('🔍 Fetching product...');
     const product = await Product.findById(productId).populate('seller_id', 'username full_name email');
-    
+
     if (!product) {
       console.log('❌ Product not found:', productId);
       return res.status(404).json({
@@ -180,7 +192,7 @@ exports.createTransaction = async (req, res) => {
 
       // Better error messaging
       let userErrorMessage = 'Failed to create payment transaction';
-      
+
       if (midtransTransactionError.httpStatusCode === 401) {
         userErrorMessage = 'Payment gateway authentication failed';
       } else if (midtransTransactionError.httpStatusCode === 400) {
@@ -297,7 +309,7 @@ exports.createCartTransaction = async (req, res) => {
     // Fetch and validate all products
     console.log('🔍 Validating cart products...');
     const productIds = items.map(item => item.productId);
-    const products = await Product.find({ 
+    const products = await Product.find({
       _id: { $in: productIds },
       status: 'active'
     }).populate('seller_id', 'username full_name');
@@ -434,7 +446,7 @@ exports.handleNotification = async (req, res) => {
 
     // Verify notification
     const statusResponse = await apiClient.transaction.notification(notificationJson);
-    
+
     const orderId = statusResponse.order_id;
     const transactionStatus = statusResponse.transaction_status;
     const fraudStatus = statusResponse.fraud_status;
