@@ -1,34 +1,29 @@
-// frontend/src/config/api.js - FIXED API Configuration
+// frontend/src/config/api.js - COMPLETELY FIXED
+
+// Environment detection
 const isDevelopment = process.env.NODE_ENV === 'development';
+const isProduction = process.env.NODE_ENV === 'production';
 
-// FIXED: Better API URL detection
+// FIXED: Better API URL handling with fallbacks
 const getApiBaseUrl = () => {
-  // Development
-  if (isDevelopment) {
-    return process.env.REACT_APP_API_URL || 'http://localhost:5000';
+  // Check environment variables first
+  if (process.env.REACT_APP_API_URL) {
+    return process.env.REACT_APP_API_URL;
   }
-
-  // Production - try multiple backend URLs
-  const backendUrls = [
-    process.env.REACT_APP_API_URL,
-    'https://zerowaste-backend-theta.vercel.app',
-    'https://zerowastemarket-production.up.railway.app'
-  ].filter(Boolean);
-
-  // Return the first available URL
-  return backendUrls[0] || 'https://zerowaste-backend-theta.vercel.app';
+  
+  // Fallback URLs based on environment
+  if (isDevelopment) {
+    return 'http://localhost:5000';
+  }
+  
+  // Production fallbacks
+  return 'https://zerowaste-backend-theta.vercel.app';
 };
 
-const API_BASE_URL = getApiBaseUrl();
+export const API_BASE_URL = getApiBaseUrl();
 
-console.log('🔧 API Configuration:', {
-  environment: process.env.NODE_ENV,
-  baseUrl: API_BASE_URL,
-  isDevelopment
-});
-
-// FIXED: Enhanced API URL builder
-export const getApiUrl = (endpoint) => {
+// FIXED: Simple API URL builder
+export const getApiUrl = (endpoint = '') => {
   // Remove leading slash if present
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
   
@@ -37,28 +32,28 @@ export const getApiUrl = (endpoint) => {
   
   const fullUrl = `${cleanBaseUrl}/${cleanEndpoint}`;
   
-  // Debug logging in development
+  // Debug in development only
   if (isDevelopment) {
-    console.log('🔗 API URL:', fullUrl);
+    console.log('🔗 API URL built:', fullUrl);
   }
   
   return fullUrl;
 };
 
-// FIXED: Enhanced auth headers with better token handling
+// FIXED: Enhanced auth headers
 export const getAuthHeaders = () => {
   // Try multiple token storage locations
   let token = localStorage.getItem('token');
   
   if (!token) {
-    const userInfo = localStorage.getItem('userInfo');
-    if (userInfo) {
-      try {
+    try {
+      const userInfo = localStorage.getItem('userInfo');
+      if (userInfo) {
         const parsed = JSON.parse(userInfo);
         token = parsed.token;
-      } catch (e) {
-        console.error('Error parsing userInfo:', e);
       }
+    } catch (e) {
+      console.warn('Error parsing userInfo from localStorage:', e);
     }
   }
 
@@ -70,25 +65,43 @@ export const getAuthHeaders = () => {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  // Debug logging in development
-  if (isDevelopment) {
-    console.log('🔐 Auth headers:', {
-      hasToken: !!token,
-      tokenPrefix: token ? token.substring(0, 20) + '...' : 'none'
-    });
-  }
-
   return headers;
 };
 
-// FIXED: Enhanced image URL handling
+// FIXED: Form headers for file uploads
+export const getFormHeaders = () => {
+  let token = localStorage.getItem('token');
+  
+  if (!token) {
+    try {
+      const userInfo = localStorage.getItem('userInfo');
+      if (userInfo) {
+        const parsed = JSON.parse(userInfo);
+        token = parsed.token;
+      }
+    } catch (e) {
+      console.warn('Error parsing userInfo from localStorage:', e);
+    }
+  }
+
+  const headers = {};
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  
+  // Don't set Content-Type for FormData, let browser handle it
+  return headers;
+};
+
+// FIXED: Simplified image URL handling
 export const getImageUrl = (imagePath) => {
-  if (!imagePath) {
-    return 'https://via.placeholder.com/300?text=No+Image';
+  if (!imagePath || imagePath === null || imagePath === undefined || imagePath.trim() === '') {
+    return 'https://via.placeholder.com/400x400?text=No+Image';
   }
 
   // If it's already a full URL, return as is
-  if (imagePath.startsWith('http')) {
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
     return imagePath;
   }
 
@@ -99,132 +112,206 @@ export const getImageUrl = (imagePath) => {
   return `${cleanBaseUrl}/${cleanPath}`;
 };
 
-// FIXED: Product image URL with fallback
+// FIXED: Product image URL with better fallbacks
 export const getProductImageUrl = (product) => {
   if (!product) {
-    return 'https://via.placeholder.com/300?text=No+Product';
+    return 'https://via.placeholder.com/400x400?text=No+Product';
   }
 
-  // Check for direct imageUrl property
-  if (product.imageUrl) {
-    return product.imageUrl;
+  // Priority order: imageUrl > images[0] > image > placeholder
+  if (product.imageUrl && product.imageUrl.trim() !== '') {
+    return getImageUrl(product.imageUrl);
   }
 
-  // Check for images array
   if (product.images && Array.isArray(product.images) && product.images.length > 0) {
     const firstImage = product.images[0];
-    return getImageUrl(firstImage);
-  }
-
-  // Fallback
-  return 'https://via.placeholder.com/300?text=No+Image';
-};
-
-// FIXED: Midtrans configuration
-export const getMidtransConfig = () => {
-  const isProduction = process.env.REACT_APP_MIDTRANS_IS_PRODUCTION === 'true';
-  
-  return {
-    clientKey: isProduction 
-      ? process.env.REACT_APP_MIDTRANS_CLIENT_KEY_PRODUCTION
-      : process.env.REACT_APP_MIDTRANS_CLIENT_KEY_SANDBOX,
-    isProduction,
-    scriptUrl: isProduction
-      ? 'https://app.midtrans.com/snap/snap.js'
-      : 'https://app.sandbox.midtrans.com/snap/snap.js'
-  };
-};
-
-// FIXED: API request interceptor with retry logic
-export const apiRequest = async (url, options = {}) => {
-  const maxRetries = 3;
-  let lastError;
-
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      console.log(`🚀 API Request (attempt ${attempt}):`, url);
-
-      const response = await fetch(url, {
-        ...options,
-        headers: {
-          ...getAuthHeaders(),
-          ...options.headers
-        },
-        mode: 'cors',
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      console.log(`✅ API Response (attempt ${attempt}):`, data);
-      return data;
-
-    } catch (error) {
-      console.error(`❌ API Error (attempt ${attempt}):`, error);
-      lastError = error;
-
-      // Don't retry on authentication errors
-      if (error.message.includes('401') || error.message.includes('403')) {
-        throw error;
-      }
-
-      // Wait before retry (exponential backoff)
-      if (attempt < maxRetries) {
-        const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
-        console.log(`⏳ Retrying in ${delay}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
+    if (firstImage && firstImage.trim() !== '') {
+      return getImageUrl(firstImage);
     }
   }
 
-  throw lastError;
+  if (product.image && product.image.trim() !== '') {
+    return getImageUrl(product.image);
+  }
+
+  // Final fallback
+  return 'https://via.placeholder.com/400x400?text=No+Image';
 };
 
-// FIXED: Health check function
+// FIXED: Midtrans configuration with environment variables
+export const getMidtransConfig = () => {
+  // Check if we should use production
+  const useProduction = process.env.REACT_APP_MIDTRANS_IS_PRODUCTION === 'true';
+  
+  const config = {
+    clientKey: useProduction 
+      ? process.env.REACT_APP_MIDTRANS_CLIENT_KEY_PRODUCTION
+      : process.env.REACT_APP_MIDTRANS_CLIENT_KEY_SANDBOX,
+    isProduction: useProduction,
+    scriptUrl: useProduction
+      ? 'https://app.midtrans.com/snap/snap.js'
+      : 'https://app.sandbox.midtrans.com/snap/snap.js',
+    environment: useProduction ? 'PRODUCTION' : 'SANDBOX'
+  };
+
+  // Debug logging
+  if (isDevelopment) {
+    console.log('🔧 Midtrans Config:', {
+      environment: config.environment,
+      hasClientKey: !!config.clientKey,
+      clientKeyPrefix: config.clientKey ? config.clientKey.substring(0, 15) + '...' : 'NOT_SET'
+    });
+  }
+
+  return config;
+};
+
+// FIXED: Simple API request wrapper
+export const makeApiRequest = async (url, options = {}) => {
+  try {
+    const requestOptions = {
+      method: 'GET',
+      ...options,
+      headers: {
+        ...getAuthHeaders(),
+        ...options.headers
+      }
+    };
+
+    console.log(`🚀 Making API request to: ${url}`);
+    
+    const response = await fetch(url, requestOptions);
+    
+    if (!response.ok) {
+      let errorMessage;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || `HTTP ${response.status}: ${response.statusText}`;
+      } catch {
+        errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+      }
+      throw new Error(errorMessage);
+    }
+
+    const data = await response.json();
+    console.log(`✅ API request successful`);
+    return data;
+
+  } catch (error) {
+    console.error(`❌ API request failed:`, error);
+    throw error;
+  }
+};
+
+// FIXED: API health check
 export const checkApiHealth = async () => {
   try {
     const healthUrl = getApiUrl('health');
     const response = await fetch(healthUrl, {
       method: 'GET',
-      mode: 'cors',
       headers: {
         'Content-Type': 'application/json'
       }
     });
 
     if (!response.ok) {
-      throw new Error(`Health check failed: ${response.status}`);
+      throw new Error(`Health check failed with status: ${response.status}`);
     }
 
     const data = await response.json();
-    console.log('🏥 API Health Check:', data);
+    console.log('🏥 API Health Check passed:', data.status);
     return data;
 
   } catch (error) {
-    console.error('❌ API Health Check Failed:', error);
+    console.error('❌ API Health Check failed:', error.message);
     throw error;
   }
 };
 
-// Export configuration for debugging
-export const debugConfig = {
-  apiBaseUrl: API_BASE_URL,
-  environment: process.env.NODE_ENV,
-  isDevelopment,
-  envVars: {
-    REACT_APP_API_URL: process.env.REACT_APP_API_URL,
-    REACT_APP_MIDTRANS_IS_PRODUCTION: process.env.REACT_APP_MIDTRANS_IS_PRODUCTION
+// FIXED: Error handler
+export const handleApiError = (error) => {
+  let errorInfo = {
+    message: 'An error occurred',
+    status: 0,
+    category: 'unknown'
+  };
+
+  if (error.message.includes('401')) {
+    errorInfo = {
+      message: 'Authentication required. Please login again.',
+      status: 401,
+      category: 'auth'
+    };
+  } else if (error.message.includes('403')) {
+    errorInfo = {
+      message: 'Access denied. You do not have permission.',
+      status: 403,
+      category: 'permission'
+    };
+  } else if (error.message.includes('404')) {
+    errorInfo = {
+      message: 'Resource not found.',
+      status: 404,
+      category: 'not_found'
+    };
+  } else if (error.message.includes('500')) {
+    errorInfo = {
+      message: 'Server error. Please try again later.',
+      status: 500,
+      category: 'server'
+    };
+  } else if (error.message.includes('Network')) {
+    errorInfo = {
+      message: 'Network error. Please check your internet connection.',
+      status: 0,
+      category: 'network'
+    };
+  } else {
+    errorInfo = {
+      message: error.message || 'An unexpected error occurred',
+      status: -1,
+      category: 'unknown'
+    };
   }
+
+  console.error(`API Error (${errorInfo.category}):`, errorInfo.message);
+  return errorInfo;
 };
 
-// Auto-run health check in development
+// FIXED: Image validation
+export const validateImageUrl = (url) => {
+  return new Promise((resolve) => {
+    if (!url) {
+      resolve(false);
+      return;
+    }
+
+    const img = new Image();
+    const timeout = setTimeout(() => {
+      img.onload = img.onerror = null;
+      resolve(false);
+    }, 5000);
+
+    img.onload = () => {
+      clearTimeout(timeout);
+      resolve(true);
+    };
+
+    img.onerror = () => {
+      clearTimeout(timeout);
+      resolve(false);
+    };
+
+    img.src = url;
+  });
+};
+
+// Debug logging in development
 if (isDevelopment) {
-  setTimeout(() => {
-    checkApiHealth().catch(err => {
-      console.warn('🚨 API not reachable:', err.message);
-    });
-  }, 1000);
+  console.log('🔧 API Configuration loaded:', {
+    baseURL: API_BASE_URL,
+    environment: process.env.NODE_ENV,
+    isDevelopment,
+    isProduction
+  });
 }
