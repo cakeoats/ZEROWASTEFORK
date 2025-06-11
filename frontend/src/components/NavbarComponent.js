@@ -1,4 +1,4 @@
-// frontend/src/components/NavbarComponent.js - FIXED LOGOUT REDIRECT
+// frontend/src/components/NavbarComponent.js - FIXED CART INTEGRATION
 import React, { useState } from 'react';
 import {
     HiUser,
@@ -20,7 +20,7 @@ function NavbarComponent() {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [showLogoutModal, setShowLogoutModal] = useState(false);
     const { user, logout } = useAuth();
-    const { cartCount } = useCart();
+    const { cartCount, clearCartOnLogout } = useCart(); // FIXED: Get clearCartOnLogout
     const navigate = useNavigate();
     const { language } = useLanguage();
     const translate = useTranslate(language);
@@ -37,9 +37,15 @@ function NavbarComponent() {
         }
     }, []);
 
-    // FIXED: Logout handler dengan redirect ke landing page
+    // FIXED: Enhanced logout handler with cart clearing
     const handleLogout = () => {
-        console.log('🚪 User logging out...');
+        console.log('🚪 User logging out from navbar...');
+
+        // FIXED: Clear cart first, then auth data
+        if (clearCartOnLogout) {
+            clearCartOnLogout();
+            console.log('🛒 Cart cleared on logout');
+        }
 
         // Clear all auth data
         logout();
@@ -47,10 +53,22 @@ function NavbarComponent() {
         // Close modal
         setShowLogoutModal(false);
 
-        // FIXED: Redirect ke landing page bukan login
+        // FIXED: Redirect to landing page
         console.log('🏠 Redirecting to landing page after logout');
         navigate('/');
+
+        // FIXED: Force page reload to ensure all contexts are reset
+        setTimeout(() => {
+            window.location.reload();
+        }, 100);
     };
+
+    // FIXED: Debug cart count in development
+    React.useEffect(() => {
+        if (isDevelopment) {
+            console.log('🛒 Navbar - Cart count updated:', cartCount, 'for user:', user?.username || 'guest');
+        }
+    }, [cartCount, user]);
 
     return (
         <div className="w-full bg-gray-800 font-poppins">
@@ -65,8 +83,8 @@ function NavbarComponent() {
                             </h3>
                             <p className="mb-5 text-sm text-gray-500">
                                 {language === 'id'
-                                    ? 'Anda akan keluar dari akun dan kembali ke halaman utama.'
-                                    : 'You will be logged out and redirected to the home page.'}
+                                    ? 'Anda akan keluar dari akun dan keranjang akan dikosongkan.'
+                                    : 'You will be logged out and your cart will be cleared.'}
                             </p>
                             <div className="flex justify-center gap-4">
                                 <button
@@ -106,10 +124,15 @@ function NavbarComponent() {
                         {/* Language Switcher */}
                         <LanguageSwitcher />
 
-                        {/* Cart Button */}
-                        <Link to="/cart" className="p-2 rounded-full hover:bg-gray-700 transition-colors relative">
+                        {/* Cart Button - FIXED: Show count based on authenticated user */}
+                        <Link
+                            to="/cart"
+                            className="p-2 rounded-full hover:bg-gray-700 transition-colors relative"
+                            title={user ? `Cart (${cartCount} items)` : 'Login to view cart'}
+                        >
                             <HiOutlineShoppingCart className="h-5 w-5 text-white" />
-                            {cartCount > 0 && (
+                            {/* FIXED: Only show count if user is logged in and has items */}
+                            {user && cartCount > 0 && (
                                 <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
                                     {cartCount > 99 ? '99+' : cartCount}
                                 </span>
@@ -144,6 +167,12 @@ function NavbarComponent() {
                                                 className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-amber-50 transition-colors text-sm font-medium"
                                             >
                                                 {user.username}
+                                                {/* FIXED: Show cart info in dropdown */}
+                                                {cartCount > 0 && (
+                                                    <div className="text-xs text-gray-500 mt-1">
+                                                        🛒 {cartCount} {cartCount === 1 ? 'item' : 'items'} in cart
+                                                    </div>
+                                                )}
                                             </button>
                                             <div className="border-t border-gray-200 my-1"></div>
                                             <button
