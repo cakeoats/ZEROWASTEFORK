@@ -58,11 +58,8 @@ export const CartProvider = ({ children }) => {
         }
     };
 
-    // FIXED: Listen for user changes and switch cart accordingly
-    useEffect(() => {
-        // Get current user from localStorage
-        let userId = null;
-
+    // FIXED: Get current user ID helper function
+    const getCurrentUserId = () => {
         try {
             const token = localStorage.getItem('token');
             const userInfo = localStorage.getItem('userInfo');
@@ -70,46 +67,79 @@ export const CartProvider = ({ children }) => {
 
             if (token && userInfo) {
                 const parsed = JSON.parse(userInfo);
-                userId = parsed.user?.id || parsed.user?._id;
+                return parsed.user?.id || parsed.user?._id;
             } else if (user) {
                 const parsed = JSON.parse(user);
-                userId = parsed.id || parsed._id;
+                return parsed.id || parsed._id;
             }
         } catch (error) {
             console.error('❌ Error getting user info:', error);
         }
+        return null;
+    };
 
-        console.log('👤 Current user changed to:', userId);
+    // FIXED: Listen for user changes and switch cart accordingly
+    useEffect(() => {
+        const userId = getCurrentUserId();
+        console.log('👤 Initial user detection:', userId);
 
-        // If user changed, save current cart and load new user's cart
-        if (userId !== currentUserId) {
-            // Save current cart for previous user (if any)
-            if (currentUserId !== null && cartItems.length > 0) {
-                saveCartForUser(currentUserId, cartItems);
-            }
-
-            // Load cart for new user
-            setCurrentUserId(userId);
-            loadCartForUser(userId);
-        }
+        // Set initial user and load cart
+        setCurrentUserId(userId);
+        loadCartForUser(userId);
     }, []); // Run once on mount
 
-    // FIXED: Re-run when localStorage changes (user login/logout)
+    // FIXED: Watch for user changes in real-time
     useEffect(() => {
-        const handleStorageChange = (e) => {
-            if (e.key === 'token' || e.key === 'user' || e.key === 'userInfo') {
-                console.log('🔄 Auth storage changed, reloading cart...');
+        const handleUserChange = () => {
+            const userId = getCurrentUserId();
+            console.log('🔄 User change detected:', currentUserId, '->', userId);
 
-                // Small delay to ensure auth context updates first
-                setTimeout(() => {
-                    window.location.reload(); // Simple approach to ensure clean state
-                }, 100);
+            if (userId !== currentUserId) {
+                // Save current cart for previous user (if any)
+                if (currentUserId !== null && cartItems.length > 0) {
+                    console.log('💾 Saving cart for previous user:', currentUserId);
+                    saveCartForUser(currentUserId, cartItems);
+                }
+
+                // Load cart for new user
+                console.log('📂 Loading cart for new user:', userId);
+                setCurrentUserId(userId);
+                loadCartForUser(userId);
             }
         };
 
+        // Listen for storage events (login/logout from other tabs)
+        const handleStorageChange = (e) => {
+            if (e.key === 'token' || e.key === 'user' || e.key === 'userInfo') {
+                console.log('🔄 Storage event detected:', e.key);
+                handleUserChange();
+            }
+        };
+
+        // Listen for custom events (login/logout from same tab)
+        const handleCustomStorageEvent = () => {
+            console.log('🔄 Custom storage event detected');
+            handleUserChange();
+        };
+
         window.addEventListener('storage', handleStorageChange);
-        return () => window.removeEventListener('storage', handleStorageChange);
-    }, []);
+        window.addEventListener('storage', handleCustomStorageEvent);
+
+        // FIXED: Also check periodically for user changes
+        const userCheckInterval = setInterval(() => {
+            const userId = getCurrentUserId();
+            if (userId !== currentUserId) {
+                console.log('⏰ Periodic check - user changed:', currentUserId, '->', userId);
+                handleUserChange();
+            }
+        }, 1000); // Check every second
+
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+            window.removeEventListener('storage', handleCustomStorageEvent);
+            clearInterval(userCheckInterval);
+        };
+    }, [currentUserId, cartItems]); // Watch for currentUserId and cartItems changes
 
     // Update localStorage whenever cart changes for current user
     useEffect(() => {
@@ -124,11 +154,27 @@ export const CartProvider = ({ children }) => {
         setCartTotal(cartItems.reduce((total, item) => total + item.price, 0));
     }, [cartItems, currentUserId]);
 
-    // FIXED: Add item to cart with user validation
+    // FIXED: Add item to cart with enhanced user validation
     const addToCart = (product) => {
-        if (!currentUserId) {
+        const userId = getCurrentUserId(); // Get fresh user ID
+
+        console.log('🛒 Adding to cart:', {
+            productName: product.name,
+            currentUserId: currentUserId,
+            freshUserId: userId,
+            userLoggedIn: !!userId
+        });
+
+        if (!userId) {
             console.warn('⚠️ No user logged in, cannot add to cart');
+            alert('Please login to add items to cart');
             return false;
+        }
+
+        // Update currentUserId if it's different
+        if (userId !== currentUserId) {
+            console.log('🔄 Updating current user ID:', currentUserId, '->', userId);
+            setCurrentUserId(userId);
         }
 
         setCartItems(prevItems => {
@@ -138,40 +184,57 @@ export const CartProvider = ({ children }) => {
             if (existingItemIndex !== -1) {
                 // Item already exists - don't add duplicate, just return existing cart
                 console.log('📦 Product already in cart:', product.name);
+                alert('Product already in cart!');
                 return prevItems;
             } else {
                 // Item doesn't exist, add new item with quantity of 1
                 console.log('✅ Adding new product to cart:', product.name);
-                return [...prevItems, {
+                const newCart = [...prevItems, {
                     ...product,
                     quantity: 1 // Fixed quantity of 1
                 }];
+
+                // Save immediately to localStorage
+                saveCartForUser(userId, newCart);
+
+                return newCart;
             }
         });
 
         return true;
     };
 
-    // FIXED: Remove item from cart with user validation
+    // FIXED: Remove item from cart with enhanced user validation
     const removeFromCart = (productId) => {
-        if (!currentUserId) {
+        const userId = getCurrentUserId(); // Get fresh user ID
+
+        if (!userId) {
             console.warn('⚠️ No user logged in, cannot remove from cart');
             return;
         }
 
-        console.log('🗑️ Removing product from cart:', productId);
-        setCartItems(prevItems => prevItems.filter(item => item._id !== productId));
+        console.log('🗑️ Removing product from cart:', productId, 'for user:', userId);
+
+        setCartItems(prevItems => {
+            const newCart = prevItems.filter(item => item._id !== productId);
+            // Save immediately to localStorage
+            saveCartForUser(userId, newCart);
+            return newCart;
+        });
     };
 
-    // FIXED: Clear the entire cart with user validation
+    // FIXED: Clear the entire cart with enhanced user validation
     const clearCart = () => {
-        if (!currentUserId) {
+        const userId = getCurrentUserId(); // Get fresh user ID
+
+        if (!userId) {
             console.warn('⚠️ No user logged in, cannot clear cart');
             return;
         }
 
-        console.log('🧹 Clearing entire cart for user:', currentUserId);
+        console.log('🧹 Clearing entire cart for user:', userId);
         setCartItems([]);
+        saveCartForUser(userId, []);
     };
 
     // Check if item is in cart

@@ -14,19 +14,26 @@ export const AuthProvider = ({ children }) => {
     setUser(userData);
     setToken(token);
 
-    // FIXED: Trigger storage event for cart context to detect user change
-    window.dispatchEvent(new Event('storage'));
+    // FIXED: Trigger multiple events to ensure cart context detects user change
+    setTimeout(() => {
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: 'user',
+        newValue: JSON.stringify(userData),
+        storageArea: localStorage
+      }));
+
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: 'token',
+        newValue: token,
+        storageArea: localStorage
+      }));
+    }, 100);
   };
 
   const logout = () => {
     console.log('🚪 User logging out');
 
-    // FIXED: Clear all auth-related storage
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
-    localStorage.removeItem('userInfo');
-
-    // FIXED: Clear user-specific cart
+    // FIXED: Clear user-specific cart first
     try {
       const userId = user?.id || user?._id;
       if (userId) {
@@ -38,11 +45,28 @@ export const AuthProvider = ({ children }) => {
       console.error('❌ Error clearing user cart:', error);
     }
 
+    // FIXED: Clear all auth-related storage
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    localStorage.removeItem('userInfo');
+
     setUser(null);
     setToken(null);
 
-    // FIXED: Trigger storage event for cart context to detect logout
-    window.dispatchEvent(new Event('storage'));
+    // FIXED: Trigger multiple events to ensure cart context detects logout
+    setTimeout(() => {
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: 'user',
+        newValue: null,
+        storageArea: localStorage
+      }));
+
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: 'token',
+        newValue: null,
+        storageArea: localStorage
+      }));
+    }, 100);
 
     console.log('✅ Logout completed, all data cleared');
   };
