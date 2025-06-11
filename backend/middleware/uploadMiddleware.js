@@ -1,4 +1,4 @@
-// backend/middleware/uploadMiddleware.js - UPDATED untuk profile picture
+// backend/middleware/uploadMiddleware.js - FIXED UPLOAD HANDLER
 const multer = require('multer');
 const path = require('path');
 
@@ -163,7 +163,7 @@ const logUploadDetails = (req, res, next) => {
   next();
 };
 
-// Create different upload handlers
+// FIXED: Create different upload handlers with proper middleware structure
 const createUploadMiddleware = (fieldName, maxCount = 1) => {
   console.log('🔧 Creating upload middleware for field:', fieldName, 'maxCount:', maxCount);
 
@@ -171,25 +171,50 @@ const createUploadMiddleware = (fieldName, maxCount = 1) => {
     // Single file upload (for profile pictures)
     return [
       logUploadDetails,
-      upload.single(fieldName),
-      handleUploadError
+      (req, res, next) => {
+        const handler = upload.single(fieldName);
+        handler(req, res, (err) => {
+          if (err) {
+            handleUploadError(err, req, res, next);
+          } else {
+            next();
+          }
+        });
+      }
     ];
   } else {
     // Multiple file upload (for products)
     return [
       logUploadDetails,
-      upload.array(fieldName, maxCount),
-      handleUploadError
+      (req, res, next) => {
+        const handler = upload.array(fieldName, maxCount);
+        handler(req, res, (err) => {
+          if (err) {
+            handleUploadError(err, req, res, next);
+          } else {
+            next();
+          }
+        });
+      }
     ];
   }
 };
 
-// Specific middleware for different use cases
+// FIXED: Specific middleware for different use cases
 const uploadProfilePicture = createUploadMiddleware('profilePicture', 1);
 const uploadProductImages = createUploadMiddleware('images', 5);
 
-// Legacy support - single file upload
-const uploadImages = upload.array('images', 5);
+// FIXED: Legacy support with proper error handling
+const uploadImages = (req, res, next) => {
+  const handler = upload.array('images', 5);
+  handler(req, res, (err) => {
+    if (err) {
+      handleUploadError(err, req, res, next);
+    } else {
+      next();
+    }
+  });
+};
 
 // Validation middleware for profile picture
 const validateProfilePicture = (req, res, next) => {
@@ -213,9 +238,6 @@ const validateProfilePicture = (req, res, next) => {
       message: 'Profile picture size must be less than 5MB'
     });
   }
-
-  // Check image dimensions (optional)
-  // This would require image processing library like sharp
 
   console.log('✅ Profile picture validation passed');
   next();

@@ -1,4 +1,4 @@
-// backend/route/productRoutes.js - FIXED FOR CATEGORY STATS
+// backend/route/productRoutes.js - FIXED UPLOAD MIDDLEWARE INTEGRATION
 const express = require('express');
 const router = express.Router();
 
@@ -36,7 +36,8 @@ try {
     console.error('❌ Failed to import upload middleware:', err.message);
     uploadMiddleware = {
         uploadImages: (req, res, next) => res.status(500).json({ message: 'Upload middleware not available' }),
-        createUploadMiddleware: () => (req, res, next) => res.status(500).json({ message: 'Upload middleware not available' })
+        createUploadMiddleware: () => [(req, res, next) => res.status(500).json({ message: 'Upload middleware not available' })],
+        uploadProductImages: [(req, res, next) => res.status(500).json({ message: 'Upload middleware not available' })]
     };
 }
 
@@ -60,7 +61,7 @@ const {
 
 const { protect = (req, res, next) => res.status(500).json({ message: 'Auth not available' }) } = authMiddleware;
 
-// Enhanced upload middleware with Supabase integration
+// FIXED: Enhanced upload middleware with better error handling
 const handleProductUpload = (req, res, next) => {
     console.log('🔄 Processing product upload/update request...');
     console.log('📊 Request details:', {
@@ -68,99 +69,102 @@ const handleProductUpload = (req, res, next) => {
         url: req.url,
         contentType: req.get('Content-Type'),
         contentLength: req.get('Content-Length'),
-        userAgent: req.get('User-Agent')
+        userAgent: req.get('User-Agent')?.substring(0, 50)
     });
 
+    // FIXED: Try multiple approaches to get the upload handler
     let uploadHandler;
 
     try {
-        if (uploadMiddleware.createUploadMiddleware) {
-            uploadHandler = uploadMiddleware.createUploadMiddleware('images', 5);
-        } else if (uploadMiddleware.uploadImages) {
-            uploadHandler = uploadMiddleware.uploadImages;
-        } else {
-            uploadHandler = uploadMiddleware.array ? uploadMiddleware.array('images', 5) : uploadMiddleware;
-        }
-
-        if (typeof uploadHandler !== 'function') {
-            throw new Error('Upload handler is not a function');
-        }
-
-        uploadHandler(req, res, (err) => {
-            if (err) {
-                console.error('❌ Upload processing error:', err);
-
-                const errorResponse = {
-                    success: false,
-                    message: 'File upload error',
-                    timestamp: new Date().toISOString()
-                };
-
-                switch (err.code) {
-                    case 'LIMIT_FILE_SIZE':
-                        errorResponse.message = 'File too large. Maximum size is 10MB per file.';
-                        errorResponse.code = 'FILE_TOO_LARGE';
-                        return res.status(400).json(errorResponse);
-
-                    case 'LIMIT_FILE_COUNT':
-                        errorResponse.message = 'Too many files. Maximum 5 files allowed.';
-                        errorResponse.code = 'TOO_MANY_FILES';
-                        return res.status(400).json(errorResponse);
-
-                    case 'INVALID_FILE_TYPE':
-                    case 'UNSUPPORTED_FORMAT':
-                        errorResponse.message = err.message || 'Invalid file type. Only images allowed.';
-                        errorResponse.code = err.code || 'INVALID_FILE_TYPE';
-                        return res.status(400).json(errorResponse);
-
-                    case 'LIMIT_UNEXPECTED_FILE':
-                        errorResponse.message = 'Unexpected field name. Use "images" for file uploads.';
-                        errorResponse.code = 'UNEXPECTED_FIELD';
-                        return res.status(400).json(errorResponse);
-
-                    default:
-                        errorResponse.message = err.message || 'Unknown upload error';
-                        errorResponse.code = err.code || 'UPLOAD_ERROR';
-                        console.error('💥 Unhandled upload error:', err);
-                        return res.status(500).json(errorResponse);
+        // Approach 1: Use uploadProductImages if available
+        if (uploadMiddleware.uploadProductImages && Array.isArray(uploadMiddleware.uploadProductImages)) {
+            console.log('🔧 Using uploadProductImages middleware array');
+            
+            // Apply each middleware in sequence
+            let currentIndex = 0;
+            const applyNext = () => {
+                if (currentIndex >= uploadMiddleware.uploadProductImages.length) {
+                    return next();
                 }
-            }
-
-            // Success logging
-            if (req.files && req.files.length > 0) {
-                console.log(`✅ Successfully processed ${req.files.length} files`);
-
-                req.files.forEach((file, index) => {
-                    console.log(`   📄 File ${index + 1}:`, {
-                        name: file.originalname,
-                        size: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
-                        type: file.mimetype
-                    });
-                });
-
-                req.uploadMetadata = {
-                    fileCount: req.files.length,
-                    totalSize: req.files.reduce((sum, file) => sum + file.size, 0),
-                    avgFileSize: req.files.reduce((sum, file) => sum + file.size, 0) / req.files.length,
-                    fileTypes: [...new Set(req.files.map(file => file.mimetype))],
-                    uploadTimestamp: Date.now()
+                
+                const middleware = uploadMiddleware.uploadProductImages[currentIndex++];
+                if (typeof middleware === 'function') {
+                    middleware(req, res, applyNext);
+                } else {
+                    console.error('❌ Invalid middleware at index:', currentIndex - 1);
+                    applyNext();
+                }
+            };
+            
+            return applyNext();
+        }
+        
+        // Approach 2: Use createUploadMiddleware factory
+        if (uploadMiddleware.createUploadMiddleware && typeof uploadMiddleware.createUploadMiddleware === 'function') {
+            console.log('🔧 Using createUploadMiddleware factory');
+            const middlewareArray = uploadMiddleware.createUploadMiddleware('images', 5);
+            
+            if (Array.isArray(middlewareArray)) {
+                let currentIndex = 0;
+                const applyNext = () => {
+                    if (currentIndex >= middlewareArray.length) {
+                        return next();
+                    }
+                    
+                    const middleware = middlewareArray[currentIndex++];
+                    if (typeof middleware === 'function') {
+                        middleware(req, res, applyNext);
+                    } else {
+                        console.error('❌ Invalid middleware at index:', currentIndex - 1);
+                        applyNext();
+                    }
                 };
-
-                console.log('📈 Upload metadata:', req.uploadMetadata);
-            } else {
-                console.log('ℹ️ No files uploaded in this request (might be form data only)');
+                
+                return applyNext();
             }
+        }
 
-            console.log('✅ Upload middleware completed, proceeding to controller...');
-            next();
-        });
+        // Approach 3: Use legacy uploadImages
+        if (uploadMiddleware.uploadImages && typeof uploadMiddleware.uploadImages === 'function') {
+            console.log('🔧 Using legacy uploadImages middleware');
+            return uploadMiddleware.uploadImages(req, res, next);
+        }
+
+        // Approach 4: Direct multer usage if upload instance available
+        if (uploadMiddleware.upload) {
+            console.log('🔧 Using direct multer instance');
+            const multerHandler = uploadMiddleware.upload.array('images', 5);
+            
+            return multerHandler(req, res, (err) => {
+                if (err) {
+                    console.error('❌ Multer error:', err);
+                    return uploadMiddleware.handleUploadError ? 
+                        uploadMiddleware.handleUploadError(err, req, res, next) :
+                        res.status(400).json({
+                            success: false,
+                            message: 'File upload error',
+                            error: err.message
+                        });
+                }
+                next();
+            });
+        }
+
+        // If none of the above work, throw error
+        throw new Error('No suitable upload handler found');
 
     } catch (middlewareError) {
         console.error('💥 Upload middleware setup error:', middlewareError);
         return res.status(500).json({
             success: false,
             message: 'Upload middleware configuration error',
-            error: process.env.NODE_ENV === 'development' ? middlewareError.message : 'Internal server error'
+            error: process.env.NODE_ENV === 'development' ? middlewareError.message : 'Internal server error',
+            availableMethods: {
+                uploadProductImages: !!uploadMiddleware.uploadProductImages,
+                createUploadMiddleware: typeof uploadMiddleware.createUploadMiddleware === 'function',
+                uploadImages: typeof uploadMiddleware.uploadImages === 'function',
+                upload: !!uploadMiddleware.upload
+            }
         });
     }
 };
@@ -382,159 +386,13 @@ router.get('/category-stats', asyncHandler(async (req, res) => {
     }
 }));
 
-// ALTERNATIVE: Detailed category stats with more information
-router.get('/category-stats-detailed', asyncHandler(async (req, res) => {
-    try {
-        console.log('📊 Fetching detailed category statistics...');
-
-        if (!Product) {
-            return res.status(500).json({
-                success: false,
-                message: 'Product model not available'
-            });
-        }
-
-        // More detailed aggregation with additional statistics
-        const categoryStats = await Product.aggregate([
-            {
-                $match: {
-                    status: { $ne: 'deleted' },
-                    isVisible: { $ne: false },
-                    deletedAt: { $exists: false }
-                }
-            },
-            {
-                $group: {
-                    _id: '$category',
-                    count: { $sum: 1 },
-                    averagePrice: { $avg: '$price' },
-                    minPrice: { $min: '$price' },
-                    maxPrice: { $max: '$price' },
-                    newItems: {
-                        $sum: {
-                            $cond: [{ $eq: ['$condition', 'new'] }, 1, 0]
-                        }
-                    },
-                    usedItems: {
-                        $sum: {
-                            $cond: [{ $eq: ['$condition', 'used'] }, 1, 0]
-                        }
-                    },
-                    sellItems: {
-                        $sum: {
-                            $cond: [{ $eq: ['$tipe', 'Sell'] }, 1, 0]
-                        }
-                    },
-                    donationItems: {
-                        $sum: {
-                            $cond: [{ $eq: ['$tipe', 'Donation'] }, 1, 0]
-                        }
-                    },
-                    swapItems: {
-                        $sum: {
-                            $cond: [{ $eq: ['$tipe', 'Swap'] }, 1, 0]
-                        }
-                    }
-                }
-            },
-            {
-                $sort: { count: -1 } // Sort by count descending
-            }
-        ]);
-
-        console.log('✅ Detailed category statistics retrieved:', categoryStats);
-
-        // Calculate total statistics
-        const totalStats = {
-            totalProducts: categoryStats.reduce((total, stat) => total + stat.count, 0),
-            totalCategories: categoryStats.length,
-            totalNewItems: categoryStats.reduce((total, stat) => total + stat.newItems, 0),
-            totalUsedItems: categoryStats.reduce((total, stat) => total + stat.usedItems, 0),
-            totalSellItems: categoryStats.reduce((total, stat) => total + stat.sellItems, 0),
-            totalDonationItems: categoryStats.reduce((total, stat) => total + stat.donationItems, 0),
-            totalSwapItems: categoryStats.reduce((total, stat) => total + stat.swapItems, 0)
-        };
-
-        res.json({
-            success: true,
-            stats: categoryStats,
-            totals: totalStats,
-            timestamp: new Date().toISOString()
-        });
-
-    } catch (error) {
-        console.error('❌ Error fetching detailed category statistics:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to fetch detailed category statistics',
-            error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-        });
-    }
-}));
-
-// SIMPLE VERSION: For frontend that just needs basic counts
-router.get('/category-stats-simple', asyncHandler(async (req, res) => {
-    try {
-        console.log('📊 Fetching simple category statistics...');
-
-        if (!Product) {
-            return res.status(500).json({
-                success: false,
-                message: 'Product model not available'
-            });
-        }
-
-        // Simple aggregation for frontend display
-        const stats = await Product.aggregate([
-            {
-                $match: {
-                    status: { $ne: 'deleted' },
-                    isVisible: { $ne: false },
-                    deletedAt: { $exists: false }
-                }
-            },
-            {
-                $group: {
-                    _id: '$category',
-                    count: { $sum: 1 }
-                }
-            },
-            {
-                $sort: { _id: 1 }
-            }
-        ]);
-
-        // Format for frontend consumption
-        const formattedStats = stats.map(stat => ({
-            category: stat._id,
-            count: stat.count
-        }));
-
-        console.log('✅ Simple category statistics retrieved:', formattedStats);
-
-        res.json({
-            success: true,
-            stats: formattedStats,
-            timestamp: new Date().toISOString()
-        });
-
-    } catch (error) {
-        console.error('❌ Error fetching simple category statistics:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to fetch category statistics',
-            error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-        });
-    }
-}));
-
 // Routes definition with comprehensive middleware stack
 
 // POST /api/products/upload - Create new product
 router.post('/upload',
     logRequest,
     protect,
-    handleProductUpload,
+    handleProductUpload, // FIXED upload middleware
     validateProductData,
     asyncHandler(uploadProduct)
 );
@@ -555,7 +413,7 @@ router.get('/',
 router.put('/:id',
     logRequest,
     protect,
-    handleProductUpload,
+    handleProductUpload, // FIXED upload middleware
     validateProductUpdateData, // Use update-specific validation
     asyncHandler(updateProduct)
 );
@@ -580,6 +438,12 @@ router.get('/health/check', (req, res) => {
             controller: !!productController,
             editSupport: true,
             categoryStats: !!Product
+        },
+        uploadMiddleware: {
+            uploadProductImages: !!uploadMiddleware.uploadProductImages,
+            createUploadMiddleware: typeof uploadMiddleware.createUploadMiddleware === 'function',
+            uploadImages: typeof uploadMiddleware.uploadImages === 'function',
+            upload: !!uploadMiddleware.upload
         }
     });
 });
@@ -593,8 +457,6 @@ router.use('*', (req, res) => {
         method: req.method,
         availableEndpoints: [
             'GET /api/products/category-stats',
-            'GET /api/products/category-stats-detailed',
-            'GET /api/products/category-stats-simple',
             'POST /api/products/upload',
             'GET /api/products/:id',
             'GET /api/products',
@@ -660,6 +522,6 @@ router.use((error, req, res, next) => {
     });
 });
 
-console.log('📋 Product routes (with FIXED Category Stats) configured successfully');
+console.log('📋 Product routes (with FIXED Upload Middleware) configured successfully');
 
 module.exports = router;
