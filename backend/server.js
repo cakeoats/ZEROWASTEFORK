@@ -1,10 +1,9 @@
-// backend/server.js - UPDATED dengan Order Routes
+// backend/server.js - FIXED CORS Configuration
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
-// Import connection function
 const connectDB = require('./config/db');
 
 // Import routes
@@ -23,7 +22,6 @@ try {
   console.log('✅ Order routes imported successfully');
 } catch (err) {
   console.error('❌ Failed to import order routes:', err.message);
-  // Create fallback router
   orderRoutes = express.Router();
   orderRoutes.use('*', (req, res) => {
     res.status(500).json({
@@ -36,33 +34,94 @@ try {
 
 const app = express();
 
-// Allowed origins
+// FIXED: Enhanced CORS configuration with proper domain handling
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
   'https://zerowaste-frontend-eosin.vercel.app',
   'https://zerowaste-backend-theta.vercel.app',
+  'https://zerowastermarket.web.id',
+  'https://www.zerowastermarket.web.id',
+  'https://zerowastermarket.web.id/',
   'https://www.zerowastermarket.web.id/',
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
-// CORS configuration
+console.log('🔧 Allowed CORS origins:', allowedOrigins);
+
+// FIXED: More permissive CORS configuration
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin) || origin.match(/^http:\/\/localhost:\d+$/)) {
-      callback(null, true);
-    } else {
-      callback(null, false);
+    console.log('🌐 CORS request from origin:', origin);
+    
+    // Allow requests with no origin (mobile apps, etc.)
+    if (!origin) {
+      console.log('✅ Allowing request with no origin');
+      return callback(null, true);
     }
+    
+    // Check if origin is in allowed list
+    if (allowedOrigins.includes(origin)) {
+      console.log('✅ Origin allowed:', origin);
+      return callback(null, true);
+    }
+    
+    // Check for localhost with any port
+    if (origin.match(/^http:\/\/localhost:\d+$/)) {
+      console.log('✅ Localhost origin allowed:', origin);
+      return callback(null, true);
+    }
+    
+    // Check for zerowastermarket.web.id variations
+    if (origin.includes('zerowastermarket.web.id')) {
+      console.log('✅ ZeroWasterMarket domain allowed:', origin);
+      return callback(null, true);
+    }
+    
+    // For development, be more permissive
+    if (process.env.NODE_ENV === 'development') {
+      console.log('✅ Development mode - allowing origin:', origin);
+      return callback(null, true);
+    }
+    
+    console.log('❌ Origin not allowed:', origin);
+    callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization'],
+  allowedHeaders: [
+    'Origin', 
+    'X-Requested-With', 
+    'Content-Type', 
+    'Accept', 
+    'Authorization',
+    'Cache-Control',
+    'Pragma',
+    'Expires'
+  ],
+  exposedHeaders: ['Content-Length', 'X-Foo', 'X-Bar'],
+  optionsSuccessStatus: 200 // For legacy browser support
 }));
+
+// FIXED: Add preflight OPTIONS handler
+app.options('*', (req, res) => {
+  console.log('🔧 Handling OPTIONS preflight for:', req.path);
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS,PATCH');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.sendStatus(200);
+});
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// FIXED: Request logging middleware
+app.use((req, res, next) => {
+  console.log(`📝 ${req.method} ${req.path} from ${req.headers.origin || 'unknown origin'}`);
+  next();
+});
 
 // Initialize database connection for serverless
 let isConnected = false;
@@ -95,7 +154,7 @@ app.use(async (req, res, next) => {
   }
 });
 
-// Health check endpoint
+// FIXED: Enhanced health check endpoint
 app.get('/health', async (req, res) => {
   try {
     const mongoose = require('mongoose');
@@ -109,10 +168,15 @@ app.get('/health', async (req, res) => {
         connected: dbStatus === 1,
         readyState: dbStatus
       },
+      cors: {
+        allowedOrigins: allowedOrigins,
+        currentOrigin: req.headers.origin
+      },
       features: {
         orders: !!orderRoutes,
         payments: !!paymentRoutes,
-        products: !!productRoutes
+        products: !!productRoutes,
+        wishlist: !!wishlistRoutes
       }
     });
   } catch (error) {
@@ -131,6 +195,7 @@ app.get('/', (req, res) => {
     version: '1.0.0',
     timestamp: new Date().toISOString(),
     status: 'running',
+    origin: req.headers.origin,
     features: [
       'Authentication',
       'User Management',
@@ -144,7 +209,7 @@ app.get('/', (req, res) => {
   });
 });
 
-// API Routes
+// API Routes with enhanced error handling
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/products', productRoutes);
@@ -152,9 +217,9 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/wishlist', wishlistRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/payment', paymentRoutes);
-app.use('/api/orders', orderRoutes); // NEW: Order routes
+app.use('/api/orders', orderRoutes);
 
-// Static files serving (simplified for Vercel)
+// Static files serving
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // API endpoint listing
@@ -162,6 +227,7 @@ app.get('/api', (req, res) => {
   res.json({
     message: 'ZeroWasteMarket API Endpoints',
     version: '1.0.0',
+    origin: req.headers.origin,
     endpoints: {
       auth: '/api/auth',
       users: '/api/users',
@@ -176,13 +242,18 @@ app.get('/api', (req, res) => {
   });
 });
 
-// 404 handler
+// FIXED: Enhanced 404 handler with CORS headers
 app.use('/api/*', (req, res) => {
+  // Ensure CORS headers are set for 404 responses
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
   res.status(404).json({
     success: false,
     message: 'API endpoint not found',
     path: req.path,
     method: req.method,
+    origin: req.headers.origin,
     availableEndpoints: [
       '/api/auth',
       '/api/users',
@@ -196,9 +267,19 @@ app.use('/api/*', (req, res) => {
   });
 });
 
-// Global error handler
+// FIXED: Global error handler with CORS headers
 app.use((err, req, res, next) => {
   console.error('🚨 Server Error:', err.message);
+  console.error('🔍 Error details:', {
+    path: req.path,
+    method: req.method,
+    origin: req.headers.origin,
+    userAgent: req.headers['user-agent']
+  });
+
+  // Ensure CORS headers are set for error responses
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Credentials', 'true');
 
   // Handle specific error types
   if (err.name === 'ValidationError') {

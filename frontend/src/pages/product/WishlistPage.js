@@ -1,13 +1,14 @@
+// frontend/src/pages/product/WishlistPage.js - FIXED with Enhanced Error Handling
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { HiOutlineHeart, HiOutlineEye, HiTrash, HiOutlineShoppingCart } from 'react-icons/hi';
+import { HiOutlineHeart, HiOutlineEye, HiTrash, HiOutlineShoppingCart, HiExclamationTriangle } from 'react-icons/hi';
 import NavbarComponent from '../../components/NavbarComponent';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useTranslate } from '../../utils/languageUtils';
 import axios from 'axios';
 import Footer from '../../components/Footer';
-import { getApiUrl, getImageUrl, getAuthHeaders } from '../../config/api';
+import { getApiUrl, getImageUrl, getAuthHeaders, apiRequest, checkApiHealth } from '../../config/api';
 
 const WishlistPage = () => {
     const navigate = useNavigate();
@@ -17,6 +18,8 @@ const WishlistPage = () => {
     const [wishlistItems, setWishlistItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [apiHealth, setApiHealth] = useState(null);
+    const [retryCount, setRetryCount] = useState(0);
 
     // Redirect if not logged in
     useEffect(() => {
@@ -25,32 +28,97 @@ const WishlistPage = () => {
         }
     }, [token, navigate]);
 
-    // Fetch wishlist items
+    // Check API health first
+    useEffect(() => {
+        const checkHealth = async () => {
+            try {
+                const health = await checkApiHealth();
+                setApiHealth(health);
+                console.log('🏥 API Health Check Success:', health);
+            } catch (err) {
+                console.error('🚨 API Health Check Failed:', err);
+                setApiHealth({ status: 'ERROR', error: err.message });
+            }
+        };
+
+        checkHealth();
+    }, []);
+
+    // FIXED: Enhanced wishlist fetching with retry logic
     useEffect(() => {
         const fetchWishlist = async () => {
             if (!token) return;
 
             setLoading(true);
-            try {
-                const response = await axios.get(getApiUrl('api/wishlist'), {
-                    headers: getAuthHeaders()
-                });
-                setWishlistItems(response.data);
-            } catch (err) {
-                console.error('Error fetching wishlist:', err);
-                setError('Failed to load your wishlist. Please try again.');
-            } finally {
-                setLoading(false);
+            setError(null);
+
+            const maxRetries = 3;
+            
+            for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                try {
+                    console.log(`🔄 Fetching wishlist (attempt ${attempt}/${maxRetries})...`);
+                    
+                    // Method 1: Using custom apiRequest with retry logic
+                    const wishlistUrl = getApiUrl('api/wishlist');
+                    const data = await apiRequest(wishlistUrl, {
+                        method: 'GET',
+                        headers: getAuthHeaders()
+                    });
+
+                    console.log('✅ Wishlist data received:', data);
+                    setWishlistItems(data || []);
+                    setLoading(false);
+                    return; // Success, exit retry loop
+
+                } catch (err) {
+                    console.error(`❌ Wishlist fetch attempt ${attempt} failed:`, err);
+                    
+                    // If this is the last attempt, set error
+                    if (attempt === maxRetries) {
+                        let errorMessage = 'Failed to load your wishlist.';
+                        
+                        if (err.message.includes('CORS')) {
+                            errorMessage = 'Connection blocked by browser. Please check if the website is properly configured.';
+                        } else if (err.message.includes('401')) {
+                            errorMessage = 'Your session has expired. Please login again.';
+                            // Redirect to login after showing error
+                            setTimeout(() => {
+                                navigate('/login', { state: { from: '/wishlist' } });
+                            }, 3000);
+                        } else if (err.message.includes('Network')) {
+                            errorMessage = 'Network error. Please check your internet connection and try again.';
+                        } else if (err.message.includes('500')) {
+                            errorMessage = 'Server error. Please try again later.';
+                        }
+                        
+                        setError(errorMessage);
+                        setLoading(false);
+                    } else {
+                        // Wait before next attempt
+                        const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+                        console.log(`⏳ Waiting ${delay}ms before retry...`);
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    }
+                }
             }
         };
 
-        fetchWishlist();
-    }, [token]);
+        if (apiHealth && apiHealth.status === 'OK') {
+            fetchWishlist();
+        } else if (apiHealth && apiHealth.status === 'ERROR') {
+            setError('API server is not responding. Please try again later.');
+            setLoading(false);
+        }
+    }, [token, apiHealth, retryCount]);
 
-    // Remove item from wishlist
+    // FIXED: Enhanced remove from wishlist with better error handling
     const removeFromWishlist = async (productId) => {
         try {
-            await axios.delete(getApiUrl(`api/wishlist/${productId}`), {
+            console.log('🗑️ Removing from wishlist:', productId);
+
+            const removeUrl = getApiUrl(`api/wishlist/${productId}`);
+            await apiRequest(removeUrl, {
+                method: 'DELETE',
                 headers: getAuthHeaders()
             });
 
@@ -59,10 +127,30 @@ const WishlistPage = () => {
                 item.product_id && item.product_id._id ?
                     item.product_id._id !== productId : true
             ));
+
+            console.log('✅ Item removed from wishlist');
+
         } catch (err) {
-            console.error('Error removing from wishlist:', err);
-            setError('Failed to remove item from wishlist.');
+            console.error('❌ Error removing from wishlist:', err);
+            
+            let errorMessage = 'Failed to remove item from wishlist.';
+            if (err.message.includes('401')) {
+                errorMessage = 'Session expired. Please login again.';
+            } else if (err.message.includes('404')) {
+                errorMessage = 'Item not found in wishlist.';
+            }
+            
+            setError(errorMessage);
+            
+            // Auto-clear error after 5 seconds
+            setTimeout(() => setError(null), 5000);
         }
+    };
+
+    // Retry function
+    const handleRetry = () => {
+        setRetryCount(prev => prev + 1);
+        setError(null);
     };
 
     // Helper to format price
@@ -105,21 +193,52 @@ const WishlistPage = () => {
                 <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
                     <h1 className="text-2xl font-bold text-gray-800 mb-2">{translate('wishlist.title')}</h1>
                     <p className="text-gray-600">{translate('wishlist.subtitle')}</p>
+                    
+                    {/* API Health Status (only show if there are issues) */}
+                    {apiHealth && apiHealth.status === 'ERROR' && (
+                        <div className="mt-4 p-3 bg-red-50 border-l-4 border-red-500 text-red-700">
+                            <div className="flex items-center">
+                                <HiExclamationTriangle className="h-5 w-5 mr-2" />
+                                <span className="text-sm">
+                                    API connection issue: {apiHealth.error}
+                                </span>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
-                {/* Error message */}
+                {/* Error message with retry option */}
                 {error && (
                     <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-6">
-                        <p>{error}</p>
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center">
+                                <HiExclamationTriangle className="h-5 w-5 mr-2" />
+                                <p>{error}</p>
+                            </div>
+                            <button
+                                onClick={handleRetry}
+                                className="ml-4 px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded text-sm"
+                            >
+                                Retry
+                            </button>
+                        </div>
                     </div>
                 )}
 
                 {/* Loading state */}
                 {loading ? (
                     <div className="flex justify-center items-center py-12">
-                        <div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+                        <div className="text-center">
+                            <div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                            <p className="text-gray-600">
+                                {language === 'id' ? 'Memuat wishlist...' : 'Loading wishlist...'}
+                            </p>
+                            <p className="text-sm text-gray-500 mt-2">
+                                Attempt {retryCount + 1}
+                            </p>
+                        </div>
                     </div>
-                ) : wishlistItems.length === 0 ? (
+                ) : wishlistItems.length === 0 && !error ? (
                     // Empty wishlist state
                     <div className="bg-white rounded-lg shadow-sm p-8 text-center">
                         <div className="inline-flex justify-center items-center w-20 h-20 bg-gray-100 rounded-full mb-4">
@@ -157,7 +276,7 @@ const WishlistPage = () => {
                                         {/* Remove button */}
                                         <button
                                             onClick={() => removeFromWishlist(item.product_id._id)}
-                                            className="absolute top-2 right-2 p-1.5 bg-white rounded-full text-gray-400 hover:text-red-500 transition-colors"
+                                            className="absolute top-2 right-2 p-1.5 bg-white rounded-full text-gray-400 hover:text-red-500 transition-colors shadow-sm"
                                         >
                                             <HiTrash className="w-5 h-5" />
                                         </button>
@@ -201,6 +320,21 @@ const WishlistPage = () => {
                                 </div>
                             );
                         })}
+                    </div>
+                )}
+
+                {/* Debug info for development */}
+                {process.env.NODE_ENV === 'development' && (
+                    <div className="mt-8 p-4 bg-gray-100 rounded-lg text-sm">
+                        <h3 className="font-bold mb-2">Debug Information:</h3>
+                        <div className="space-y-1">
+                            <div>API Health: {apiHealth?.status || 'Unknown'}</div>
+                            <div>Token: {token ? 'Present' : 'Missing'}</div>
+                            <div>User: {user?.username || 'Unknown'}</div>
+                            <div>Wishlist Items: {wishlistItems.length}</div>
+                            <div>Retry Count: {retryCount}</div>
+                            <div>Error: {error || 'None'}</div>
+                        </div>
                     </div>
                 )}
             </div>
