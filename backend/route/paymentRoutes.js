@@ -1,4 +1,4 @@
-// backend/route/paymentRoutes.js - UPDATED dengan verification endpoint
+// backend/route/paymentRoutes.js - FIXED WITH TRANSACTION STATUS ENDPOINT
 const express = require('express');
 const router = express.Router();
 
@@ -9,48 +9,33 @@ try {
   console.log('✅ Payment controller imported successfully');
 } catch (err) {
   console.error('❌ Failed to import payment controller:', err.message);
-  try {
-    // Try alternative path if the first one fails
-    paymentController = require('../controller/paymentController');
-    console.log('✅ Payment controller imported from alternative path');
-  } catch (err2) {
-    console.error('❌ Failed to import payment controller from both paths:', err2.message);
-    // Create fallback controller
-    paymentController = {
-      createTransaction: (req, res) => {
-        console.error('❌ Payment controller not properly configured');
-        res.status(500).json({
-          success: false,
-          message: 'Payment controller not available',
-          error: 'Controller import failed'
-        });
-      },
-      createCartTransaction: (req, res) => {
-        console.error('❌ Cart payment controller not properly configured');
-        res.status(500).json({
-          success: false,
-          message: 'Cart payment controller not available',
-          error: 'Controller import failed'
-        });
-      },
-      handleNotification: (req, res) => {
-        console.error('❌ Notification handler not properly configured');
-        res.status(500).json({
-          success: false,
-          message: 'Notification handler not available',
-          error: 'Controller import failed'
-        });
-      },
-      verifyConfiguration: (req, res) => {
-        console.error('❌ Verification handler not properly configured');
-        res.status(500).json({
-          success: false,
-          message: 'Verification handler not available',
-          error: 'Controller import failed'
-        });
-      }
-    };
-  }
+  // Create fallback controller
+  paymentController = {
+    createTransaction: (req, res) => {
+      console.error('❌ Payment controller not properly configured');
+      res.status(500).json({
+        success: false,
+        message: 'Payment controller not available',
+        error: 'Controller import failed'
+      });
+    },
+    handleNotification: (req, res) => {
+      console.error('❌ Notification handler not properly configured');
+      res.status(500).json({
+        success: false,
+        message: 'Notification handler not available',
+        error: 'Controller import failed'
+      });
+    },
+    verifyConfiguration: (req, res) => {
+      console.error('❌ Verification handler not properly configured');
+      res.status(500).json({
+        success: false,
+        message: 'Verification handler not available',
+        error: 'Controller import failed'
+      });
+    }
+  };
 }
 
 // Import auth middleware dengan error handling
@@ -60,15 +45,8 @@ try {
   console.log('✅ Auth middleware imported successfully');
 } catch (err) {
   console.error('❌ Failed to import auth middleware:', err.message);
-  // Create fallback middleware
   authMiddleware = {
     protect: (req, res, next) => {
-      res.status(500).json({
-        success: false,
-        message: 'Authentication middleware not available'
-      });
-    },
-    authenticateToken: (req, res, next) => {
       res.status(500).json({
         success: false,
         message: 'Authentication middleware not available'
@@ -77,36 +55,43 @@ try {
   };
 }
 
-// Use the appropriate auth function (try both common names)
+// Import Order model for transaction status checking
+let Order;
+try {
+  Order = require('../models/order');
+  console.log('✅ Order model imported successfully');
+} catch (err) {
+  console.error('❌ Failed to import Order model:', err.message);
+  Order = null;
+}
+
 const authenticate = authMiddleware.protect || authMiddleware.authenticateToken || authMiddleware.auth;
 
 // Middleware untuk logging requests
 const logRequest = (req, res, next) => {
   console.log(`🔔 Payment API: ${req.method} ${req.originalUrl}`);
-  console.log('📦 Body:', JSON.stringify(req.body, null, 2));
+  console.log('📦 Body size:', JSON.stringify(req.body).length, 'characters');
   console.log('🔐 Auth Header:', req.headers.authorization ? 'Present' : 'Missing');
   next();
 };
 
 // Middleware untuk validasi environment variables
 const validateEnv = (req, res, next) => {
-  const required = ['MIDTRANS_SERVER_KEY_PRODUCTION', 'MIDTRANS_CLIENT_KEY_PRODUCTION'];
+  const required = ['MIDTRANS_SERVER_KEY_SANDBOX', 'MIDTRANS_CLIENT_KEY_SANDBOX'];
   const missing = required.filter(key => !process.env[key]);
 
-  if (missing.length > 0 && process.env.MIDTRANS_IS_PRODUCTION === 'true') {
-    console.error('❌ Missing production environment variables:', missing);
+  if (missing.length > 0) {
+    console.error('❌ Missing sandbox environment variables:', missing);
     return res.status(500).json({
       success: false,
       message: 'Payment gateway configuration error',
-      error: `Missing production keys: ${missing.join(', ')}`
+      error: `Missing sandbox keys: ${missing.join(', ')}`
     });
   }
 
   console.log('✅ Environment variables validated');
   next();
 };
-
-// Routes with comprehensive error handling
 
 // POST /api/payment/create-transaction - Single product payment
 router.post('/create-transaction',
@@ -143,68 +128,6 @@ router.post('/create-transaction',
   }
 );
 
-// POST /api/payment/create-cart-transaction - Cart/multiple items payment
-router.post('/create-cart-transaction',
-  logRequest,
-  validateEnv,
-  authenticate,
-  async (req, res) => {
-    try {
-      console.log('🛒 Creating cart transaction...');
-      console.log('👤 Authenticated user:', req.user ? req.user._id : 'No user');
-
-      if (!req.user) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required'
-        });
-      }
-
-      // Check if createCartTransaction function exists
-      if (typeof paymentController.createCartTransaction === 'function') {
-        await paymentController.createCartTransaction(req, res);
-      } else {
-        // Fallback: handle cart as single transaction for now
-        console.log('⚠️ createCartTransaction not available, using fallback...');
-
-        const { items } = req.body;
-
-        if (!items || !Array.isArray(items) || items.length === 0) {
-          return res.status(400).json({
-            success: false,
-            message: 'Cart items required'
-          });
-        }
-
-        // For now, process first item only (temporary solution)
-        const firstItem = items[0];
-        req.body.productId = firstItem.productId;
-        req.body.quantity = firstItem.quantity || 1;
-
-        console.log('📦 Processing cart with single item fallback:', {
-          productId: firstItem.productId,
-          quantity: firstItem.quantity
-        });
-
-        await paymentController.createTransaction(req, res);
-      }
-    } catch (error) {
-      console.error('💥 Error in create-cart-transaction route:', error);
-
-      if (!res.headersSent) {
-        res.status(500).json({
-          success: false,
-          message: 'Internal server error in cart payment processing',
-          error: process.env.NODE_ENV === 'development' ? {
-            message: error.message,
-            stack: error.stack
-          } : 'Cart payment processing failed'
-        });
-      }
-    }
-  }
-);
-
 // POST /api/payment/notification - Midtrans webhook (no auth needed)
 router.post('/notification',
   logRequest,
@@ -227,35 +150,115 @@ router.post('/notification',
   }
 );
 
-// GET /api/payment/config/verify - NEW: Configuration verification endpoint
+// FIXED: GET /api/payment/transaction-status/:transactionId - Check transaction status
+router.get('/transaction-status/:transactionId',
+  logRequest,
+  authenticate,
+  async (req, res) => {
+    try {
+      const { transactionId } = req.params;
+      const userId = req.user._id;
+
+      console.log('🔍 Checking transaction status:', transactionId, 'for user:', userId);
+
+      if (!transactionId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Transaction ID is required'
+        });
+      }
+
+      if (!Order) {
+        return res.status(500).json({
+          success: false,
+          message: 'Order model not available'
+        });
+      }
+
+      // Find order in database and verify ownership
+      const order = await Order.findOne({ 
+        transactionId,
+        buyer: userId 
+      })
+        .populate('product', 'name price images')
+        .populate('products.product', 'name price images')
+        .lean();
+
+      if (!order) {
+        console.log('❌ Transaction not found or access denied:', transactionId);
+        return res.status(404).json({
+          success: false,
+          message: 'Transaction not found'
+        });
+      }
+
+      console.log('✅ Transaction found:', {
+        orderId: transactionId,
+        status: order.status,
+        isCartOrder: order.isCartOrder,
+        totalAmount: order.totalAmount
+      });
+
+      // Prepare response data
+      const responseData = {
+        success: true,
+        transaction: {
+          orderId: transactionId,
+          status: order.status,
+          isCartOrder: order.isCartOrder || false,
+          totalAmount: order.totalAmount,
+          createdAt: order.createdAt,
+          updatedAt: order.updatedAt,
+          paymentMethod: order.paymentMethod || 'midtrans',
+          midtransData: order.midtransData || {},
+          items: order.isCartOrder && order.products 
+            ? order.products.map(item => ({
+                product: item.product,
+                quantity: item.quantity,
+                price: item.price
+              }))
+            : order.product 
+              ? [{
+                  product: order.product,
+                  quantity: order.quantity || 1,
+                  price: order.totalAmount
+                }]
+              : []
+        }
+      };
+
+      res.json(responseData);
+
+    } catch (error) {
+      console.error('💥 Transaction status check error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to check transaction status',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
+    }
+  }
+);
+
+// GET /api/payment/config/verify - Configuration verification endpoint
 router.get('/config/verify', async (req, res) => {
   try {
     console.log('🔍 Configuration verification requested');
 
-    // Check if verifyConfiguration function exists
     if (typeof paymentController.verifyConfiguration === 'function') {
       await paymentController.verifyConfiguration(req, res);
     } else {
       // Fallback verification
-      console.log('⚠️ verifyConfiguration not available, using fallback...');
-
-      const isProduction = process.env.MIDTRANS_IS_PRODUCTION === 'true';
-
       const config = {
-        environment: isProduction ? 'PRODUCTION' : 'SANDBOX',
-        merchantId: process.env.MIDTRANS_MERCHANT_ID || 'NOT_SET',
-        hasServerKey: isProduction
-          ? !!process.env.MIDTRANS_SERVER_KEY_PRODUCTION
-          : !!process.env.MIDTRANS_SERVER_KEY_SANDBOX,
-        hasClientKey: isProduction
-          ? !!process.env.MIDTRANS_CLIENT_KEY_PRODUCTION
-          : !!process.env.MIDTRANS_CLIENT_KEY_SANDBOX,
-        serverKeyPrefix: isProduction
-          ? (process.env.MIDTRANS_SERVER_KEY_PRODUCTION ? process.env.MIDTRANS_SERVER_KEY_PRODUCTION.substring(0, 15) + '...' : 'NOT_SET')
-          : (process.env.MIDTRANS_SERVER_KEY_SANDBOX ? process.env.MIDTRANS_SERVER_KEY_SANDBOX.substring(0, 15) + '...' : 'NOT_SET'),
-        clientKeyPrefix: isProduction
-          ? (process.env.MIDTRANS_CLIENT_KEY_PRODUCTION ? process.env.MIDTRANS_CLIENT_KEY_PRODUCTION.substring(0, 15) + '...' : 'NOT_SET')
-          : (process.env.MIDTRANS_CLIENT_KEY_SANDBOX ? process.env.MIDTRANS_CLIENT_KEY_SANDBOX.substring(0, 15) + '...' : 'NOT_SET'),
+        environment: 'SANDBOX', // Always sandbox for now
+        hasServerKey: !!process.env.MIDTRANS_SERVER_KEY_SANDBOX,
+        hasClientKey: !!process.env.MIDTRANS_CLIENT_KEY_SANDBOX,
+        serverKeyPrefix: process.env.MIDTRANS_SERVER_KEY_SANDBOX 
+          ? process.env.MIDTRANS_SERVER_KEY_SANDBOX.substring(0, 15) + '...' 
+          : 'NOT_SET',
+        clientKeyPrefix: process.env.MIDTRANS_CLIENT_KEY_SANDBOX 
+          ? process.env.MIDTRANS_CLIENT_KEY_SANDBOX.substring(0, 15) + '...' 
+          : 'NOT_SET',
         nodeEnv: process.env.NODE_ENV,
         timestamp: new Date().toISOString()
       };
@@ -289,8 +292,14 @@ router.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     environment: {
       nodeEnv: process.env.NODE_ENV,
-      midtransConfigured: !!(process.env.MIDTRANS_SERVER_KEY_PRODUCTION && process.env.MIDTRANS_CLIENT_KEY_PRODUCTION),
-      isProduction: process.env.MIDTRANS_IS_PRODUCTION === 'true'
+      midtransConfigured: !!(process.env.MIDTRANS_SERVER_KEY_SANDBOX && process.env.MIDTRANS_CLIENT_KEY_SANDBOX),
+      orderModelAvailable: !!Order
+    },
+    features: {
+      createTransaction: !!paymentController.createTransaction,
+      handleNotification: !!paymentController.handleNotification,
+      checkTransactionStatus: !!Order,
+      configVerification: true
     }
   };
 
@@ -300,14 +309,10 @@ router.get('/health', (req, res) => {
 // GET /api/payment/config - Get client configuration for frontend
 router.get('/config', (req, res) => {
   try {
-    const isProduction = process.env.MIDTRANS_IS_PRODUCTION === 'true';
-
     const config = {
-      clientKey: isProduction
-        ? process.env.MIDTRANS_CLIENT_KEY_PRODUCTION
-        : process.env.MIDTRANS_CLIENT_KEY_SANDBOX,
-      isProduction: isProduction,
-      environment: isProduction ? 'PRODUCTION' : 'SANDBOX'
+      clientKey: process.env.MIDTRANS_CLIENT_KEY_SANDBOX,
+      isProduction: false, // Always sandbox for now
+      environment: 'SANDBOX'
     };
 
     if (!config.clientKey) {
@@ -340,8 +345,8 @@ router.use('*', (req, res) => {
     method: req.method,
     availableEndpoints: [
       'POST /api/payment/create-transaction',
-      'POST /api/payment/create-cart-transaction',
       'POST /api/payment/notification',
+      'GET /api/payment/transaction-status/:transactionId',
       'GET /api/payment/config/verify',
       'GET /api/payment/health',
       'GET /api/payment/config'
@@ -376,12 +381,11 @@ router.use((error, req, res, next) => {
     });
   }
 
-  // Handle file upload errors
-  if (error.code && error.code.startsWith('LIMIT_')) {
-    return res.status(400).json({
+  // Handle authentication errors
+  if (error.message && error.message.includes('jwt')) {
+    return res.status(401).json({
       success: false,
-      message: 'File upload error',
-      error: error.message
+      message: 'Authentication failed'
     });
   }
 
@@ -393,6 +397,6 @@ router.use((error, req, res, next) => {
   });
 });
 
-console.log('📋 Payment routes configured successfully with verification endpoint');
+console.log('📋 Payment routes configured successfully with transaction status endpoint');
 
 module.exports = router;
