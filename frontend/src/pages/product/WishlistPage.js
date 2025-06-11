@@ -1,4 +1,4 @@
-// frontend/src/pages/product/WishlistPage.js - COMPLETE FULL VERSION
+// frontend/src/pages/product/WishlistPage.js - WITHOUT STATISTICS SECTION
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
@@ -6,7 +6,7 @@ import {
   HiOutlineEye, 
   HiTrash, 
   HiOutlineShoppingCart, 
-  HiExclamation // FIXED: Use HiExclamation instead of HiExclamationTriangle
+  HiExclamation
 } from 'react-icons/hi';
 import NavbarComponent from '../../components/NavbarComponent';
 import { useAuth } from '../../contexts/AuthContext';
@@ -50,7 +50,7 @@ const WishlistPage = () => {
         checkHealth();
     }, []);
 
-    // FIXED: Enhanced wishlist fetching with retry logic
+    // Enhanced wishlist fetching with retry logic
     useEffect(() => {
         const fetchWishlist = async () => {
             if (!token) return;
@@ -64,7 +64,6 @@ const WishlistPage = () => {
                 try {
                     console.log(`🔄 Fetching wishlist (attempt ${attempt}/${maxRetries})...`);
                     
-                    // FIXED: Use direct axios instead of apiRequest for better compatibility
                     const response = await axios.get(getApiUrl('api/wishlist'), {
                         headers: getAuthHeaders(),
                         timeout: 15000
@@ -86,7 +85,6 @@ const WishlistPage = () => {
                             errorMessage = 'Request timeout. Please check your connection.';
                         } else if (err.response?.status === 401) {
                             errorMessage = 'Your session has expired. Please login again.';
-                            // Redirect to login after showing error
                             setTimeout(() => {
                                 navigate('/login', { state: { from: '/wishlist' } });
                             }, 3000);
@@ -118,7 +116,7 @@ const WishlistPage = () => {
         }
     }, [token, apiHealth, retryCount, navigate]);
 
-    // FIXED: Enhanced remove from wishlist with better error handling
+    // Enhanced remove from wishlist with better error handling
     const removeFromWishlist = async (productId) => {
         try {
             console.log('🗑️ Removing from wishlist:', productId);
@@ -128,7 +126,7 @@ const WishlistPage = () => {
                 timeout: 10000
             });
 
-            // Update local state - Fixed to safely check if product_id exists and has _id
+            // Update local state
             setWishlistItems(wishlistItems.filter(item =>
                 item.product_id && item.product_id._id ?
                     item.product_id._id !== productId : true
@@ -388,56 +386,19 @@ const WishlistPage = () => {
                     </div>
                 )}
 
-                {/* Statistics - Show if wishlist has items */}
+                {/* Quick action buttons - Show if wishlist has items */}
                 {!loading && wishlistItems.length > 0 && (
                     <div className="mt-8 bg-white rounded-lg shadow-sm p-6">
-                        <h3 className="text-lg font-medium text-gray-800 mb-4">
-                            {language === 'id' ? 'Statistik Wishlist' : 'Wishlist Statistics'}
-                        </h3>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                            <div className="bg-gray-50 rounded-lg p-4">
-                                <div className="text-2xl font-bold text-amber-600">{wishlistItems.length}</div>
-                                <div className="text-sm text-gray-600">
-                                    {language === 'id' ? 'Total Item' : 'Total Items'}
-                                </div>
-                            </div>
-                            <div className="bg-gray-50 rounded-lg p-4">
-                                <div className="text-2xl font-bold text-green-600">
-                                    {wishlistItems.filter(item => item.product_id?.tipe === 'Sell').length}
-                                </div>
-                                <div className="text-sm text-gray-600">
-                                    {language === 'id' ? 'Untuk Dijual' : 'For Sale'}
-                                </div>
-                            </div>
-                            <div className="bg-gray-50 rounded-lg p-4">
-                                <div className="text-2xl font-bold text-purple-600">
-                                    {wishlistItems.filter(item => item.product_id?.tipe === 'Donation').length}
-                                </div>
-                                <div className="text-sm text-gray-600">
-                                    {language === 'id' ? 'Donasi' : 'Donations'}
-                                </div>
-                            </div>
-                            <div className="bg-gray-50 rounded-lg p-4">
-                                <div className="text-2xl font-bold text-blue-600">
-                                    {wishlistItems.filter(item => item.product_id?.tipe === 'Swap').length}
-                                </div>
-                                <div className="text-sm text-gray-600">
-                                    {language === 'id' ? 'Tukar' : 'Swaps'}
-                                </div>
-                            </div>
-                        </div>
-                        
-                        {/* Quick actions */}
-                        <div className="mt-6 flex flex-wrap gap-4">
+                        <div className="flex flex-wrap gap-4 justify-center">
                             <Link
                                 to="/product-list"
-                                className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg transition-colors"
+                                className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-lg transition-colors font-medium"
                             >
                                 {language === 'id' ? 'Jelajahi Produk Lainnya' : 'Explore More Products'}
                             </Link>
                             <Link
                                 to="/upload-product"
-                                className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors"
+                                className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg transition-colors font-medium"
                             >
                                 {language === 'id' ? 'Upload Produk' : 'Upload Product'}
                             </Link>
