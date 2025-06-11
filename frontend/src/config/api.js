@@ -1,4 +1,4 @@
-// frontend/src/config/api.js - COMPLETELY FIXED
+// frontend/src/config/api.js - COMPLETELY FIXED with proper exports
 
 // Environment detection
 const isDevelopment = process.env.NODE_ENV === 'development';
@@ -21,6 +21,9 @@ const getApiBaseUrl = () => {
 };
 
 export const API_BASE_URL = getApiBaseUrl();
+
+// FIXED: Export environment detection variables
+export { isDevelopment, isProduction };
 
 // FIXED: Simple API URL builder
 export const getApiUrl = (endpoint = '') => {
@@ -166,8 +169,8 @@ export const getMidtransConfig = () => {
   return config;
 };
 
-// FIXED: Simple API request wrapper
-export const makeApiRequest = async (url, options = {}) => {
+// FIXED: Simple API request wrapper with proper error handling
+export const apiRequest = async (url, options = {}) => {
   try {
     const requestOptions = {
       method: 'GET',
@@ -178,7 +181,9 @@ export const makeApiRequest = async (url, options = {}) => {
       }
     };
 
-    console.log(`🚀 Making API request to: ${url}`);
+    if (isDevelopment) {
+      console.log(`🚀 Making API request to: ${url}`);
+    }
     
     const response = await fetch(url, requestOptions);
     
@@ -194,7 +199,9 @@ export const makeApiRequest = async (url, options = {}) => {
     }
 
     const data = await response.json();
-    console.log(`✅ API request successful`);
+    if (isDevelopment) {
+      console.log(`✅ API request successful`);
+    }
     return data;
 
   } catch (error) {
@@ -202,6 +209,9 @@ export const makeApiRequest = async (url, options = {}) => {
     throw error;
   }
 };
+
+// Legacy alias for backward compatibility
+export const makeApiRequest = apiRequest;
 
 // FIXED: API health check
 export const checkApiHealth = async () => {
@@ -219,7 +229,9 @@ export const checkApiHealth = async () => {
     }
 
     const data = await response.json();
-    console.log('🏥 API Health Check passed:', data.status);
+    if (isDevelopment) {
+      console.log('🏥 API Health Check passed:', data.status);
+    }
     return data;
 
   } catch (error) {
