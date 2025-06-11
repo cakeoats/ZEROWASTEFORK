@@ -356,9 +356,6 @@ const MidtransPayment = () => {
               </Button>
 
               <div className="text-right">
-                <div className="text-sm text-gray-500 mb-2">
-                  Snap Script: {snapScriptLoaded ? '✅ Ready' : '⏳ Loading...'}
-                </div>
                 <Button
                   color="warning"
                   onClick={handlePayment}
