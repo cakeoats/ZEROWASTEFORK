@@ -1,4 +1,4 @@
-// backend/route/paymentRoutes.js - FIXED WITH TRANSACTION STATUS ENDPOINT
+// backend/route/paymentRoutes.js - FIXED WITH CART TRANSACTION ENDPOINT
 const express = require('express');
 const router = express.Router();
 
@@ -16,6 +16,14 @@ try {
       res.status(500).json({
         success: false,
         message: 'Payment controller not available',
+        error: 'Controller import failed'
+      });
+    },
+    createCartTransaction: (req, res) => {
+      console.error('❌ Cart payment controller not properly configured');
+      res.status(500).json({
+        success: false,
+        message: 'Cart payment controller not available',
         error: 'Controller import failed'
       });
     },
@@ -128,6 +136,48 @@ router.post('/create-transaction',
   }
 );
 
+// 🆕 POST /api/payment/create-cart-transaction - Cart payment (MISSING ENDPOINT!)
+router.post('/create-cart-transaction',
+  logRequest,
+  validateEnv,
+  authenticate,
+  async (req, res) => {
+    try {
+      console.log('🛒 Creating cart transaction...');
+      console.log('👤 Authenticated user:', req.user ? req.user._id : 'No user');
+      console.log('📦 Cart items:', req.body.items?.length || 0);
+
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required'
+        });
+      }
+
+      // Check if createCartTransaction exists, if not use createTransaction with cart logic
+      if (typeof paymentController.createCartTransaction === 'function') {
+        await paymentController.createCartTransaction(req, res);
+      } else {
+        console.log('⚠️ createCartTransaction not found, using createTransaction as fallback');
+        await paymentController.createTransaction(req, res);
+      }
+    } catch (error) {
+      console.error('💥 Error in create-cart-transaction route:', error);
+
+      if (!res.headersSent) {
+        res.status(500).json({
+          success: false,
+          message: 'Internal server error in cart payment processing',
+          error: process.env.NODE_ENV === 'development' ? {
+            message: error.message,
+            stack: error.stack
+          } : 'Cart payment processing failed'
+        });
+      }
+    }
+  }
+);
+
 // POST /api/payment/notification - Midtrans webhook (no auth needed)
 router.post('/notification',
   logRequest,
@@ -150,7 +200,7 @@ router.post('/notification',
   }
 );
 
-// FIXED: GET /api/payment/transaction-status/:transactionId - Check transaction status
+// GET /api/payment/transaction-status/:transactionId - Check transaction status
 router.get('/transaction-status/:transactionId',
   logRequest,
   authenticate,
@@ -176,9 +226,9 @@ router.get('/transaction-status/:transactionId',
       }
 
       // Find order in database and verify ownership
-      const order = await Order.findOne({ 
+      const order = await Order.findOne({
         transactionId,
-        buyer: userId 
+        buyer: userId
       })
         .populate('product', 'name price images')
         .populate('products.product', 'name price images')
@@ -211,18 +261,18 @@ router.get('/transaction-status/:transactionId',
           updatedAt: order.updatedAt,
           paymentMethod: order.paymentMethod || 'midtrans',
           midtransData: order.midtransData || {},
-          items: order.isCartOrder && order.products 
+          items: order.isCartOrder && order.products
             ? order.products.map(item => ({
-                product: item.product,
-                quantity: item.quantity,
-                price: item.price
-              }))
-            : order.product 
+              product: item.product,
+              quantity: item.quantity,
+              price: item.price
+            }))
+            : order.product
               ? [{
-                  product: order.product,
-                  quantity: order.quantity || 1,
-                  price: order.totalAmount
-                }]
+                product: order.product,
+                quantity: order.quantity || 1,
+                price: order.totalAmount
+              }]
               : []
         }
       };
@@ -253,11 +303,11 @@ router.get('/config/verify', async (req, res) => {
         environment: 'SANDBOX', // Always sandbox for now
         hasServerKey: !!process.env.MIDTRANS_SERVER_KEY_SANDBOX,
         hasClientKey: !!process.env.MIDTRANS_CLIENT_KEY_SANDBOX,
-        serverKeyPrefix: process.env.MIDTRANS_SERVER_KEY_SANDBOX 
-          ? process.env.MIDTRANS_SERVER_KEY_SANDBOX.substring(0, 15) + '...' 
+        serverKeyPrefix: process.env.MIDTRANS_SERVER_KEY_SANDBOX
+          ? process.env.MIDTRANS_SERVER_KEY_SANDBOX.substring(0, 15) + '...'
           : 'NOT_SET',
-        clientKeyPrefix: process.env.MIDTRANS_CLIENT_KEY_SANDBOX 
-          ? process.env.MIDTRANS_CLIENT_KEY_SANDBOX.substring(0, 15) + '...' 
+        clientKeyPrefix: process.env.MIDTRANS_CLIENT_KEY_SANDBOX
+          ? process.env.MIDTRANS_CLIENT_KEY_SANDBOX.substring(0, 15) + '...'
           : 'NOT_SET',
         nodeEnv: process.env.NODE_ENV,
         timestamp: new Date().toISOString()
@@ -297,6 +347,7 @@ router.get('/health', (req, res) => {
     },
     features: {
       createTransaction: !!paymentController.createTransaction,
+      createCartTransaction: !!paymentController.createCartTransaction,
       handleNotification: !!paymentController.handleNotification,
       checkTransactionStatus: !!Order,
       configVerification: true
@@ -345,6 +396,7 @@ router.use('*', (req, res) => {
     method: req.method,
     availableEndpoints: [
       'POST /api/payment/create-transaction',
+      'POST /api/payment/create-cart-transaction', // 🆕 Added missing endpoint
       'POST /api/payment/notification',
       'GET /api/payment/transaction-status/:transactionId',
       'GET /api/payment/config/verify',
@@ -397,6 +449,6 @@ router.use((error, req, res, next) => {
   });
 });
 
-console.log('📋 Payment routes configured successfully with transaction status endpoint');
+console.log('📋 Payment routes configured successfully with cart transaction endpoint');
 
 module.exports = router;
