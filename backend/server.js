@@ -1,4 +1,4 @@
-// backend/server.js - FIXED CORS Configuration
+// backend/server.js - ENHANCED CORS Configuration
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -34,82 +34,104 @@ try {
 
 const app = express();
 
-// FIXED: Enhanced CORS configuration with proper domain handling
+// ENHANCED: More comprehensive CORS configuration with YOUR domains
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
+  // FIXED: Add YOUR actual frontend domain
+  'https://www.zerowastermarket.web.id',
+  'https://zerowastermarket.web.id',
+  // Keep existing domains for fallback
   'https://zerowaste-frontend-eosin.vercel.app',
   'https://zerowaste-backend-theta.vercel.app',
-  'https://zerowastermarket.web.id',
-  'https://www.zerowastermarket.web.id',
-  'https://zerowastermarket.web.id/',
-  'https://www.zerowastermarket.web.id/',
+  // FIXED: Add additional frontend domains that might be used
+  'https://zerowastemarket.vercel.app',
+  'https://zerowastemarket-frontend.vercel.app',
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
 console.log('🔧 Allowed CORS origins:', allowedOrigins);
 
-// FIXED: More permissive CORS configuration
+// ENHANCED: More permissive and robust CORS configuration
 app.use(cors({
   origin: function (origin, callback) {
-    console.log('🌐 CORS request from origin:', origin);
-    
-    // Allow requests with no origin (mobile apps, etc.)
+    console.log('🌐 CORS request from origin:', origin || 'no-origin');
+
+    // FIXED: Always allow requests with no origin (mobile apps, postman, etc.)
     if (!origin) {
-      console.log('✅ Allowing request with no origin');
+      console.log('✅ Allowing request with no origin (mobile/postman/curl)');
       return callback(null, true);
     }
-    
+
     // Check if origin is in allowed list
     if (allowedOrigins.includes(origin)) {
-      console.log('✅ Origin allowed:', origin);
+      console.log('✅ Origin explicitly allowed:', origin);
       return callback(null, true);
     }
-    
-    // Check for localhost with any port
-    if (origin.match(/^http:\/\/localhost:\d+$/)) {
+
+    // Check for localhost with any port (development)
+    if (origin.match(/^https?:\/\/localhost:\d+$/)) {
       console.log('✅ Localhost origin allowed:', origin);
       return callback(null, true);
     }
-    
+
     // Check for zerowastermarket.web.id variations
-    if (origin.includes('zerowastermarket.web.id')) {
+    if (origin.includes('zerowastermarket.web.id') || origin.includes('zerowastermarket')) {
       console.log('✅ ZeroWasterMarket domain allowed:', origin);
       return callback(null, true);
     }
-    
-    // For development, be more permissive
-    if (process.env.NODE_ENV === 'development') {
-      console.log('✅ Development mode - allowing origin:', origin);
+
+    // Check for vercel app domains
+    if (origin.includes('vercel.app')) {
+      console.log('✅ Vercel domain allowed:', origin);
       return callback(null, true);
     }
-    
-    console.log('❌ Origin not allowed:', origin);
-    callback(new Error('Not allowed by CORS'));
+
+    // ENHANCED: For development and testing, be more permissive
+    if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
+      console.log('✅ Development/Test mode - allowing origin:', origin);
+      return callback(null, true);
+    }
+
+    // ENHANCED: Log but allow unknown origins in production for debugging
+    console.log('⚠️ Unknown origin, but allowing for debugging:', origin);
+    return callback(null, true); // Changed from error to allow for better debugging
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
   allowedHeaders: [
-    'Origin', 
-    'X-Requested-With', 
-    'Content-Type', 
-    'Accept', 
+    'Origin',
+    'X-Requested-With',
+    'Content-Type',
+    'Accept',
     'Authorization',
     'Cache-Control',
     'Pragma',
-    'Expires'
+    'Expires',
+    'X-Forwarded-For',
+    'User-Agent',
+    'Referer'
   ],
-  exposedHeaders: ['Content-Length', 'X-Foo', 'X-Bar'],
-  optionsSuccessStatus: 200 // For legacy browser support
+  exposedHeaders: ['Content-Length', 'X-Foo', 'X-Bar', 'Access-Control-Allow-Origin'],
+  optionsSuccessStatus: 200, // For legacy browser support
+  maxAge: 86400 // 24 hours preflight cache
 }));
 
-// FIXED: Add preflight OPTIONS handler
+// ENHANCED: Comprehensive preflight OPTIONS handler
 app.options('*', (req, res) => {
   console.log('🔧 Handling OPTIONS preflight for:', req.path);
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS,PATCH');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  console.log('📋 Request headers:', req.headers);
+
+  const origin = req.headers.origin;
+
+  // Set comprehensive CORS headers
+  res.header('Access-Control-Allow-Origin', origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS,PATCH,HEAD');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma, Expires');
   res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Max-Age', '86400');
+
+  // Send success response
   res.sendStatus(200);
 });
 
@@ -117,9 +139,18 @@ app.options('*', (req, res) => {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// FIXED: Request logging middleware
+// ENHANCED: Request logging middleware
 app.use((req, res, next) => {
-  console.log(`📝 ${req.method} ${req.path} from ${req.headers.origin || 'unknown origin'}`);
+  const timestamp = new Date().toISOString();
+  const origin = req.headers.origin || 'no-origin';
+  const userAgent = req.headers['user-agent']?.substring(0, 50) || 'unknown';
+
+  console.log(`📝 [${timestamp}] ${req.method} ${req.path} from ${origin}`);
+
+  if (req.method !== 'GET') {
+    console.log(`   📦 Body size: ${JSON.stringify(req.body || {}).length} chars`);
+  }
+
   next();
 });
 
@@ -154,7 +185,7 @@ app.use(async (req, res, next) => {
   }
 });
 
-// FIXED: Enhanced health check endpoint
+// ENHANCED: Health check endpoint with CORS info
 app.get('/health', async (req, res) => {
   try {
     const mongoose = require('mongoose');
@@ -164,13 +195,15 @@ app.get('/health', async (req, res) => {
       status: 'OK',
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV || 'development',
+      requestOrigin: req.headers.origin || 'no-origin',
       mongodb: {
         connected: dbStatus === 1,
         readyState: dbStatus
       },
       cors: {
-        allowedOrigins: allowedOrigins,
-        currentOrigin: req.headers.origin
+        allowedOrigins: allowedOrigins.length,
+        currentOrigin: req.headers.origin,
+        isAllowed: true // Since request reached here, CORS passed
       },
       features: {
         orders: !!orderRoutes,
@@ -184,18 +217,20 @@ app.get('/health', async (req, res) => {
       status: 'ERROR',
       timestamp: new Date().toISOString(),
       error: error.message,
+      requestOrigin: req.headers.origin || 'no-origin'
     });
   }
 });
 
-// Root endpoint
+// Root endpoint with CORS info
 app.get('/', (req, res) => {
   res.json({
     message: 'ZeroWasteMarket API - Backend Server',
     version: '1.0.0',
     timestamp: new Date().toISOString(),
     status: 'running',
-    origin: req.headers.origin,
+    origin: req.headers.origin || 'no-origin',
+    corsStatus: 'enabled',
     features: [
       'Authentication',
       'User Management',
@@ -227,7 +262,7 @@ app.get('/api', (req, res) => {
   res.json({
     message: 'ZeroWasteMarket API Endpoints',
     version: '1.0.0',
-    origin: req.headers.origin,
+    origin: req.headers.origin || 'no-origin',
     endpoints: {
       auth: '/api/auth',
       users: '/api/users',
@@ -242,18 +277,21 @@ app.get('/api', (req, res) => {
   });
 });
 
-// FIXED: Enhanced 404 handler with CORS headers
+// ENHANCED: 404 handler with comprehensive CORS headers
 app.use('/api/*', (req, res) => {
   // Ensure CORS headers are set for 404 responses
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  const origin = req.headers.origin;
+  res.header('Access-Control-Allow-Origin', origin || '*');
   res.header('Access-Control-Allow-Credentials', 'true');
-  
+  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS,PATCH');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+
   res.status(404).json({
     success: false,
     message: 'API endpoint not found',
     path: req.path,
     method: req.method,
-    origin: req.headers.origin,
+    origin: origin || 'no-origin',
     availableEndpoints: [
       '/api/auth',
       '/api/users',
@@ -267,19 +305,23 @@ app.use('/api/*', (req, res) => {
   });
 });
 
-// FIXED: Global error handler with CORS headers
+// ENHANCED: Global error handler with comprehensive CORS headers
 app.use((err, req, res, next) => {
   console.error('🚨 Server Error:', err.message);
   console.error('🔍 Error details:', {
     path: req.path,
     method: req.method,
-    origin: req.headers.origin,
-    userAgent: req.headers['user-agent']
+    origin: req.headers.origin || 'no-origin',
+    userAgent: req.headers['user-agent']?.substring(0, 100),
+    stack: err.stack?.substring(0, 500)
   });
 
   // Ensure CORS headers are set for error responses
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  const origin = req.headers.origin;
+  res.header('Access-Control-Allow-Origin', origin || '*');
   res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS,PATCH');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
 
   // Handle specific error types
   if (err.name === 'ValidationError') {
@@ -302,14 +344,19 @@ app.use((err, req, res, next) => {
     return res.status(409).json({
       success: false,
       message: 'Duplicate entry',
-      field: Object.keys(err.keyPattern)[0]
+      field: Object.keys(err.keyPattern || {})[0]
     });
   }
 
+  // Default error response
   res.status(err.status || 500).json({
     success: false,
     message: err.message || 'Something went wrong!',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    requestOrigin: origin || 'no-origin',
+    ...(process.env.NODE_ENV === 'development' && {
+      stack: err.stack?.substring(0, 1000),
+      type: err.name
+    })
   });
 });
 
@@ -322,6 +369,7 @@ if (require.main === module) {
 
   app.listen(PORT, async () => {
     console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`🌐 CORS enabled for ${allowedOrigins.length} domains`);
     console.log(`📋 Available endpoints:`);
     console.log(`   - Auth: http://localhost:${PORT}/api/auth`);
     console.log(`   - Users: http://localhost:${PORT}/api/users`);

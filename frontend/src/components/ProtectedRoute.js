@@ -1,3 +1,4 @@
+// frontend/src/components/ProtectedRoute.js - FIXED REDIRECT
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -5,9 +6,12 @@ const ProtectedRoute = ({ children }) => {
   const { token } = useAuth();
   const location = useLocation();
 
-  // If not authenticated, redirect to register page with the return URL
+  // FIXED: If not authenticated, redirect to login page instead of register
   if (!token) {
-    return <Navigate to="/register" state={{ from: location.pathname }} />;
+    console.log('🔒 User not authenticated, redirecting to login with return URL:', location.pathname);
+
+    // Store the return URL so user can be redirected back after login
+    return <Navigate to="/login" state={{ from: location.pathname }} />;
   }
 
   // If authenticated, render the protected component

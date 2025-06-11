@@ -1,3 +1,4 @@
+// frontend/src/components/NavbarComponent.js - FIXED LOGOUT REDIRECT
 import React, { useState } from 'react';
 import {
     HiUser,
@@ -36,10 +37,19 @@ function NavbarComponent() {
         }
     }, []);
 
+    // FIXED: Logout handler dengan redirect ke landing page
     const handleLogout = () => {
+        console.log('🚪 User logging out...');
+
+        // Clear all auth data
         logout();
+
+        // Close modal
         setShowLogoutModal(false);
-        navigate('/login');
+
+        // FIXED: Redirect ke landing page bukan login
+        console.log('🏠 Redirecting to landing page after logout');
+        navigate('/');
     };
 
     return (
@@ -53,6 +63,11 @@ function NavbarComponent() {
                             <h3 className="mb-5 text-lg font-medium text-gray-700">
                                 {translate('common.logout')}?
                             </h3>
+                            <p className="mb-5 text-sm text-gray-500">
+                                {language === 'id'
+                                    ? 'Anda akan keluar dari akun dan kembali ke halaman utama.'
+                                    : 'You will be logged out and redirected to the home page.'}
+                            </p>
                             <div className="flex justify-center gap-4">
                                 <button
                                     onClick={() => setShowLogoutModal(false)}

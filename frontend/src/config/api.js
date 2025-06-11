@@ -1,26 +1,32 @@
-// frontend/src/config/api.js - COMPLETELY FIXED with proper exports
+// frontend/src/config/api.js - FIXED REGISTER CORS ERROR
 
 // Environment detection
 const isDevelopment = process.env.NODE_ENV === 'development';
 const isProduction = process.env.NODE_ENV === 'production';
 
-// FIXED: Better API URL handling with fallbacks
+// FIXED: Better API URL handling with CORRECT backend URL
 const getApiBaseUrl = () => {
   // Check environment variables first
   if (process.env.REACT_APP_API_URL) {
+    console.log('🔧 Using API URL from env:', process.env.REACT_APP_API_URL);
     return process.env.REACT_APP_API_URL;
   }
 
   // Fallback URLs based on environment
   if (isDevelopment) {
+    console.log('🔧 Using development API URL');
     return 'http://localhost:5000';
   }
 
-  // Production fallbacks
+  // FIXED: Use YOUR actual backend URL
+  console.log('🔧 Using production API URL');
   return 'https://zerowaste-backend-theta.vercel.app';
 };
 
 export const API_BASE_URL = getApiBaseUrl();
+
+// Log the final API URL for debugging
+console.log('🌐 Final API Base URL:', API_BASE_URL);
 
 // FIXED: Export environment detection variables
 export { isDevelopment, isProduction };
@@ -171,7 +177,6 @@ export const getMidtransConfig = () => {
   return config;
 };
 
-
 // FIXED: Simple API request wrapper with proper error handling
 export const apiRequest = async (url, options = {}) => {
   try {
@@ -294,7 +299,7 @@ export const handleApiError = (error) => {
 };
 
 // FIXED: Image validation
-export const validateImageUrl = (url) => {
+export const validateImageUrl = (url, timeout = 5000) => {
   return new Promise((resolve) => {
     if (!url) {
       resolve(false);
@@ -302,18 +307,18 @@ export const validateImageUrl = (url) => {
     }
 
     const img = new Image();
-    const timeout = setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       img.onload = img.onerror = null;
       resolve(false);
-    }, 5000);
+    }, timeout);
 
     img.onload = () => {
-      clearTimeout(timeout);
+      clearTimeout(timeoutId);
       resolve(true);
     };
 
     img.onerror = () => {
-      clearTimeout(timeout);
+      clearTimeout(timeoutId);
       resolve(false);
     };
 
